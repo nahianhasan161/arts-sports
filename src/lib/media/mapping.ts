@@ -45,20 +45,29 @@ export function toMediaImage(row: Record<string, unknown>): MediaRow {
   };
 }
 
-/** Build the client-facing shape from a media_attachments row. */
-export function toAttachment(row: Record<string, unknown>) {
+/**
+ * Build the client-facing shape from a media_attachments row.
+ *
+ * `usedUrls` is the set of URLs currently referenced by the landing page.
+ * A staging row that the landing page is actually rendering is not "staged"
+ * in any useful sense — the admin replaced that image on purpose, and telling
+ * them it is still awaiting attachment would be wrong — so it reports
+ * `unattached: false` and loses the badge.
+ */
+export function toAttachment(row: Record<string, unknown>, usedUrls?: ReadonlySet<string>) {
   const path = String(row.storage_path ?? "");
+  const url = publicUrlFor(path);
   return {
     id: String(row.id),
     storage_path: path,
-    url: publicUrlFor(path),
+    url,
     file_name: (row.file_name as string | null) ?? path.split("/").pop() ?? path,
     mime_type: (row.mime_type as string | null) ?? "unknown",
     byte_size: Number(row.byte_size ?? 0),
     alt_text: (row.alt_text as string | null) ?? null,
     folder_id: (row.folder_id as string | null) ?? null,
     created_at: (row.created_at as string | null) ?? undefined,
-    unattached: true,
+    unattached: usedUrls ? !usedUrls.has(url) : true,
   };
 }
 

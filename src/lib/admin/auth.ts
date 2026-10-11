@@ -93,6 +93,55 @@ export async function requireSuperAdmin(): Promise<AdminContext> {
   return context;
 }
 
+export interface UserContext {
+  user: {
+    id: string;
+    email?: string;
+  };
+}
+
+export async function requireUser(): Promise<UserContext> {
+  const cookieStore = cookies();
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (cookiesToSet) => {
+      try {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieStore.set(name, value, options);
+        });
+      } catch {
+        // Cookie writes are handled by middleware when the runtime makes cookies read-only.
+      }
+    },
+  });
+
+  if (!supabase) {
+    throw new AdminAuthError(500, "Authentication service not configured");
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new AdminAuthError(
+      401,
+      "Not signed in. Sign in through the app first: this endpoint reads the session cookie, not an Authorization header."
+    );
+  }
+
+  return { user: { id: user.id, email: user.email } };
+}
+
+export function handleAuthError(error: unknown): NextResponse {
+  if (error instanceof AdminAuthError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+  console.error("Unexpected auth error:", error);
+  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+}
+
 export function handleAdminError(error: unknown): NextResponse {
   if (error instanceof AdminAuthError) {
     return NextResponse.json({ error: error.message }, { status: error.status });

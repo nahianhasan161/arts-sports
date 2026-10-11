@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const status = url.searchParams.get("status");
     const orderId = url.searchParams.get("order_id");
+    const offset = Number(url.searchParams.get("offset") || 0);
+    const limit = Number(url.searchParams.get("limit") || 100);
 
     let query = supabase
       .from("returns")
@@ -48,20 +50,22 @@ export async function GET(request: NextRequest) {
           condition_at_return
         ),
         orders!inner (customer_name, total_amount)
-        `
+        `,
+        { count: "exact" }
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (status) query = query.eq("status", status);
     if (orderId) query = query.eq("order_id", orderId);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data, count });
   } catch (error) {
     return handleAdminError(error);
   }
@@ -191,6 +195,41 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json({ data });
+  } catch (error) {
+    return handleAdminError(error);
+  }
+}
+
+/**
+ * DELETE /api/admin/returns?id=:id
+ * Delete a return request. Admin-only.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return handleAdminError(error);
+  }
+
+  try {
+    const supabase = await getSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Service not configured" }, { status: 500 });
+    }
+
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "Return id is required" }, { status: 400 });
+    }
+
+    const { error } = await supabase.from("returns").delete().eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ data: { id } });
   } catch (error) {
     return handleAdminError(error);
   }

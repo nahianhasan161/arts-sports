@@ -126,6 +126,25 @@ export default function CheckoutPage() {
       setPlaced(data);
       clearCart();
       setOrderComplete(data.order_id);
+
+      // Record the payment transaction so the order has a charge row.
+      // Failure here is non-fatal: the order is already placed and the
+      // admin can record the payment manually from the payments page.
+      try {
+        await fetch("/api/payments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_id: data.order_id,
+            type: "charge",
+            provider: paymentMethod,
+            amount: data.total_amount,
+            status: "initiated",
+          }),
+        });
+      } catch {
+        // Non-fatal — logged silently, order is still valid.
+      }
     } catch {
       setOrderError("We could not place your order. Please check your connection and try again.");
     } finally {

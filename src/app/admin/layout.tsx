@@ -20,6 +20,7 @@ import {
   X,
   CreditCard,
   RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
@@ -69,6 +70,12 @@ const sidebarGroups: SidebarGroup[] = [
     label: "Returns",
     items: [
       { name: "Returns", href: "/admin/returns", icon: RotateCcw },
+    ],
+  },
+  {
+    label: "Cancellations",
+    items: [
+      { name: "Cancellations", href: "/admin/cancellations", icon: AlertCircle },
     ],
   },
   {

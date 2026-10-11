@@ -1,18 +1,50 @@
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ChevronRight } from "lucide-react";
 import { getProducts } from "@/lib/services/products";
+import { getLandingContent, savedText, savedImage } from "@/lib/services/landing-content";
 import { ProductCard } from "@/components/product/ProductCard";
+import { ErrorBoundary, ProductGridErrorFallback } from "@/components/ui/ErrorBoundary";
+import { StickyMobileCTA } from "@/components/seo/TrustBadges";
+import { ProductSchema } from "@/components/seo/ProductSchema";
+import { LandingPageFAB, EditModeProvider, EditableText, EditableImage } from "@/components/landing/EditModeFAB";
+import { getServerUrl } from "@/lib/config";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Arts Fashion | Premium Everyday Apparel",
+  description:
+    "Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort. Shop men's polos, t-shirts, trousers, and sports jerseys.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Arts Fashion | Premium Everyday Apparel",
+    description:
+      "Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion.",
+    url: getServerUrl(),
+    type: "website",
+    images: [{ url: "/og-cover.jpg", width: 1200, height: 630, alt: "Arts Fashion" }],
+  },
+};
 
 export default async function HomePage() {
   const products = await getProducts();
   const newArrivals = products.slice(0, 6);
   const poloSeries = products.filter((p) => p.sub_category === "Polo T-Shirts" || p.id === "prod-2" || p.id === "prod-10");
   const displayPolos = poloSeries.length >= 3 ? poloSeries.slice(0, 3) : products.slice(1, 4);
+  // Whatever the admin last saved in the FAB editor. Falls back to the copy
+  // written here, so an empty table renders exactly the design below.
+  const content = await getLandingContent();
 
   return (
-    <div className="flex flex-col w-full pb-space-3xl">
+    <EditModeProvider>
+      <div className="flex flex-col w-full pb-space-3xl">
+        {/* Structured Data for Products (SEO) */}
+      {newArrivals.slice(0, 3).map((p) => (
+        <ProductSchema key={p.id} product={p} />
+      ))}
+
       {/* 1. Announcement & Corporate Ticker Bar */}
       <div className="w-full bg-accent-gold-soft py-2.5 px-space-base border-b border-accent-gold/20">
         <div className="max-w-container-max mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
@@ -41,23 +73,22 @@ export default async function HomePage() {
       <section className="relative w-full overflow-hidden bg-surface-subtle">
         <div className="max-w-container-max mx-auto px-space-base py-space-sm sm:py-space-md">
           <div className="relative w-full rounded-xl sm:rounded-2xl overflow-hidden shadow-lg aspect-[16/9] sm:aspect-[21/9] min-h-[360px]">
-            <Image
-              src="https://lh3.googleusercontent.com/aida/AEtjO1UqKNLQ3Qwq2Fh9xLwSmv8chkYhyU3lZbgF6Yrm2Qqe5kKTWzeG_3S-j5s0ag-gU_3eAhrIuiKmuZcSLVuYRhxP1qtkZkkGj810wJRnqzU_sKUfFD0lQO2r2jB8N1aNcoMOpUYJORKMN2SiphR5KmMz5kurIeGXvrcwAqyz2jtx7BwU0qMXatfThLGVJDHFDkPoJ8kd3EMy7li7c4jhORpHR2Avi1fjXYJJ9inhJWg0RiY2jnJB6Kf6PaM"
+            <EditableImage
+              id="hero-image"
+              src={savedImage(content, "hero-image", "/images/hero-polo-model.jpg")}
               alt="Arts Fashion Minimalist Aura Hero Collection"
-              fill
-              priority
               className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#091523]/85 via-[#091523]/40 to-transparent flex flex-col justify-end md:justify-center p-space-base sm:p-space-xl md:p-space-2xl text-white">
               <div className="max-w-md flex flex-col gap-2">
-                <span className="font-display text-xs uppercase tracking-widest text-secondary-container font-semibold">
-                  Monsoon Signature Series
-                </span>
+                <EditableText id="hero-tagline" className="font-display text-xs uppercase tracking-widest text-secondary-container font-semibold">
+                  {savedText(content, "hero-tagline", "Monsoon Signature Series")}
+                </EditableText>
                 <h1 className="font-display text-3xl sm:text-5xl uppercase leading-none drop-shadow font-bold">
-                  Minimalist Aura
+                  <EditableText id="hero-title" className="text-white">{savedText(content, "hero-title", "Minimalist Aura")}</EditableText>
                 </h1>
                 <p className="text-xs sm:text-sm text-surface-subtle/90 line-clamp-2 max-w-sm mt-1">
-                  Pure combed compact cotton engineered for uncompromised all-day breathability and clean architectural form.
+                  <EditableText id="hero-description" className="text-white">{savedText(content, "hero-description", "Pure combed compact cotton engineered for uncompromised all-day breathability and clean architectural form.")}</EditableText>
                 </p>
                 <div className="flex flex-wrap items-center gap-2 pt-2">
                   <Link
@@ -111,7 +142,7 @@ export default async function HomePage() {
             ))}
           </div>
         </div>
-      </section>
+       </section>
 
       {/* 4. Editorial Section: New Arrivals (6 Column Grid) */}
       <section className="max-w-container-max mx-auto px-space-base pt-space-2xl pb-space-xl w-full">
@@ -131,12 +162,29 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* 6 Column Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-space-sm sm:gap-space-md">
-          {newArrivals.map((product) => (
-            <ProductCard key={product.id} product={product} aspectRatio="square" />
-          ))}
-        </div>
+        {/* 6 Column Grid with ErrorBoundary + Empty State */}
+        <ErrorBoundary fallback={<ProductGridErrorFallback />}>
+          {newArrivals.length === 0 ? (
+            <div className="text-center py-12 text-text-muted">
+              <p>No new arrivals available at the moment. Check back soon!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-space-sm sm:gap-space-md">
+              {newArrivals.map((product) => (
+                <ProductCard key={product.id} product={product} aspectRatio="square" />
+              ))}
+            </div>
+          )}
+        </ErrorBoundary>
+         <div className="text-center pt-6">
+           <Link
+             href="/shop"
+             className="inline-flex items-center gap-2 px-6 py-3 bg-accent-gold text-white font-display text-xs uppercase font-bold rounded-lg hover:bg-secondary transition-colors shadow-sm"
+           >
+             <span>View More</span>
+             <ArrowRight className="w-3.5 h-3.5" />
+           </Link>
+         </div>
       </section>
 
       {/* 5. Dual Sports Jersey Banner Modules */}
@@ -144,10 +192,10 @@ export default async function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-space-base">
           {/* Player Edition */}
           <div className="relative rounded-xl overflow-hidden shadow-md group aspect-[16/9] min-h-[220px]">
-            <Image
-              src="https://lh3.googleusercontent.com/aida/AEtjO1XtRs88VSBzdbMWQYRQuAY8CMk93-FpKuVlyb4a4idBDt95ROa-QuuKBaeOYjyhts6byy9S6RakXa0MkP45VJRbQ2P5ixraZTP7wBi2v4OfPwjYGUGEM0LLf24iv1Tpqz9ttMJnPF8M7Ka-yBomlyibQgY5rAYEVXaEn_pW9_nDIrkpdg5QXdDvVKNk968t2nuHE0zqs7YctPeS0kASeelv_7Pw3pI9gAFWPOAfM88aUoQ_7RVNdLPX6cs"
+            <EditableImage
+              id="player-edition-image"
+              src={savedImage(content, "player-edition-image", "/images/player-edition-jersey.jpg")}
               alt="Official Jersey Edition 2026 World Cup"
-              fill
               className="object-cover group-hover:scale-105 transition-transform duration-700"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/30 to-transparent flex flex-col justify-end p-space-lg text-white">
@@ -171,10 +219,10 @@ export default async function HomePage() {
 
           {/* Fan Edition */}
           <div className="relative rounded-xl overflow-hidden shadow-md group aspect-[16/9] min-h-[220px]">
-            <Image
-              src="https://lh3.googleusercontent.com/aida/AEtjO1VSsuS-bMnkbmp9bj8GtBG2rt0isVRi1a-by8pysBnM5HNFZjMo4ozYS7E_gLcgFxiFYfwa601txmJPPIoCfhrLLz2DtSoYVvkhyK6hEaJ-Ne2kTYVo40BsYl8w-iKkt1sPsegKte0I2kEr8RikXRwx8ojKXH2U3-fBc_yBNezTfvS3ySSK3ljgN00TlR83r_tcFHLjVyMpfcGySymjJo0Sl7VWayQyqH6xXEweJ6-n7XV9BwB19YlF3Hg"
+            <EditableImage
+              id="fan-edition-image"
+              src={savedImage(content, "fan-edition-image", "/images/fan-edition-jersey.jpg")}
               alt="Fan Made Jersey 2026 World Cup"
-              fill
               className="object-cover group-hover:scale-105 transition-transform duration-700"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/30 to-transparent flex flex-col justify-end p-space-lg text-white">
@@ -220,10 +268,10 @@ export default async function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-base">
           {/* Big Spotlight */}
           <div className="lg:col-span-4 relative rounded-xl overflow-hidden shadow-sm bg-surface-container group min-h-[380px]">
-            <Image
-              src="https://lh3.googleusercontent.com/aida/AEtjO1U1ogfkFu2dSqV9wDuYtYw9iTOtlDVRHNnmwURZ1d180ZepiZfuLZdxPdt6zDSYrSWiBxnxolsbs7D5L6PWd1nuh1Qfkg-frXBQJ0BcaN7I7kwR0TVizLd9Gk8GfWg-ml5ymPRMHnvVgvP8qKXt6jpfwLjoXhzGoHEydArKlcdX8lJ7oT1_VKb_N-87UKrg0VlDta4DffLWg5PbH_V3AYwUcI3plJ2tYWe5Ql1vvRbYJzkAIaTJKMZLkF0"
+            <EditableImage
+              id="spotlight-image"
+              src={savedImage(content, "spotlight-image", "/images/designer-polo-spotlight.jpg")}
               alt="Synchronizer Designer Polo"
-              fill
               className="object-cover group-hover:scale-105 transition-transform duration-700"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/40 to-transparent flex flex-col justify-end p-space-lg text-white">
@@ -247,14 +295,27 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* 3 Product Cards */}
-          <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-space-base">
-            {displayPolos.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {/* 3 Product Cards with ErrorBoundary */}
+          <ErrorBoundary fallback={<ProductGridErrorFallback />}>
+            <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-space-base">
+              {displayPolos.length === 0 ? (
+                <div className="col-span-3 text-center py-8 text-text-muted">
+                  No products available in this collection.
+                </div>
+              ) : (
+                displayPolos.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))
+              )}
+            </div>
+          </ErrorBoundary>
         </div>
       </section>
-    </div>
+
+      {/* Sticky Mobile CTA */}
+      <StickyMobileCTA />
+      <LandingPageFAB />
+      </div>
+    </EditModeProvider>
   );
 }

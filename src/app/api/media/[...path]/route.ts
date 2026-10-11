@@ -15,9 +15,11 @@ import { getObjectStream, isReadablePath, isStorageConfigured, missingStorageCon
  * The route is unauthenticated, so it must not be a general reader for the
  * bucket. Three things keep it narrow:
  *
- *   - isReadablePath() allows exactly the shape uploadMediaFile() generates,
+ *   - isReadablePath() allows exactly the shape uploadMediaFile() generates:
  *     one folder and one uuid-named image, so a crafted path cannot walk out
- *     of that shape or reach a staged `unattached/` upload.
+ *     of that shape. A staged `unattached/` object is reachable, but only by
+ *     its unguessable name, which is what lets the admin library preview a
+ *     file before it is attached to a product.
  *   - Object keys are uuid-based, so a key is not guessable and the response
  *     is not enumerable even by someone who knows a product id.
  *   - Only the five image extensions sniffImage() accepts are served, so this

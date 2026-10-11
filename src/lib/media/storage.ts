@@ -153,13 +153,20 @@ function encodePath(path: string): string {
  * Whether a path is one this app is allowed to read.
  *
  * The read route is anonymous, so this is the only thing standing between a
- * crafted URL and every object in the bucket. Two rules:
+ * crafted URL and every object in the bucket. The rule is the *shape*:
  *
- *   - The shape is `<folder>/<uuid>.<ext>`, which is what uploadMediaFile()
- *     generates. A real path has exactly one folder and one dot.
- *   - `unattached/` is refused. Staged uploads are not attached to a product
- *     yet, so publishing them would expose a file the library has not finished
- *     with and that no product references.
+ *   - The path is `<folder>/<file>.<ext>`, which is what uploadMediaFile()
+ *     generates, with exactly one folder and one dot.
+ *   - The folder and the file match a strict allow-list, so neither can
+ *     carry separators, traversal, or anything that resolves to a second
+ *     object.
+ *
+ * `unattached/` is deliberately allowed. It holds the staged uploads, whose
+ * names are server-generated UUIDs, so an object there is unguessable and
+ * can only be reached by someone who was already handed the URL — which is
+ * what the library does to draw the preview. Refusing it made every staged
+ * card in the admin media library render a broken image instead of the file
+ * the admin had just uploaded.
  */
 export function isReadablePath(path: string): boolean {
   if (typeof path !== "string" || path.length === 0 || path.length > 512) return false;
@@ -169,9 +176,6 @@ export function isReadablePath(path: string): boolean {
   const parts = path.split("/");
   if (parts.length !== 2) return false;
   const [folder, file] = parts;
-  // `unattached` is a well-formed folder name, so it has to be refused by name
-  // rather than by shape. Staged uploads are not attached to a product yet.
-  if (folder === "unattached") return false;
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(folder)) return false;
   const ext = file.split(".").pop()?.toLowerCase() ?? "";
   if (!ALLOWED_EXTENSIONS.has(ext)) return false;

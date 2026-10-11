@@ -1,4 +1,5 @@
 import { sniffImage, MAX_MEDIA_BYTES } from "./validate";
+import { optimizeImage } from "./optimize";
 import { putObject, deleteObjects, copyObject, publicUrlFor, isStorageConfigured, BUCKET } from "./storage";
 
 /**
@@ -78,14 +79,32 @@ export async function uploadMediaFile(
 
   // The browser's content type is a hint, not evidence, so the signature
   // decides what the file actually is and therefore what extension it gets.
-  const sniff = sniffImage(await file.arrayBuffer());
+  const buffer = Buffer.from(await file.arrayBuffer());
+  let finalBuffer: Buffer;
+  let finalMimeType: string;
+  let finalExt: string;
+
+  const sniff = sniffImage(buffer);
   if (!sniff.ok || !sniff.mime || !sniff.ext) {
     return { ok: false, name, reason: sniff.reason ?? "Unsupported image" };
   }
 
-  const storage_path = `${prefix}/${crypto.randomUUID()}.${sniff.ext}`;
+  // Convert to WebP for smaller, optimized files. Fall back to the original
+  // buffer if sharp fails (e.g. not installed, corrupted input).
+  const optimized = await optimizeImage(buffer);
+  if (optimized.ok) {
+    finalBuffer = optimized.buffer;
+    finalMimeType = optimized.contentType;
+    finalExt = "webp";
+  } else {
+    finalBuffer = buffer;
+    finalMimeType = sniff.mime;
+    finalExt = sniff.ext;
+  }
 
-  const stored = await putObject(storage_path, Buffer.from(await file.arrayBuffer()), sniff.mime);
+  const storage_path = `${prefix}/${crypto.randomUUID()}.${finalExt}`;
+
+  const stored = await putObject(storage_path, finalBuffer, finalMimeType);
   if (!stored.ok) {
     return { ok: false, name, reason: stored.message };
   }
@@ -97,8 +116,8 @@ export async function uploadMediaFile(
       // The display name is the client's, sanitised: it is only ever shown
       // and searched, never used to build a path.
       file_name: name.replace(/[/\\]/g, "_").slice(0, 200),
-      mime_type: sniff.mime,
-      byte_size: file.size,
+      mime_type: finalMimeType,
+      byte_size: finalBuffer.length,
     },
   };
 }

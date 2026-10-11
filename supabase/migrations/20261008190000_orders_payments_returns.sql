@@ -14,7 +14,7 @@
 -- 1. PAYMENTS — Separate from Orders
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS public.payments (
-    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     order_id TEXT REFERENCES public.orders(id) ON DELETE CASCADE NOT NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     type TEXT NOT NULL CHECK (type IN ('charge', 'refund', 'chargeback')),
@@ -35,7 +35,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_provider_txn_id ON public.payments(provi
 -- 2. RETURNS — Order-level return + item-level detail
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS public.returns (
-    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     order_id TEXT REFERENCES public.orders(id) ON DELETE CASCADE NOT NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     reason TEXT,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS public.returns (
 );
 
 CREATE TABLE IF NOT EXISTS public.return_items (
-    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     return_id TEXT REFERENCES public.returns(id) ON DELETE CASCADE NOT NULL,
     order_item_id TEXT REFERENCES public.order_items(id) ON DELETE CASCADE NOT NULL,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS public.return_items (
 -- 3. PAYMENT WEBHOOKS — Audit trail for future MFS gateway
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS public.payment_webhooks (
-    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     provider TEXT NOT NULL,
     event_type TEXT NOT NULL,
     provider_event_id TEXT,

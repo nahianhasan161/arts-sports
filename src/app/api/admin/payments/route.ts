@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
     const status = url.searchParams.get("status");
     const type = url.searchParams.get("type");
     const provider = url.searchParams.get("provider");
+    const offset = Number(url.searchParams.get("offset") || 0);
+    const limit = Number(url.searchParams.get("limit") || 100);
 
     let query = supabase
       .from("payments")
@@ -46,22 +48,24 @@ export async function GET(request: NextRequest) {
         created_at,
         updated_at,
         orders!inner (customer_name, total_amount, payment_method)
-        `
+        `,
+        { count: "exact" }
       )
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (orderId) query = query.eq("order_id", orderId);
     if (status) query = query.eq("status", status);
     if (type) query = query.eq("type", type);
     if (provider) query = query.eq("provider", provider);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data, count });
   } catch (error) {
     return handleAdminError(error);
   }
@@ -169,6 +173,41 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json({ data });
+  } catch (error) {
+    return handleAdminError(error);
+  }
+}
+
+/**
+ * DELETE /api/admin/payments/:id
+ * Delete a payment transaction. Admin-only.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return handleAdminError(error);
+  }
+
+  try {
+    const supabase = await getSupabase();
+    if (!supabase) {
+      return NextResponse.json({ error: "Service not configured" }, { status: 500 });
+    }
+
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "Payment id is required" }, { status: 400 });
+    }
+
+    const { error } = await supabase.from("payments").delete().eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ data: { id } });
   } catch (error) {
     return handleAdminError(error);
   }

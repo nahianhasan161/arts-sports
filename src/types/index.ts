@@ -443,6 +443,9 @@ export interface Order {
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
   items: CartItem[];
   created_at: string;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancellation_id?: string | null;
 }
 
 // ==========================================================
@@ -472,6 +475,10 @@ export interface Payment {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancellation_id?: string | null;
+  payment_method_id?: string | null;
 }
 
 // ==========================================================
@@ -496,6 +503,9 @@ export interface Return {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  cancelled_at?: string | null;
+  cancelled_by?: string | null;
+  cancellation_id?: string | null;
 }
 
 export interface ReturnItem {
@@ -521,6 +531,84 @@ export interface PaymentWebhook {
   processed_at: string | null;
   error: string | null;
   created_at: string;
+}
+
+// ==========================================================
+// Cancellations — Admin-managed cancellation requests for
+// orders, payments, and returns. Each cancellation can
+// trigger a refund via refund_transactions.
+// ==========================================================
+
+export type CancellationType = "order" | "payment" | "return";
+export type CancellationReasonCategory =
+  | "changed_mind"
+  | "wrong_item"
+  | "damaged_item"
+  | "not_as_described"
+  | "delivery_delay"
+  | "duplicate"
+  | "billing_error"
+  | "other";
+export type CancellationStatus = "pending" | "approved" | "rejected" | "executed" | "cancelled";
+
+export interface Cancellation {
+  id: string;
+  order_id: string;
+  user_id: string | null;
+  type: CancellationType;
+  reason: string;
+  reason_category: CancellationReasonCategory;
+  status: CancellationStatus;
+  refund_amount: number;
+  refund_payment_id: string | null;
+  notes: string | null;
+  requested_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  executed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ==========================================================
+// Payment Methods — Catalog of supported payment methods
+// ==========================================================
+
+export type PaymentMethodCategory = "offline" | "online" | "wallet";
+
+export interface PaymentMethod {
+  id: string;
+  code: string;
+  display_name: string;
+  category: PaymentMethodCategory;
+  is_active: boolean;
+  requires_confirmation: boolean;
+  icon_url: string | null;
+  instructions: string | null;
+  created_at: string;
+}
+
+// ==========================================================
+// Refund Transactions — Ledger for refunds
+// ==========================================================
+
+export type RefundStatus = "pending" | "processed" | "failed" | "cancelled";
+
+export interface RefundTransaction {
+  id: string;
+  original_payment_id: string;
+  cancellation_id: string | null;
+  return_id: string | null;
+  user_id: string | null;
+  amount: number;
+  payment_method: string;
+  status: RefundStatus;
+  processed_at: string | null;
+  processed_by: string | null;
+  transaction_ref: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ==========================================================
