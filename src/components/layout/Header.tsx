@@ -27,9 +27,13 @@ export function Header() {
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  /** Desktop account dropdown. The mobile bar uses its own route links. */
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const { toggleCart, getTotalCount, getSubtotal } = useCartStore();
+  // `openCart` for the mobile bottom bar, which must always open; `toggleCart`
+  // for the desktop header button, where a second click closing the drawer is
+  // what a shopper expects.
+  const { toggleCart, openCart, getTotalCount, getSubtotal } = useCartStore();
   const { getCount: getWishlistCount, toggleWishlistDrawer } = useWishlistStore();
   const { user, isAdmin, signOut } = useAuth();
 
@@ -78,27 +82,34 @@ export function Header() {
       <div className="bg-primary-container text-on-primary">
         <div className="max-w-container-max mx-auto px-space-base h-10 flex items-center justify-between text-[13px] font-body">
           <div className="flex items-center gap-space-md">
-            <Link
-              href="#"
+            {/* The utility bar was a row of links that went nowhere: "GET 5%
+                OFF ON APP" pointed at # with no app to download, "Corporate
+                Sales" and "About Us" pointed at # with no such page, and
+                "Track Order" pointed at /track-order, which does not exist —
+                every one of them 404ed or did nothing when clicked.
+                Only links that resolve are advertised now; the rest is
+                support contact, which does. */}
+            <a
+              href="tel:+8809677666888"
               className="inline-flex items-center gap-1.5 font-bold text-secondary-container hover:text-white transition-colors"
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>GET 5% OFF ON APP</span>
-            </Link>
+              <span>CALL NOW</span>
+            </a>
             <span className="hidden sm:inline-block h-3 w-px bg-on-primary-container/40"></span>
             <div className="hidden md:flex items-center gap-space-md text-on-primary-container">
               <Link href="/shop" className="hover:text-white transition-colors">
-                Stores
+                All Products
               </Link>
-              <Link href="/track-order" className="hover:text-white transition-colors">
+              <Link href="/account" className="hover:text-white transition-colors">
                 Track Order
               </Link>
-              <Link href="#" className="hover:text-white transition-colors">
+              <Link href="/returns" className="hover:text-white transition-colors">
+                Returns
+              </Link>
+              <a href="mailto:corporate@artsfashion.com" className="hover:text-white transition-colors">
                 Corporate Sales
-              </Link>
-              <Link href="#" className="hover:text-white transition-colors">
-                About Us
-              </Link>
+              </a>
             </div>
           </div>
 
@@ -337,117 +348,96 @@ export function Header() {
         </div>
       )}
 
-      {/* Mobile Bottom Navigation Bar */}
-      {mobileMenuOpen && (
-        <div className="fixed bottom-0 left-0 right-0 bg-surface-card border-t border-border-light z-50 px-space-base py-space-sm shadow-lg">
-          <div className="flex items-center justify-between px-space-base h-16">
-            {/* Home */}
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex-1 flex flex-col items-center justify-center text-xs text-on-surface hover:text-primary transition-colors"
-              aria-label="Home"
-            >
-              <Home className="w-5 h-5 mb-1" />
-              <span className="hidden sm:inline">Home</span>
-            </button>
-            {/* Category */}
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex-1 flex flex-col items-center justify-center text-xs text-on-surface hover:text-primary transition-colors"
-              aria-label="Category"
-            >
-              <LayoutGrid className="w-5 h-5 mb-1" />
-              <span className="hidden sm:inline">Categories</span>
-            </button>
-            {/* Chat */}
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex-1 flex flex-col items-center justify-center text-xs text-on-surface hover:text-primary transition-colors"
-              aria-label="Chat"
-            >
-              <MessageCircle className="w-5 h-5 mb-1" />
-              <span className="hidden sm:inline">Chat</span>
-            </button>
-            {/* Cart */}
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex-1 flex flex-col items-center justify-center text-xs text-on-surface hover:text-primary transition-colors"
-              aria-label="Cart"
-            >
-              <ShoppingBag className="w-5 h-5 mb-1" />
-              <span className="hidden sm:inline">Cart</span>
-            </button>
-            {/* User/Avatar */}
-            {!user ? (
-              <Link
-                href="/sign-in"
-                className="flex-1 flex flex-col items-center justify-center text-xs text-on-surface hover:text-primary transition-colors"
-                aria-label="Sign in"
-              >
-                <User className="w-5 h-5 mb-1" />
-                <span className="hidden sm:inline">Sign in</span>
-              </Link>
-            ) : (
-              <div className="relative flex-1 flex flex-col items-center justify-center">
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="relative w-8 h-8 rounded-full flex items-center justify-center overflow-hidden"
-                  aria-label="Account menu"
-                >
-                  {                  user?.user_metadata?.picture ||
-                  user?.user_metadata?.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={
-                        user?.user_metadata?.picture ||
-                        user?.user_metadata?.avatar_url || ""
-                      }
-                      alt={user?.user_metadata?.full_name || "User"}
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="w-4 h-4 text-primary" />
-                    </div>
-                  )}
-                </button>
-                {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-border-light">
-                    <Link
-                      href="/account"
-                      className="block px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      My Account
-                    </Link>
-                    {isAdmin && (
-                      <Link
-                        href="/admin"
-                        className="block px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
-                        onClick={() => setUserMenuOpen(false)}
-                      >
-                        <span className="flex items-center gap-2">
-                          <Shield className="w-4 h-4 text-accent-gold" />
-                          Admin Panel
-                        </span>
-                      </Link>
-                    )}
-                    <button
-                      onClick={() => {
-                        signOut();
-                        setUserMenuOpen(false);
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                )}
-              </div>
+      {/* Mobile Bottom Navigation Bar.
+          Two defects made the previous version useless:
+          1. the whole bar was wrapped in `{mobileMenuOpen && ...}`, so it only
+             appeared while the hamburger drawer was open — the opposite of an
+             always-available bottom bar;
+          2. every Home / Categories / Chat / Cart button ran only
+             setMobileMenuOpen(false), so they closed the drawer and navigated
+             nowhere. They were decoration.
+          Now it is always present, closes the drawer first if it is open, and
+          actually navigates. */}
+      <nav
+        aria-label="Primary"
+        className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface-card border-t border-border-light z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]"
+      >
+        <div className="flex items-center justify-around h-16 px-space-sm">
+          {/* Home */}
+          <Link
+            href="/"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+            aria-label="Home"
+          >
+            <Home className="w-5 h-5 mb-0.5" />
+            Home
+          </Link>
+
+          {/* Categories — opens the drawer, which is where the tree lives */}
+          <button
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+            aria-label="Categories"
+            aria-expanded={mobileMenuOpen}
+          >
+            <LayoutGrid className="w-5 h-5 mb-0.5" />
+            Categories
+          </button>
+
+          {/* Chat — the only support channel that actually answers */}
+          <a
+            href="tel:+8809677666888"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+            aria-label="Call support"
+          >
+            <MessageCircle className="w-5 h-5 mb-0.5" />
+            Support
+          </a>
+
+          {/* Cart — a real count, and it opens the drawer */}
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              openCart();
+            }}
+            className="relative flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+            aria-label={`Cart, ${totalCartCount} item${totalCartCount === 1 ? "" : "s"}`}
+          >
+            <ShoppingBag className="w-5 h-5 mb-0.5" />
+            Cart
+            {totalCartCount > 0 && (
+              <span className="absolute top-0 right-1/4 min-w-[16px] h-4 px-1 rounded-full bg-secondary text-white text-[9px] font-bold flex items-center justify-center">
+                {totalCartCount}
+              </span>
             )}
-          </div>
+          </button>
+
+          {/* Account */}
+          {!user ? (
+            <Link
+              href="/sign-in"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+              aria-label="Sign in"
+            >
+              <User className="w-5 h-5 mb-0.5" />
+              Sign in
+            </Link>
+          ) : (
+            <Link
+              href={isAdmin ? "/admin" : "/account"}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+              aria-label={isAdmin ? "Admin panel" : "My account"}
+            >
+              <User className="w-5 h-5 mb-0.5" />
+              {isAdmin ? "Admin" : "Account"}
+            </Link>
+          )}
         </div>
-      )}
+      </nav>
     </header>
   );
 }

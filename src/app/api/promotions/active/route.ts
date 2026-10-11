@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, isDynamicServerUsage } from "@/lib/supabase/server";
 import type { Promotion } from "@/types";
 
 /**
@@ -79,7 +79,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: promotions, product_ids: productIds });
   } catch (error) {
-    console.error("Unexpected active promotions error:", error);
+    if (!isDynamicServerUsage(error)) {
+      console.error("Unexpected active promotions error:", error);
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

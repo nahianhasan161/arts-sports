@@ -26,6 +26,9 @@ export async function getProducts(options?: {
   search?: string;
   sortBy?: string;
   limit?: number;
+  offset?: number;
+  /** Column to order by, for callers that need something other than the sort presets. */
+  order?: { column: string; ascending?: boolean };
 }): Promise<Product[]> {
   // If Supabase is configured and reachable
   const supabase = await getActiveSupabaseClient();
@@ -87,8 +90,19 @@ export async function getProducts(options?: {
         query = query.order("created_at", { ascending: false });
       }
 
-      if (options?.limit) {
+      if (options?.limit !== undefined) {
         query = query.limit(options.limit);
+      }
+      if (options?.offset !== undefined) {
+        query = query.range(
+          options.offset,
+          options.offset + (options.limit ?? 24) - 1
+        );
+      }
+      if (options?.order) {
+        query = query.order(options.order.column, {
+          ascending: options.order.ascending ?? true,
+        });
       }
 
       const { data, error } = await query;
@@ -185,6 +199,136 @@ export async function getFeaturedProducts(): Promise<Product[]> {
   return getProducts({ limit: 6 });
 }
 
+/**
+ * Categories from the database, shaped into the tree the header and the shop
+ * sidebar render.
+ *
+ * This used to return the hardcoded CATEGORIES constant, which meant the
+ * entire /admin/categories surface had no effect on the storefront: creating
+ * a category in the admin panel produced a page nobody could reach. The
+ * table is now the source of truth, and the mock constant is only a fallback
+ * for a local run with no Supabase project.
+ */
 export async function getCategories(): Promise<Category[]> {
+  const supabase = await getActiveSupabaseClient();
+  if (supabase) {
+    try {
+      // `name`, matching the admin list. The categories table carries no
+      // display_order column, so ordering by one would fail the whole query
+      // and silently fall back to the mock tree.
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name", { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        return buildCategoryTree(data as Category[]);
+      }
+    } catch (err) {
+      console.warn("Supabase getCategories failed, using fallback:", err);
+    }
+  }
   return CATEGORIES;
+}
+
+/**
+ * Assemble a flat category list into parents with nested children.
+ *
+ * `parent_id` is a string on the live rows, so a top-level category is one
+ * whose parent_id is null or points at a row that is not in the set. The
+ * orphans are re-attached at the top rather than dropped, which is what
+ * silently hid categories created under a parent that was later renamed.
+ */
+function buildCategoryTree(rows: Category[]): Category[] {
+  const byId = new Map<string, Category>();
+  for (const row of rows) {
+    byId.set(row.id, { ...row, children: [] });
+  }
+
+  const roots: Category[] = [];
+  for (const node of Array.from(byId.values())) {
+    const parent = node.parent_id ? byId.get(node.parent_id) : undefined;
+    if (parent) {
+      parent.children = [...(parent.children ?? []), node];
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
+}
+
+/**
+ * How many products match a filter set, ignoring limit/offset.
+ *
+ * The shop page used to print a hardcoded "148 curated products" beside a
+ * real list, which told shoppers the catalogue was ten times the size it
+ * was. The count now comes from the same query the grid uses, so the two
+ * can never disagree.
+ */
+export async function getProductsCount(options?: {
+  category?: string;
+  subCategory?: string;
+  search?: string;
+  status?: string;
+}): Promise<number> {
+  const supabase = await getActiveSupabaseClient();
+  if (supabase) {
+    try {
+      let query = supabase
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null)
+        .eq("status", options?.status ?? "published");
+
+      if (options?.category && options.category !== "all") {
+        query = query.eq("category", options.category);
+      }
+      if (options?.subCategory) {
+        query = query.eq("sub_category", options.subCategory);
+      }
+      if (options?.search) {
+        const term = options.search.replace(/[,%()]/g, " ").trim();
+        if (term) {
+          query = query.or(`title.ilike.%${term}%,short_description.ilike.%${term}%`);
+        }
+      }
+
+      const { count, error } = await query;
+      if (!error && typeof count === "number") {
+        return count;
+      }
+      console.warn("Supabase product count failed:", error?.message);
+    } catch (err) {
+      console.warn("Supabase product count failed, using fallback:", err);
+    }
+  }
+
+  // Local fallback, same predicates as getProducts().
+  const categoryFilter = options?.category;
+  const subCategoryFilter = options?.subCategory;
+  let items = PRODUCTS.filter((p) => p.status !== "draft");
+  if (categoryFilter && categoryFilter !== "all") {
+    items = items.filter((p) => p.category.toLowerCase() === categoryFilter.toLowerCase());
+  }
+  if (subCategoryFilter) {
+    items = items.filter(
+      (p) => p.sub_category?.toLowerCase() === subCategoryFilter.toLowerCase()
+    );
+  }
+  return items.length;
+}
+
+/** Distinct sub-category names for a parent category, used by the shop chips. */
+export async function getSubCategories(parentId?: string): Promise<string[]> {
+  const tree = await getCategories();
+  const scope = parentId
+    ? tree.find((c) => c.id === parentId || c.slug === parentId)?.children ?? []
+    : tree;
+
+  const names = new Set<string>();
+  for (const child of scope) {
+    if (child.name) names.add(child.name);
+  }
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
 }

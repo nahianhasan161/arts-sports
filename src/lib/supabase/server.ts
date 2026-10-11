@@ -19,6 +19,26 @@ type CookieStore = {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
 const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
 
+/**
+ * True when this error is Next.js's build-time probe asking whether a route
+ * can be rendered statically.
+ *
+ * `next build` prerenders every route once to find out, and any route that
+ * reads cookies throws this. That is the correct outcome for an authenticated
+ * or personalised endpoint, but a catch-all that logs unknown errors prints it
+ * as "Unexpected <something> error" — so a healthy build looked like it had a
+ * dozen failures. Routes that log their own errors call this first to keep
+ * real failures distinguishable from a normal dynamic marking.
+ */
+export function isDynamicServerUsage(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { digest?: string; description?: string };
+  return (
+    e.digest === "DYNAMIC_SERVER_USAGE" ||
+    (typeof e.description === "string" && e.description.includes("couldn't be rendered statically"))
+  );
+}
+
 export function createSupabaseServerClient(cookieStore: CookieStore): SupabaseClient | null {
   if (!isSupabaseConfigured || !supabaseUrl || !supabasePublishableKey) return null;
 

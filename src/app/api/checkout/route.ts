@@ -10,7 +10,7 @@ import type { CheckoutItemPayload, CheckoutRequest, CheckoutResponse } from "@/t
  * and order_items itself, which meant no stock reservation and no
  * server-authoritative pricing; it now calls create_order_with_reservations().
  *
- * This route does three things and nothing else:
+ * This route does four things and nothing else:
  *   1. shape-checks the payload
  *   2. resolves each line to a stock variant (server-side, fails safe)
  *   3. hands the whole thing to the RPC and translates its result
@@ -72,6 +72,7 @@ export async function POST(request: Request) {
   const name = typeof payload?.customer_name === "string" ? payload.customer_name.trim() : "";
   const phone = typeof payload?.customer_phone === "string" ? payload.customer_phone.trim() : "";
   const address = typeof payload?.delivery_address === "string" ? payload.delivery_address.trim() : "";
+  const notes = typeof payload?.notes === "string" ? payload.notes.trim().slice(0, 500) : "";
   const shippingFee = Number(payload?.shipping_fee ?? 0);
   const couponCode = typeof payload?.coupon_code === "string" ? payload.coupon_code.trim() : "";
   const rawItems = Array.isArray(payload?.items) ? payload.items : [];
@@ -82,6 +83,9 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  // The delivery zone is not checked here: an empty or unknown value is
+  // treated as Dhaka by the RPC, which is the cheaper of the two rates, so a
+  // missing city can never overcharge a customer.
   if (!Number.isFinite(shippingFee) || shippingFee < 0) {
     return NextResponse.json(
       { success: false, error: "Invalid delivery charge" },
@@ -168,6 +172,12 @@ export async function POST(request: Request) {
         customer_email: payload.customer_email?.trim() || null,
         delivery_address: address,
         city: payload.city === "outside" ? "Outside Dhaka" : "Dhaka Metro",
+        // The client still reports its zone so the RPC can charge the right
+        // rate, but the fee itself is derived inside the RPC from the
+        // authoritative subtotal. The value sent here is deliberately not
+        // read by the function: it used to be taken as-is, which let a
+        // crafted request set both the delivery charge and the total.
+        notes: notes || null,
         shipping_fee: shippingFee,
         payment_method: payload.payment_method ?? "cod",
         coupon_code: couponCode || null,

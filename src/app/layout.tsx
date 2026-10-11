@@ -9,6 +9,7 @@ import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ClientProviders } from "@/components/ClientProviders";
 import { OrganizationSchema } from "@/components/seo/OrganizationSchema";
 import { AnalyticsTracker } from "@/components/seo/AnalyticsTracker";
+import { getServerUrl } from "@/lib/config";
 
 const fontSans = "font-sans";
 
@@ -39,19 +40,20 @@ export const metadata: Metadata = {
     telephone: false,
     address: false,
   },
-  metadataBase: new URL("https://artsfashion.com"),
+  // One origin, from getServerUrl(). This was a literal that disagreed with
+  // NEXT_PUBLIC_SITE_URL, so canonical tags and Open Graph URLs could name a
+  // different domain than the sitemap and split the site's search signals.
+  metadataBase: new URL(getServerUrl()),
   alternates: {
     canonical: "/",
-    languages: {
-      en: "/",
-      "bn-BD": "/bn",
-    },
+    // The /bn route was listed as an alternate language but never existed,
+    // so this declared a Bengali version of every page that returned a 404.
+    // It is removed rather than pointed at a page that is not there.
   },
   openGraph: {
     type: "website",
     locale: "en_BD",
-    alternateLocale: ["bn_BD"],
-    url: "https://artsfashion.com",
+    url: getServerUrl(),
     siteName: "Arts Fashion",
     title: "Arts Fashion | Premium Everyday Apparel",
     description:
@@ -91,8 +93,10 @@ export const metadata: Metadata = {
     yandex: process.env.YANDEX_VERIFICATION_TOKEN,
   },
   icons: {
-    icon: "/fab.ico",
-    apple: "/apple-touch-icon.png",
+    // These used to point at /fab.ico and /apple-touch-icon.png, neither of
+    // which is in public/ — so every browser tab showed a default icon and
+    // every iOS home-screen save fell back to a screenshot.
+    icon: "/favicon.ico",
     shortcut: "/favicon.ico",
   },
   manifest: "/manifest.json",
@@ -150,9 +154,9 @@ export default function RootLayout({
             <Header />
             <CartDrawer />
             <WishlistDrawer />
-            <main className="flex-1 pt-[120px] lg:pt-[164px]">
-              {children}
-            </main>
+      {/* pb-16 clears the always-present mobile bottom navigation bar; on
+          lg and up that bar is hidden, so the padding comes off. */}
+      <main className="flex-1 pt-[120px] lg:pt-[164px] pb-16 lg:pb-0">{children}</main>
             <Footer />
           </ClientProviders>
         </AuthProvider>

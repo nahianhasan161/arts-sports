@@ -47,13 +47,33 @@ export const config = {
   },
 };
 
+/**
+ * The site's own origin, as an absolute URL with no trailing slash.
+ *
+ * This used to be read from four places that disagreed with each other:
+ * NEXT_PUBLIC_APP_URL, VERCEL_URL, a literal hardcoded in the root layout,
+ * and NEXT_PUBLIC_SITE_URL from the env file. They resolved to three
+ * different hosts, which meant the canonical tags, the Open Graph URLs and
+ * the sitemap could each name a different domain and split the site's
+ * signals across all of them.
+ *
+ * One function, one precedence order. NEXT_PUBLIC_SITE_URL is what the
+ * deployment sets and wins; the rest are local and preview fallbacks.
+ */
 export function getServerUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  const candidates = [
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_VERCEL_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && candidate.trim() !== "") {
+      return candidate.trim().replace(/\/+$/, "");
+    }
   }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
+
   if (process.env.NODE_ENV === "production") {
     return "https://artsfashion.com";
   }

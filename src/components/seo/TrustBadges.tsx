@@ -29,8 +29,12 @@ export function TrustBadges() {
     },
     {
       icon: <RotateCcw className="w-4.5 h-4.5" />,
-      label: "14-Day Returns",
-      detail: "Easy & hassle-free",
+      // The footer banner promises 7 days, and /returns publishes 7 days.
+      // This strip used to say 14, so the site stated two different return
+      // windows on the same screen. The number is defined once, in the
+      // Return & Exchange Policy, and this links to it.
+      label: "7 Day Returns",
+      detail: "7 days from delivery",
     },
     {
       icon: <Shield className="w-4.5 h-4.5" />,

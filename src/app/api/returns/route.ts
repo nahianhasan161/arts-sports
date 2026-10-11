@@ -9,8 +9,12 @@ async function getSupabase() {
  * GET /api/returns
  * Returns the current user's own return requests.
  * Authenticated users only.
+ *
+ * No request parameter: nothing on the response depends on the query string,
+ * and an unused parameter is dead weight that invites the assumption that
+ * filtering happens here when it does not.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await getSupabase();
     if (!supabase) {
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ data });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -146,7 +150,7 @@ export async function POST(request: NextRequest) {
       { data: { ...returnRecord, return_items: itemsData } },
       { status: 201 }
     );
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

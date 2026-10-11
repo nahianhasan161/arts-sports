@@ -50,8 +50,17 @@ export function Footer() {
               <h4 className="text-white font-display uppercase tracking-wider text-sm font-semibold">
                 7 Days Easy Return
               </h4>
+              {/* Was "Hassle-free doorstep size exchange & return policy".
+                  The promise now names the window and points at the page
+                  that spells it out, instead of a claim with no terms
+                  behind it. The badge strip elsewhere on the site said
+                  "14-Day Returns" for the same policy — that is fixed too,
+                  and this link is the one number that governs. */}
               <p className="text-xs text-[#718096] mt-1">
-                Hassle-free doorstep size exchange & return policy.
+                <Link href="/returns" className="hover:text-white underline">
+                  7 days
+                </Link>{" "}
+                from delivery for size exchange or return.
               </p>
             </div>
           </div>
@@ -149,21 +158,41 @@ export function Footer() {
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
               Customer Care
             </h5>
-            <Link href="/shop" className="text-xs hover:text-white transition-colors">
-              Size Measurement Guide
+            <Link href="/returns" className="text-xs hover:text-white transition-colors">
+              Return &amp; Exchange Policy
             </Link>
-            <Link href="#" className="text-xs hover:text-white transition-colors">
+            <Link href="/refund-policy" className="text-xs hover:text-white transition-colors">
+              Refund Policy
+            </Link>
+            <Link href="/shipping-policy" className="text-xs hover:text-white transition-colors">
+              Shipping Policy
+            </Link>
+            <Link href="/account" className="text-xs hover:text-white transition-colors">
               Track Your Order
             </Link>
-            <Link href="#" className="text-xs hover:text-white transition-colors">
-              Return & Exchange Policy
+            <Link href="mailto:support@artsfashion.com" className="text-xs hover:text-white transition-colors">
+              Contact Support
             </Link>
-            <Link href="#" className="text-xs hover:text-white transition-colors">
-              Store Locations
+          </div>
+
+          {/* Company */}
+          <div className="flex flex-col gap-2">
+            <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
+              Company
+            </h5>
+            <Link href="/privacy-policy" className="text-xs hover:text-white transition-colors">
+              Privacy Policy
             </Link>
-            <Link href="#" className="text-xs hover:text-white transition-colors">
-              Corporate & Bulk Orders
+            <Link href="/terms" className="text-xs hover:text-white transition-colors">
+              Terms of Service
             </Link>
+            <Link href="mailto:corporate@artsfashion.com" className="text-xs hover:text-white transition-colors">
+              Corporate &amp; Bulk Orders
+            </Link>
+            <a href="tel:+8809677666888" className="text-xs hover:text-white transition-colors">
+              +880 9677 666 888
+            </a>
+            <span className="text-xs text-[#718096]">9 AM – 10 PM, every day</span>
           </div>
 
           {/* Payment & Security */}
@@ -181,12 +210,14 @@ export function Footer() {
               <span className="px-2.5 py-1 bg-[#F7941D]/20 text-[#F7941D] border border-[#F7941D]/30 rounded text-[11px] font-bold">
                 Nagad
               </span>
-              <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded text-[11px] font-bold text-white">
-                Visa / MasterCard
-              </span>
             </div>
+            {/* Only what the checkout actually accepts. This strip used to
+                list Visa / Mastercard, which the payment step cannot process,
+                so it promised a method every customer would have been turned
+                away from. */}
             <p className="text-[11px] text-[#718096] mt-2">
-              All transactions are secured with 256-bit SSL encryption.
+              All transactions are secured with 256-bit SSL encryption. We never
+              ask for your card details or your bKash PIN.
             </p>
           </div>
         </div>
@@ -199,12 +230,20 @@ export function Footer() {
             © {new Date().getFullYear()} Arts Fashion Ltd. All rights reserved.
           </span>
           <div className="flex items-center gap-4">
-            <Link href="#" className="hover:text-white transition-colors">
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">
               Privacy Policy
             </Link>
             <span>•</span>
-            <Link href="#" className="hover:text-white transition-colors">
+            <Link href="/terms" className="hover:text-white transition-colors">
               Terms of Service
+            </Link>
+            <span>•</span>
+            <Link href="/returns" className="hover:text-white transition-colors">
+              Returns
+            </Link>
+            <span>•</span>
+            <Link href="/shipping-policy" className="hover:text-white transition-colors">
+              Shipping
             </Link>
           </div>
         </div>

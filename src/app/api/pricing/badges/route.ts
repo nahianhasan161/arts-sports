@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, isDynamicServerUsage } from "@/lib/supabase/server";
 
 /**
  * Live promotion badge + effective price for the given products.
@@ -54,7 +54,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: byProduct });
   } catch (error) {
-    console.error("Unexpected badges error:", error);
+    // A dynamic-usage marker is Next.js marking this route dynamic during the
+    // build, not a failure, so it is not logged as one.
+    if (!isDynamicServerUsage(error)) {
+      console.error("Unexpected badges error:", error);
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

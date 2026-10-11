@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, isDynamicServerUsage } from "@/lib/supabase/server";
 import { resolveSizes } from "@/lib/sizes/chart";
 import {
   DEFAULT_SIZE_REGION,
@@ -104,7 +104,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: chart });
   } catch (error) {
-    console.error("Unexpected size chart error:", error);
+    if (!isDynamicServerUsage(error)) {
+      console.error("Unexpected size chart error:", error);
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

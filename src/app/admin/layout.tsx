@@ -94,7 +94,7 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAdmin, loading, signOut } = useAuth();
+  const { isAdmin, loading, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -145,6 +145,11 @@ export default function AdminLayout({
 
   return (
     <div className="flex h-screen bg-surface overflow-hidden">
+      {/* This layout is a client component, so it cannot export metadata.
+          React hoists this tag into <head>, which is how the panel is kept
+          out of search results: /admin and every route under it were
+          indexable, which leaks the existence of the console. */}
+      <meta name="robots" content="noindex, nofollow, noarchive" />
       {/* Mobile overlay backdrop */}
       {sidebarOpen && (
         <div

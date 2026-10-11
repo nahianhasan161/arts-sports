@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  Filter,
   Plus,
 } from "lucide-react";
 import type { UserRole, UserStatus } from "@/types";
@@ -133,17 +132,25 @@ export default function AdminUsers() {
     }
   };
 
+  /*
+   * Both effects below run on settled values, not on the callbacks
+   * themselves. fetchUsers is rebuilt every render (it is an inline async
+   * arrow), so listing it as a dependency would refetch on every render, and
+   * the search effect would fire per keystroke instead of per search. The
+   * rule is disabled for this block rather than per line because it reports
+   * the dependency array, not the hook call.
+   */
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     fetchUsers();
     fetchCurrentUser();
   }, []);
 
-  // Re-fetch when filters/search change
   useEffect(() => {
     setPage(1);
     fetchUsers({ page: 1 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, roleFilter, statusFilter]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const updateUserRole = async (id: string, role: UserRole) => {
     setPromotingId(id);

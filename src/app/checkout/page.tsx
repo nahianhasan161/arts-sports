@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { 
-  ShieldCheck, 
-  CheckCircle2, 
-  ArrowLeft, 
-  ShoppingBag 
+import { useRouter } from "next/navigation";
+import {
+  ShieldCheck,
+  ArrowLeft,
 } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart-store";
 import type { CheckoutResponse, CouponQuote, CouponRejection } from "@/types";
@@ -32,6 +31,7 @@ const taka = (n: number) =>
   `\u09F3 ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   const { items, getSubtotal, clearCart } = useCartStore();
@@ -44,9 +44,8 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "bkash" | "nagad">("cod");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [orderComplete, setOrderComplete] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
-  /** Authoritative figures returned by the order RPC, once placed. */
+  /** Authoritative figures returned by the order RPC, while the redirect is in flight. */
   const [placed, setPlaced] = useState<CheckoutResponse | null>(null);
 
   // Coupon field. The quote comes from the server, so the savings shown
@@ -65,17 +64,35 @@ export default function CheckoutPage() {
 
   const subtotal = getSubtotal();
   const freeShippingThreshold = 1500;
+
+  // The coupon's own discount, quoted by the server. Before the order is
+  // placed this figure is what the RPC will apply, so it has to be included
+  // in everything on screen: without it the summary billed the merchandise
+  // at full value and the "CONFIRM & PLACE ORDER • ৳X" button quoted a
+  // number that was higher than the one actually charged.
+  const couponDiscount = placed
+    ? placed.coupon_discount_total
+    : couponQuote?.valid
+      ? couponQuote.discount_amount
+      : 0;
+
+  const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
+
+  // Free delivery is judged on the post-discount subtotal, because that is
+  // the subtotal the server's order function computes its own charge from.
+  // Judging the pre-discount figure here would show "FREE" for an order the
+  // server then charged carriage on.
   const shippingFee =
-    subtotal >= freeShippingThreshold || subtotal === 0
+    discountedSubtotal >= freeShippingThreshold || subtotal === 0
       ? 0
       : city === "dhaka"
       ? 60
       : 120;
-  const grandTotal = subtotal + shippingFee;
+  const grandTotal = discountedSubtotal + shippingFee;
 
   // After a successful order these come from the database, not the cart.
-  const shownSubtotal = placed ? placed.subtotal : subtotal;
-  const shownCoupon = placed ? placed.coupon_discount_total : 0;
+  const shownSubtotal = placed ? placed.subtotal : discountedSubtotal;
+  const shownCoupon = couponDiscount;
   const shownTotal = placed ? placed.total_amount : grandTotal;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,6 +117,11 @@ export default function CheckoutPage() {
           shipping_fee: shippingFee,
           payment_method: paymentMethod,
           coupon_code: couponCode ?? undefined,
+          // The customer's delivery instructions. This used to be collected
+          // and then dropped on the floor: the form had the field but the
+          // payload did not, so every instruction a customer typed for the
+          // rider was silently discarded.
+          notes: notes.trim() ? notes.trim() : undefined,
           items: items.map((item) => ({
             product_id: item.productId,
             // Resolved server-side; deliberately sent empty.
@@ -125,7 +147,6 @@ export default function CheckoutPage() {
 
       setPlaced(data);
       clearCart();
-      setOrderComplete(data.order_id);
 
       // Record the payment transaction so the order has a charge row.
       // Failure here is non-fatal: the order is already placed and the
@@ -145,6 +166,13 @@ export default function CheckoutPage() {
       } catch {
         // Non-fatal — logged silently, order is still valid.
       }
+
+      // A real URL, not a client-only state. The success panel used to live
+      // in this component, so reloading the page emptied the cart, dropped
+      // the customer onto "Your Bag is Empty", and left the order ID with
+      // no address to come back to. The confirmation now owns its own route
+      // and reads the order from the database.
+      router.replace(`/order/${encodeURIComponent(data.order_id)}/confirmed`);
     } catch {
       setOrderError("We could not place your order. Please check your connection and try again.");
     } finally {
@@ -199,54 +227,7 @@ export default function CheckoutPage() {
     setCouponError(null);
   };
 
-  if (orderComplete) {
-    return (
-      <div className="max-w-2xl mx-auto px-space-base py-20 text-center">
-        <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 className="w-10 h-10" />
-        </div>
-        <h1 className="font-display text-3xl uppercase font-bold text-primary mb-2">
-          Thank you! Order Placed
-        </h1>
-        <p className="text-sm text-text-muted mb-4">
-          Your order ID is <strong className="text-primary font-bold">{orderComplete}</strong>. We will send a confirmation SMS to <strong className="text-primary">{phone}</strong>.
-        </p>
-
-        <div className="bg-surface-card p-6 rounded-xl border border-border-light text-left text-xs mb-8 flex flex-col gap-2">
-          <div className="flex justify-between border-b border-border-light pb-2 font-bold text-primary text-sm">
-            <span>Payment Method</span>
-            <span className="uppercase">{paymentMethod === "cod" ? "Cash On Delivery" : paymentMethod}</span>
-          </div>
-          {placed && placed.coupon_code && (
-            <div className="flex justify-between">
-              <span className="text-text-muted">Coupon:</span>
-              <span className="text-right font-medium text-emerald-700">
-                {placed.coupon_code} (-{taka(placed.coupon_discount_total)})
-              </span>
-            </div>
-          )}
-          <div className="flex justify-between pt-1">
-            <span className="text-text-muted">Delivery Address:</span>
-            <span className="text-right font-medium max-w-xs">{address}, {city === "dhaka" ? "Dhaka Metro" : "Outside Dhaka"}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-muted">Total Payable:</span>
-            <span className="font-bold text-sm text-primary">{taka(shownTotal)}</span>
-          </div>
-        </div>
-
-        <Link
-          href="/shop"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-primary-container transition-colors shadow-sm"
-        >
-          <ShoppingBag className="w-4 h-4" />
-          <span>Continue Shopping</span>
-        </Link>
-      </div>
-    );
-  }
-
-  if (items.length === 0) {
+  if (items.length === 0 && !submitting) {
     return (
       <div className="max-w-xl mx-auto px-space-base py-20 text-center">
         <h2 className="font-display text-2xl uppercase font-bold text-primary mb-2">

@@ -732,9 +732,17 @@ export interface CheckoutRequest {
   customer_email?: string;
   delivery_address: string;
   city: string;
+  /**
+   * Still sent by the form, but the value is not used by the server: the
+   * delivery charge is derived from the authoritative subtotal inside
+   * create_order_with_reservations(). Kept on the shape so the form's own
+   * quote of the number and the server's can be compared in a test.
+   */
   shipping_fee: number;
   payment_method: "cod" | "bkash" | "nagad";
   coupon_code?: string;
+  /** Delivery instructions for the rider. Stored on the order. */
+  notes?: string;
   items: CheckoutItemPayload[];
 }
 
