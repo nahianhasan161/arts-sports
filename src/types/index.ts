@@ -482,7 +482,7 @@ export type PaymentStatus =
   | "refunded"
   | "charged_back";
 
-export type PaymentProvider = "cod" | "bkash" | "nagad" | "stripe" | "paypal";
+export type PaymentProvider = "cod" | "bkash" | "nagad" | "stripe" | "paypal" | "univapayment";
 
 export interface Payment {
   id: string;
@@ -506,6 +506,12 @@ export interface Payment {
   cancelled_by?: string | null;
   cancellation_id?: string | null;
   payment_method_id?: string | null;
+  /** Online gateway handling this payment (e.g. univapayment). */
+  gateway?: string | null;
+  gateway_payment_id?: string | null;
+  /** Raw gateway status: initiated, pending, review, completed, rejected, expired, refunded. */
+  gateway_status?: string | null;
+  checkout_url?: string | null;
 }
 
 // ==========================================================
@@ -904,7 +910,7 @@ export interface CheckoutRequest {
    * quote of the number and the server's can be compared in a test.
    */
   shipping_fee: number;
-  payment_method: "cod" | "bkash" | "nagad";
+  payment_method: "cod" | "bkash" | "nagad" | "univapayment";
   coupon_code?: string;
   /** Delivery instructions for the rider. Stored on the order. */
   notes?: string;
@@ -926,6 +932,12 @@ export interface CheckoutResponse {
   coupon_code: string | null;
   shipping_fee: number;
   total_amount: number;
+  /** Online payment: where to send the customer to pay. */
+  checkout_url?: string;
+  /** Online payment: our payments.id for this attempt. */
+  payment_id?: string;
+  /** Online payment could not start; the order is saved anyway. */
+  payment_error?: string;
   /** Set when the order was rejected; `order_id` is absent then. */
   error?: string;
 }

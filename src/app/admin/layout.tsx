@@ -21,6 +21,8 @@ import {
   CreditCard,
   RotateCcw,
   AlertCircle,
+  KeyRound,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
@@ -83,6 +85,8 @@ const sidebarGroups: SidebarGroup[] = [
     items: [
       { name: "Users", href: "/admin/users", icon: Users },
       { name: "User Groups", href: "/admin/user-groups", icon: Shield },
+      { name: "Staff & Roles", href: "/admin/roles", icon: KeyRound },
+      { name: "Audit Log", href: "/admin/audit-log", icon: History },
     ],
   },
 ];

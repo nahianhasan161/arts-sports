@@ -5,6 +5,8 @@ import { CheckCircle2, Package, CreditCard, Truck, Phone } from "lucide-react";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatTaka } from "@/lib/pricing";
 import { TrustBadges } from "@/components/seo/TrustBadges";
+import { syncPaymentById } from "@/lib/payments/online";
+import { getServiceSupabase, isServiceSupabaseConfigured } from "@/lib/supabase/service";
 
 /**
  * Order confirmation.
@@ -57,7 +59,41 @@ const PAYMENT_LABELS: Record<string, string> = {
   cod: "Cash on Delivery",
   bkash: "bKash",
   nagad: "Nagad",
+  univapayment: "bKash / Nagad (online)",
 };
+
+interface ReturnedPayment {
+  status: string;
+  gateway_status: string | null;
+  amount: number;
+  checkout_url: string | null;
+}
+
+/**
+ * The customer lands here from the payment page with ?payment=<id>. Refresh
+ * that payment from the gateway first, so the order shows as confirmed
+ * straight away instead of waiting for the webhook.
+ */
+async function loadReturnedPayment(orderId: string, paymentId: string | undefined): Promise<ReturnedPayment | null> {
+  if (!paymentId || !/^[0-9a-f-]{36}$/i.test(paymentId) || !isServiceSupabaseConfigured()) return null;
+  try {
+    await syncPaymentById(paymentId);
+  } catch (err) {
+    console.error("Payment sync on return failed:", err);
+  }
+  const { data } = await getServiceSupabase()
+    .from("payments")
+    .select("status, gateway_status, amount, checkout_url, order_id")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!data || data.order_id !== orderId) return null;
+  return {
+    status: data.status,
+    gateway_status: data.gateway_status,
+    amount: Number(data.amount),
+    checkout_url: data.status === "initiated" ? data.checkout_url : null,
+  };
+}
 
 async function loadOrder(orderId: string): Promise<OrderConfirmation | null> {
   const supabase = await getSupabaseServerClient();
@@ -74,9 +110,13 @@ async function loadOrder(orderId: string): Promise<OrderConfirmation | null> {
 export default async function OrderConfirmedPage(
   props: {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ payment?: string }>;
   }
 ) {
   const params = await props.params;
+  const { payment: paymentId } = await props.searchParams;
+  // Sync before reading the order, so a just-completed payment shows its effect.
+  const payment = await loadReturnedPayment(params.id, paymentId);
   const order = await loadOrder(params.id);
 
   // An unknown or mistyped reference is a 404, not an empty screen.
@@ -119,6 +159,43 @@ export default async function OrderConfirmedPage(
             )}
           </div>
         </div>
+
+        {payment && (
+          <div
+            className={`rounded-xl border p-space-base mb-space-base text-sm ${
+              payment.status === "successful"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                : payment.status === "initiated"
+                  ? "bg-amber-50 border-amber-200 text-amber-900"
+                  : "bg-red-50 border-red-200 text-red-900"
+            }`}
+          >
+            <div className="flex items-center gap-2 font-bold mb-1">
+              <CreditCard className="w-4 h-4" />
+              {payment.status === "successful" && <>Payment of {formatTaka(payment.amount)} received</>}
+              {payment.status === "initiated" && payment.gateway_status === "review" && <>Payment is being verified</>}
+              {payment.status === "initiated" && payment.gateway_status !== "review" && <>Payment not completed yet</>}
+              {(payment.status === "failed" || payment.status === "cancelled") && <>Payment was not completed</>}
+            </div>
+            <p className="text-xs">
+              {payment.status === "successful" && "Your order is confirmed."}
+              {payment.status === "initiated" && payment.gateway_status === "review" &&
+                "We could not match your payment automatically. Our team will check it shortly and confirm your order."}
+              {payment.status === "initiated" && payment.gateway_status !== "review" &&
+                "If you have already sent the money, this page will update in a minute. Otherwise you can finish paying now."}
+              {(payment.status === "failed" || payment.status === "cancelled") &&
+                "Your order is saved. Contact us, or place it again with another payment method."}
+            </p>
+            {payment.checkout_url && payment.gateway_status !== "review" && (
+              <a
+                href={payment.checkout_url}
+                className="inline-block mt-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold"
+              >
+                Finish payment
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Status */}
         <div className="bg-surface-card rounded-xl border border-border-light shadow-sm p-space-base mb-space-base">

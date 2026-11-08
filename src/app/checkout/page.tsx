@@ -37,13 +37,29 @@ const STEPS = [
   { id: 4, label: "Review & confirm" },
 ] as const;
 
-const PAYMENTS = [
+/**
+ * Online bKash/Nagad through UnivaPayment. Shown once the gateway keys are set
+ * on the server and NEXT_PUBLIC_UNIVAPAYMENT_ENABLED=true; the manual
+ * transaction-ID options stay as the fallback until then.
+ */
+const ONLINE_ENABLED = process.env.NEXT_PUBLIC_UNIVAPAYMENT_ENABLED === "true";
+
+const ALL_PAYMENTS = [
+  {
+    id: "univapayment",
+    label: "bKash / Nagad (pay now)",
+    detail: "You will be taken to a secure page to pay. Your order is confirmed automatically.",
+  },
   { id: "cod", label: "Cash on Delivery", detail: "Pay the rider when your parcel arrives. Available nationwide." },
   { id: "bkash", label: "bKash", detail: "Pay from your bKash wallet, then enter the transaction ID below." },
   { id: "nagad", label: "Nagad", detail: "Pay from your Nagad wallet, then enter the transaction ID below." },
 ] as const;
 
-type PaymentId = (typeof PAYMENTS)[number]["id"];
+type PaymentId = (typeof ALL_PAYMENTS)[number]["id"];
+
+const PAYMENTS = ALL_PAYMENTS.filter((p) =>
+  ONLINE_ENABLED ? p.id !== "bkash" && p.id !== "nagad" : p.id !== "univapayment"
+);
 
 /** 11-digit Bangladeshi mobile, optionally spaced or hyphenated. */
 const BD_MOBILE = /^(?:\+?880|0)1[3-9]\d{8}$/;
@@ -291,6 +307,12 @@ export default function CheckoutPage() {
       }
 
       clearCart();
+      if (typeof json.checkout_url === "string" && json.checkout_url) {
+        // Online payment: the gateway brings the customer back to the
+        // confirmation page with ?payment=<id> when they are done.
+        window.location.href = json.checkout_url;
+        return;
+      }
       // A real URL, not a client-only state. The confirmation used to live in
       // this component, so a reload emptied the bag and left the order
       // reference with nowhere to go back to.

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { normalizeBdPhone } from "@/lib/phone";
+import { startOnlinePayment } from "@/lib/payments/online";
+import { getGateway } from "@/lib/payments/gateway";
+import { isServiceSupabaseConfigured } from "@/lib/supabase/service";
 import type { CheckoutItemPayload, CheckoutRequest, CheckoutResponse } from "@/types";
 
 /**
@@ -106,7 +110,10 @@ export async function POST(request: Request) {
   }
 
   const name = typeof payload?.customer_name === "string" ? payload.customer_name.trim() : "";
-  const phone = typeof payload?.customer_phone === "string" ? payload.customer_phone.trim() : "";
+  // Stored as 01XXXXXXXXX: the phone number is how a customer is recognised
+  // across guest orders, Google sign-in and shop sales.
+  const rawPhone = typeof payload?.customer_phone === "string" ? payload.customer_phone.trim() : "";
+  const phone = normalizeBdPhone(rawPhone) ?? "";
   const address = typeof payload?.delivery_address === "string" ? payload.delivery_address.trim() : "";
   const notes = typeof payload?.notes === "string" ? payload.notes.trim().slice(0, 500) : "";
   // The wallet reference for a bKash or Nagad payment. Trimmed and capped
@@ -118,10 +125,30 @@ export async function POST(request: Request) {
   const couponCode = typeof payload?.coupon_code === "string" ? payload.coupon_code.trim() : "";
   const rawItems = Array.isArray(payload?.items) ? payload.items : [];
 
-  if (!name || !phone || !address) {
+  if (!name || !rawPhone || !address) {
     return NextResponse.json(
       { success: false, error: "Name, phone and delivery address are required" },
       { status: 400 }
+    );
+  }
+  if (!phone) {
+    return NextResponse.json(
+      { success: false, error: "Enter an 11-digit Bangladeshi mobile number, e.g. 01712345678." },
+      { status: 400 }
+    );
+  }
+
+  // Online wallet payment through the gateway. Checked before the order is
+  // created, so a misconfigured gateway never leaves an orphan order behind.
+  const paysOnline = payload?.payment_method === "univapayment";
+  if (paysOnline && (!getGateway("univapayment").isConfigured() || !isServiceSupabaseConfigured())) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Online payment is not available right now. Please choose Cash on Delivery.",
+        reason: "gateway_unavailable",
+      },
+      { status: 503 }
     );
   }
   // The delivery zone is not checked here: an empty or unknown value is
@@ -262,6 +289,46 @@ export async function POST(request: Request) {
       shipping_fee: number;
       total_amount: number;
     };
+
+    if (paysOnline) {
+      // The order exists and its stock is reserved; now hand the customer to
+      // the gateway. If starting the payment fails, the order stays pending
+      // and staff can follow up, which is better than losing it.
+      try {
+        const started = await startOnlinePayment({
+          orderId: result.order_id,
+          amount: Number(result.total_amount),
+          userId,
+          covers: "full",
+          returnPath: `/order/${encodeURIComponent(result.order_id)}/confirmed`,
+        });
+        return NextResponse.json<CheckoutResponse>({
+          success: true,
+          order_id: result.order_id,
+          subtotal: Number(result.subtotal),
+          discount_total: Number(result.discount_total),
+          coupon_discount_total: Number(result.coupon_discount_total ?? 0),
+          coupon_code: result.coupon_code ?? null,
+          shipping_fee: Number(result.shipping_fee),
+          total_amount: Number(result.total_amount),
+          checkout_url: started.checkoutUrl,
+          payment_id: started.paymentId,
+        });
+      } catch (err) {
+        console.error("Order placed but the online payment could not start:", err);
+        return NextResponse.json<CheckoutResponse>({
+          success: true,
+          order_id: result.order_id,
+          subtotal: Number(result.subtotal),
+          discount_total: Number(result.discount_total),
+          coupon_discount_total: Number(result.coupon_discount_total ?? 0),
+          coupon_code: result.coupon_code ?? null,
+          shipping_fee: Number(result.shipping_fee),
+          total_amount: Number(result.total_amount),
+          payment_error: "Your order is saved, but the payment page could not open. We will call you to confirm.",
+        });
+      }
+    }
 
     /*
      * Record the charge, here and not by a second request from the browser.
