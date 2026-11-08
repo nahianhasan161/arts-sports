@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 
 /**
- * Uploaded product media is stored in Cloudflare R2.
+ * Uploaded product media is stored in Cloudflare R2 (Tigris until R2 is set up).
  *
  * With a private bucket, publicUrlFor() returns same-origin /api/media paths.
  * Once R2_PUBLIC_URL is set (an r2.dev address before launch, a custom domain
@@ -22,6 +22,8 @@ const hostOf = (url) => {
 };
 
 const r2PublicHost = hostOf(process.env.R2_PUBLIC_URL ?? "");
+// Tigris is the fallback provider until R2 is set up (see src/lib/media/storage.ts).
+const tigrisStorageHost = hostOf(process.env.TIGRIS_STORAGE_ENDPOINT ?? "");
 const supabaseStorageHost = hostOf(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
 
 /**
@@ -62,6 +64,7 @@ const nextConfig = {
     unoptimized: true,
     remotePatterns: [
       ...(r2PublicHost ? [{ protocol: "https", hostname: r2PublicHost }] : []),
+      ...(tigrisStorageHost ? [{ protocol: "https", hostname: tigrisStorageHost }] : []),
       ...(supabaseStorageHost ? [{ protocol: "https", hostname: supabaseStorageHost }] : []),
       {
         protocol: "https",

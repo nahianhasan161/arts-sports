@@ -18,9 +18,9 @@
  * absence would be a broken image on the storefront.
  */
 
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { readFileSync, existsSync } from "fs";
-import { r2Client, r2Missing, listObjects, R2_BUCKET } from "./r2-helpers.mjs";
+import { r2Client, r2Missing, listObjects, tigrisClient, R2_BUCKET } from "./r2-helpers.mjs";
 
 const RUN = process.argv.includes("--run");
 
@@ -32,14 +32,7 @@ if (missing.length > 0) {
 }
 
 const TIGRIS_BUCKET = process.env.TIGRIS_STORAGE_BUCKET || "artsfashion-media";
-const tigris = new S3Client({
-  region: "auto",
-  endpoint: process.env.TIGRIS_STORAGE_ENDPOINT.replace(/\/+$/, ""),
-  credentials: {
-    accessKeyId: process.env.TIGRIS_STORAGE_ACCESS_KEY_ID,
-    secretAccessKey: process.env.TIGRIS_STORAGE_SECRET_ACCESS_KEY,
-  },
-});
+const tigris = tigrisClient();
 const r2 = r2Client();
 
 const say = (l, v) => console.log(`  ${l.padEnd(64)} ${v}`);

@@ -1,8 +1,36 @@
 # Arts Sports on Cloudflare (Workers + R2)
 
 The storefront runs on **Cloudflare Workers** (built with
-[OpenNext](https://opennext.js.org/cloudflare)) and stores product images in
-**Cloudflare R2**. Supabase is still the database and auth provider.
+[OpenNext](https://opennext.js.org/cloudflare)). Supabase is still the
+database and auth provider.
+
+**Images: Tigris now, R2 later.** The app picks the storage provider from the
+environment: it uses R2 once `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and
+`R2_SECRET_ACCESS_KEY` are all set, and the existing Tigris bucket
+(`TIGRIS_STORAGE_*`) until then. No code change is needed to switch.
+
+## Deploy now (with Tigris images)
+
+1. `npx wrangler login` (once per computer).
+2. Set the Worker's Tigris secrets:
+
+   ```bash
+   npx wrangler secret put TIGRIS_STORAGE_ENDPOINT
+   npx wrangler secret put TIGRIS_STORAGE_ACCESS_KEY_ID
+   npx wrangler secret put TIGRIS_STORAGE_SECRET_ACCESS_KEY
+   npx wrangler secret put TIGRIS_STORAGE_BUCKET
+   ```
+
+3. In `.env`, set `NEXT_PUBLIC_SITE_URL` to the Worker address
+   (`https://arts-sports.<subdomain>.workers.dev`), then `npm run deploy`.
+4. Add that URL to **Supabase → Authentication → URL Configuration** redirect
+   URLs so Google sign-in works.
+
+Images keep streaming through `/api/media` from Tigris, exactly as before.
+
+## Later: moving images to R2
+
+The steps below are for when R2 is enabled on the Cloudflare account.
 
 Until the domain is added, the site uses free Cloudflare addresses:
 
@@ -15,7 +43,7 @@ Switching to the domain later is only an env change plus one script (step 8).
 
 ---
 
-## One-time setup
+## R2 setup
 
 ### 1. Cloudflare account and R2
 

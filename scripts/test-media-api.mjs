@@ -19,7 +19,7 @@ const ref = process.env.SUPBASE_PROJECT_REF ?? "khebwqdhucrdfpfadxry";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const publishable = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 import { createServerClient } from "@supabase/ssr";
-import { listKeys, deleteKeys, r2Ready, expectedUrlPrefix, R2_BUCKET } from "./r2-helpers.mjs";
+import { listKeys, deleteKeys, storageReady, expectedUrlPrefix, STORAGE_BUCKET } from "./r2-helpers.mjs";
 
 const Q = (v) => "'" + String(v).replace(/'/g, "''") + "'";
 const J = (o) => Q(JSON.stringify(o)) + "::jsonb";
@@ -204,25 +204,25 @@ async function signIn(email) {
  * nothing and every staged file survives.
  */
 async function cleanup({ token, expectClean = false } = {}) {
-  // Objects live in R2, so the leftovers are found by listing the bucket
+  // Objects live in the storage bucket, so the leftovers are found by listing the bucket
   // rather than by querying storage.objects. The two prefixes are this run's
   // own: the product folder, and the staging folder for a file that was never
   // attached.
   const prefixes = [`unattached/`, `${PRODUCT}/`];
-  const orphanPaths = r2Ready() ? await listKeys(prefixes) : [];
+  const orphanPaths = storageReady() ? await listKeys(prefixes) : [];
 
   if (orphanPaths.length) {
     // `token` is ignored here. It used to gate removal on a signed-in admin,
     // because Supabase's Storage REST API rejects the Management token. The
-    // R2 client is signed with the service keys, so removal no longer
+    // storage client is signed with the service keys, so removal no longer
     // depends on a session, and a pre-run pass with no admin can still clear
     // the residue of an aborted run. The parameter is kept so the call sites
     // do not change.
     void token;
     const failed = await deleteKeys(orphanPaths);
     for (const key of failed) console.error(`  ! could not remove ${key}`);
-  } else if (!r2Ready()) {
-    console.log("  note: R2 credentials are missing; object cleanup was skipped");
+  } else if (!storageReady()) {
+    console.log("  note: storage credentials are missing; object cleanup was skipped");
   }
 
   await must(`DELETE FROM public.product_images WHERE product_id=${Q(PRODUCT)}`);
@@ -240,9 +240,9 @@ async function cleanup({ token, expectClean = false } = {}) {
   if (expectClean) {
     // Checked against the bucket rather than the database: an object can
     // outlive its row, and that is the case this assertion exists to catch.
-    const left = r2Ready() ? await listKeys([`unattached/`, `${PRODUCT}/`]) : [];
+    const left = storageReady() ? await listKeys([`unattached/`, `${PRODUCT}/`]) : [];
     if (left.length !== 0) {
-      console.error(`  ! ${left.length} object(s) survived cleanup in ${R2_BUCKET}`);
+      console.error(`  ! ${left.length} object(s) survived cleanup in ${STORAGE_BUCKET}`);
       fails++;
     }
   }

@@ -19,7 +19,7 @@
   "observability": {
     "enabled": true
   },
-  // Non-secret runtime settings. Secrets (R2 keys, Supabase tokens) are set with
+  // Non-secret runtime settings. Secrets (Tigris or R2 keys) are set with
   // `npx wrangler secret put <NAME>`, never committed here.
   "vars": {
     "R2_BUCKET": "artssports-media"

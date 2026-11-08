@@ -8,26 +8,36 @@ import "server-only";
  * and are never exposed: this module is server-only, so the secret access key
  * cannot reach a client bundle even if something imports it by mistake.
  *
- * ## Environment
+ * ## Provider
  *
- *   R2_ACCOUNT_ID          Cloudflare account id (builds the S3 endpoint)
- *   R2_ACCESS_KEY_ID       R2 API token access key
- *   R2_SECRET_ACCESS_KEY   R2 API token secret
- *   R2_BUCKET              bucket name, default `artssports-media`
- *   R2_PUBLIC_URL          optional public base URL of the bucket
+ * Two S3-compatible providers are supported, chosen from the environment so
+ * switching needs no code change:
+ *
+ *   Cloudflare R2  used when R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and
+ *                  R2_SECRET_ACCESS_KEY are all set. Bucket: R2_BUCKET
+ *                  (default `artssports-media`). Public URL: R2_PUBLIC_URL.
+ *
+ *   Tigris         the fallback while R2 is not set up: TIGRIS_STORAGE_ENDPOINT,
+ *                  TIGRIS_STORAGE_ACCESS_KEY_ID, TIGRIS_STORAGE_SECRET_ACCESS_KEY,
+ *                  TIGRIS_STORAGE_BUCKET (default `artsfashion-media`). Public
+ *                  when TIGRIS_STORAGE_PUBLIC=true.
+ *
+ * Object paths are identical in both, so moving is a copy
+ * (scripts/r2-migrate-from-tigris.mjs) plus filling in the R2 variables.
  *
  * ## Public URL vs proxy
  *
  * A storefront image has to be readable by a browser with no credentials.
- * The shape of a new object's URL is decided by R2_PUBLIC_URL:
+ * The shape of a new object's URL is decided by the provider's public setting
+ * (R2_PUBLIC_URL, or TIGRIS_STORAGE_PUBLIC=true for Tigris):
  *
- *   set    -> <R2_PUBLIC_URL>/<path>
+ *   public -> <public base URL>/<path>
  *             e.g. https://pub-<hash>.r2.dev/<path> before launch, then
  *             https://media.artssports.com/<path> once the domain is on
  *             Cloudflare. Served by Cloudflare's edge, no app bandwidth.
  *
- *   unset  -> /api/media/<path>
- *             streamed by this app from R2 with signed requests. Works with a
+ *   private -> /api/media/<path>
+ *             streamed by this app from the bucket with signed requests. Works with a
  *             private bucket.
  *
  * Changing the public domain later is an env change here plus the matching
@@ -44,7 +54,32 @@ import {
 } from "@aws-sdk/client-s3";
 import type { Readable } from "stream";
 
-export const BUCKET = process.env.R2_BUCKET || "artssports-media";
+type Provider = "r2" | "tigris";
+
+const R2_KEYS = ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"] as const;
+const TIGRIS_KEYS = [
+  "TIGRIS_STORAGE_ENDPOINT",
+  "TIGRIS_STORAGE_ACCESS_KEY_ID",
+  "TIGRIS_STORAGE_SECRET_ACCESS_KEY",
+] as const;
+
+function env(name: string): string {
+  return (process.env[name] ?? "").trim();
+}
+
+/**
+ * R2 as soon as its credentials are complete; Tigris otherwise. A partially
+ * filled R2 block (for example only the account id) does not switch providers,
+ * so images keep working while R2 is being set up.
+ */
+export function storageProvider(): Provider {
+  return R2_KEYS.every((k) => env(k) !== "") ? "r2" : "tigris";
+}
+
+export const BUCKET =
+  storageProvider() === "r2"
+    ? env("R2_BUCKET") || "artssports-media"
+    : env("TIGRIS_STORAGE_BUCKET") || "artsfashion-media";
 
 /**
  * Extensions the app will ever store, as decided by sniffImage().
@@ -74,15 +109,8 @@ let cached: S3Client | null = null;
  * 403 from the provider with nothing useful in the logs.
  */
 export function missingStorageConfig(): string[] {
-  const required = [
-    "R2_ACCOUNT_ID",
-    "R2_ACCESS_KEY_ID",
-    "R2_SECRET_ACCESS_KEY",
-  ];
-  return required.filter((name) => {
-    const v = process.env[name];
-    return typeof v !== "string" || v.trim() === "";
-  });
+  const required = storageProvider() === "r2" ? R2_KEYS : TIGRIS_KEYS;
+  return required.filter((name) => env(name) === "");
 }
 
 export function isStorageConfigured(): boolean {
@@ -92,10 +120,11 @@ export function isStorageConfigured(): boolean {
 /**
  * The S3 client, built once per process.
  *
- * `region: "auto"` is what R2 expects. Path-style addressing keeps the bucket
- * in the path rather than the host, which is the form R2 documents. Checksums
- * are only sent when an operation requires them, because newer SDK defaults
- * add CRC headers that S3-compatible providers do not all accept.
+ * `region: "auto"` is what both providers expect. R2 is addressed path-style,
+ * the form it documents; Tigris keeps the SDK's virtual-hosted default
+ * (`<bucket>.t3.storage.dev`). Checksums are only sent when an operation
+ * requires them, because newer SDK defaults add CRC headers that
+ * S3-compatible providers do not all accept.
  */
 export function storageClient(): S3Client {
   if (cached) return cached;
@@ -103,33 +132,37 @@ export function storageClient(): S3Client {
   const missing = missingStorageConfig();
   if (missing.length > 0) throw new StorageNotConfiguredError(missing);
 
+  const r2 = storageProvider() === "r2";
   cached = new S3Client({
     region: "auto",
     endpoint: endpoint(),
-    forcePathStyle: true,
+    forcePathStyle: r2,
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+      accessKeyId: env(r2 ? "R2_ACCESS_KEY_ID" : "TIGRIS_STORAGE_ACCESS_KEY_ID"),
+      secretAccessKey: env(r2 ? "R2_SECRET_ACCESS_KEY" : "TIGRIS_STORAGE_SECRET_ACCESS_KEY"),
     },
   });
   return cached;
 }
 
 export function endpoint(): string {
-  return `https://${(process.env.R2_ACCOUNT_ID ?? "").trim()}.r2.cloudflarestorage.com`;
+  return storageProvider() === "r2"
+    ? `https://${env("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`
+    : env("TIGRIS_STORAGE_ENDPOINT").replace(/\/+$/, "");
 }
 
 /** The bucket's public base URL, without a trailing slash, or "" when private. */
 export function publicBaseUrl(): string {
-  return (process.env.R2_PUBLIC_URL ?? "").trim().replace(/\/+$/, "");
+  if (storageProvider() === "r2") return env("R2_PUBLIC_URL").replace(/\/+$/, "");
+  return env("TIGRIS_STORAGE_PUBLIC") === "true" ? `${endpoint()}/${BUCKET}` : "";
 }
 
 /**
- * Whether objects are served by R2 directly.
+ * Whether objects are served by the provider directly.
  *
- * Unset means false, so a deployment that forgets the variable gets the
+ * Unset means false, so a deployment that forgets the setting gets the
  * working proxy path rather than links to a host that was never configured.
  */
 export function isPublicBucket(): boolean {
