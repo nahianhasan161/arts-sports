@@ -26,6 +26,7 @@ import type {
 import StorageAnalytics from "./StorageAnalytics";
 import MediaDetailPanel from "./MediaDetailPanel";
 import UploadDropzone from "./UploadDropzone";
+import { optimizeImageFiles } from "@/lib/media/client-optimize";
 
 /**
  * Cross-product media library.
@@ -251,7 +252,7 @@ export default function MediaLibrary() {
     setError(null);
     try {
       const form = new FormData();
-      for (const f of files) form.append("files", f);
+      for (const f of await optimizeImageFiles(files)) form.append("files", f);
       const res = await fetch("/api/admin/media", { method: "POST", body: form });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Upload failed");

@@ -19,6 +19,7 @@ import {
   MEDIA_MAX_BYTES,
   MEDIA_MAX_PER_PRODUCT,
 } from "@/types";
+import { optimizeImageFiles } from "@/lib/media/client-optimize";
 
 interface PendingUpload {
   id: string;
@@ -80,7 +81,7 @@ export default function ProductMediaManager({
         return;
       }
 
-      const accepted = files.slice(0, room);
+      const accepted = await optimizeImageFiles(files.slice(0, room));
       if (accepted.length < files.length) {
         setError(
           `Only ${room} more image${room === 1 ? "" : "s"} fit; ${files.length - room} skipped`

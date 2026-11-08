@@ -1,17 +1,17 @@
 /** @type {import('next').NextConfig} */
 
 /**
- * Uploaded product media is served from Tigris.
+ * Uploaded product media is stored in Cloudflare R2.
  *
- * While the bucket is private, publicUrlFor() returns same-origin /api/media
- * paths, which next/image needs no allowance for. Once TIGRIS_STORAGE_PUBLIC
- * is turned on the URLs point at the Tigris host, and the host has to be listed
- * here or next/image rejects every uploaded image on the storefront.
+ * With a private bucket, publicUrlFor() returns same-origin /api/media paths.
+ * Once R2_PUBLIC_URL is set (an r2.dev address before launch, a custom domain
+ * after), URLs point at that host, which is listed below. The Supabase host is
+ * kept because rows written before the Tigris migration still carry Supabase
+ * URLs, and those products have to keep rendering.
  *
- * The host is read from the endpoint rather than hardcoded, so a custom domain
- * or a different Tigris host needs no edit to this file. The Supabase host is
- * kept because rows written before the migration still carry Supabase URLs, and
- * those products have to keep rendering.
+ * Images are served unoptimized: the site runs on Cloudflare Workers, which
+ * has no built-in next/image optimizer, and uploads are already resized to
+ * WebP in the admin's browser before they are stored.
  */
 const hostOf = (url) => {
   try {
@@ -21,7 +21,7 @@ const hostOf = (url) => {
   }
 };
 
-const tigrisStorageHost = hostOf(process.env.TIGRIS_STORAGE_ENDPOINT ?? "");
+const r2PublicHost = hostOf(process.env.R2_PUBLIC_URL ?? "");
 const supabaseStorageHost = hostOf(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
 
 /**
@@ -50,7 +50,7 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   },
   {
-    // HSTS. Vercel terminates TLS for us, so this only takes effect once the
+    // HSTS. Cloudflare terminates TLS for us, so this only takes effect once the
     // site is deployed over HTTPS — where it stops a downgrade attack.
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
@@ -59,8 +59,9 @@ const securityHeaders = [
 
 const nextConfig = {
   images: {
+    unoptimized: true,
     remotePatterns: [
-      ...(tigrisStorageHost ? [{ protocol: "https", hostname: tigrisStorageHost }] : []),
+      ...(r2PublicHost ? [{ protocol: "https", hostname: r2PublicHost }] : []),
       ...(supabaseStorageHost ? [{ protocol: "https", hostname: supabaseStorageHost }] : []),
       {
         protocol: "https",

@@ -4,11 +4,9 @@ import { getObjectStream, isReadablePath, isStorageConfigured, missingStorageCon
 /**
  * Streams one media object to the browser.
  *
- * This exists only while the Tigris bucket is private. Tigris refuses to make a
- * bucket public until a payment method is verified, so an anonymous GET of the
- * direct object URL answers 403. Once the bucket is public, set
- * TIGRIS_STORAGE_PUBLIC=true and publicUrlFor() stops returning paths that come
- * here -- at which point this route serves nothing and can be deleted.
+ * Serves objects when R2_PUBLIC_URL is unset (private bucket), and keeps
+ * working for rows whose stored URL still points at /api/media after the
+ * bucket is made public, so older product images never break.
  *
  * ## Why it is safe to leave anonymous
  *

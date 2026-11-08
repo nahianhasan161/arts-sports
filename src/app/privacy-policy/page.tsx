@@ -79,7 +79,7 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Our database and storage providers</strong> — Supabase and
-            Tigris, which host the order records and product photography.
+            Cloudflare, which host the order records and product photography.
           </li>
           <li>
             <strong>Analytics</strong> — Google Analytics, which receives

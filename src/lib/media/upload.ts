@@ -1,12 +1,11 @@
 import { sniffImage, MAX_MEDIA_BYTES } from "./validate";
-import { optimizeImage } from "./optimize";
 import { putObject, deleteObjects, copyObject, publicUrlFor, isStorageConfigured, BUCKET } from "./storage";
 
 /**
  * Shared upload policy for product media.
  *
  * This file owns what an acceptable file is and how it is compensated when the
- * database write fails. It owns no transport: the bytes go to Tigris through
+ * database write fails. It owns no transport: the bytes go to R2 through
  * storage.ts. Both the product editor and the media library upload through
  * this, so there is one definition of an acceptable file and one compensation
  * rule; duplicating the upload block per surface is how the two drift and a
@@ -54,7 +53,7 @@ export type UploadOutcome =
  *
  * `supabase` is still accepted but unused. It is the caller's database client
  * and the two have nothing to do with each other now that objects live in
- * Tigris; dropping the parameter would have meant editing four call sites for
+ * R2; dropping the parameter would have meant editing four call sites for
  * no behavioural gain, and keeping it means the signature still reads as "this
  * is the media upload, you have a database client in hand". It is prefixed with
  * an underscore to say so, and is deliberately not threaded into storage.
@@ -79,28 +78,15 @@ export async function uploadMediaFile(
 
   // The browser's content type is a hint, not evidence, so the signature
   // decides what the file actually is and therefore what extension it gets.
-  const buffer = Buffer.from(await file.arrayBuffer());
-  let finalBuffer: Buffer;
-  let finalMimeType: string;
-  let finalExt: string;
-
-  const sniff = sniffImage(buffer);
+  // Resizing and WebP conversion already happened in the admin's browser
+  // (client-optimize.ts); the server stores the verified bytes as they are.
+  const finalBuffer = Buffer.from(await file.arrayBuffer());
+  const sniff = sniffImage(finalBuffer);
   if (!sniff.ok || !sniff.mime || !sniff.ext) {
     return { ok: false, name, reason: sniff.reason ?? "Unsupported image" };
   }
-
-  // Convert to WebP for smaller, optimized files. Fall back to the original
-  // buffer if sharp fails (e.g. not installed, corrupted input).
-  const optimized = await optimizeImage(buffer);
-  if (optimized.ok) {
-    finalBuffer = optimized.buffer;
-    finalMimeType = optimized.contentType;
-    finalExt = "webp";
-  } else {
-    finalBuffer = buffer;
-    finalMimeType = sniff.mime;
-    finalExt = sniff.ext;
-  }
+  const finalMimeType = sniff.mime;
+  const finalExt = sniff.ext;
 
   const storage_path = `${prefix}/${crypto.randomUUID()}.${finalExt}`;
 

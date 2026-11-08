@@ -1,41 +1,38 @@
 import "server-only";
 
 /**
- * Object storage, on Tigris.
+ * Object storage, on Cloudflare R2.
  *
- * Tigris is S3-compatible, so this speaks the S3 API through @aws-sdk/client-s3
- * against the account's global endpoint. Credentials come from the environment
+ * R2 is S3-compatible, so this speaks the S3 API through @aws-sdk/client-s3
+ * against the account's R2 endpoint. Credentials come from the environment
  * and are never exposed: this module is server-only, so the secret access key
  * cannot reach a client bundle even if something imports it by mistake.
  *
- * ## Why the public URL is behind a flag
+ * ## Environment
+ *
+ *   R2_ACCOUNT_ID          Cloudflare account id (builds the S3 endpoint)
+ *   R2_ACCESS_KEY_ID       R2 API token access key
+ *   R2_SECRET_ACCESS_KEY   R2 API token secret
+ *   R2_BUCKET              bucket name, default `artssports-media`
+ *   R2_PUBLIC_URL          optional public base URL of the bucket
+ *
+ * ## Public URL vs proxy
  *
  * A storefront image has to be readable by a browser with no credentials.
- * Making a Tigris bucket public requires a verified payment method, and until
- * that is done an anonymous GET of a public-path URL answers 403. Rather than
- * leaving the shop broken until an account is configured, the shape of the
- * stored URL is decided by one flag:
+ * The shape of a new object's URL is decided by R2_PUBLIC_URL:
  *
- *   TIGRIS_STORAGE_PUBLIC=true   -> https://<endpoint>/<bucket>/<path>
- *                                   served by Tigris, no app bandwidth, CDN
- *                                   cacheable, and what you want in production.
+ *   set    -> <R2_PUBLIC_URL>/<path>
+ *             e.g. https://pub-<hash>.r2.dev/<path> before launch, then
+ *             https://media.artssports.com/<path> once the domain is on
+ *             Cloudflare. Served by Cloudflare's edge, no app bandwidth.
  *
- *   TIGRIS_STORAGE_PUBLIC=false  -> /api/media/<path>
- *                                   streamed by this app from Tigris with
- *                                   signed requests. Works today with no
- *                                   account changes.
+ *   unset  -> /api/media/<path>
+ *             streamed by this app from R2 with signed requests. Works with a
+ *             private bucket.
  *
- * Both are the same string in the `url` column, and both are resolved by
- * publicUrlFor(), so no caller changes when the flag flips. next/image runs its
- * optimiser in this app either way, so the proxy path costs one extra hop for
- * the optimiser only -- browsers still never talk to Tigris directly.
- *
- * ## Bucket naming
- *
- * Tigris shares one global namespace across every account on the platform, so a
- * name that reads as obvious, like `product-images`, is frequently already
- * taken by an unrelated account and cannot be created. `artssports-media` is
- * this account's.
+ * Changing the public domain later is an env change here plus the matching
+ * `media_url_prefix` row in app_settings (see the R2 migration); stored rows
+ * hold only object paths.
  */
 
 import {
@@ -47,7 +44,7 @@ import {
 } from "@aws-sdk/client-s3";
 import type { Readable } from "stream";
 
-export const BUCKET = process.env.TIGRIS_STORAGE_BUCKET ?? "artssports-media";
+export const BUCKET = process.env.R2_BUCKET || "artssports-media";
 
 /**
  * Extensions the app will ever store, as decided by sniffImage().
@@ -78,9 +75,9 @@ let cached: S3Client | null = null;
  */
 export function missingStorageConfig(): string[] {
   const required = [
-    "TIGRIS_STORAGE_ENDPOINT",
-    "TIGRIS_STORAGE_ACCESS_KEY_ID",
-    "TIGRIS_STORAGE_SECRET_ACCESS_KEY",
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
   ];
   return required.filter((name) => {
     const v = process.env[name];
@@ -95,12 +92,12 @@ export function isStorageConfigured(): boolean {
 /**
  * The S3 client, built once per process.
  *
- * `region: "auto"` is what Tigris expects and is not a real region. The
- * endpoint is the account's global host, so a bucket is addressed in virtual
- * hosted style -- `artssports-media.t3.storage.dev` -- which is the SDK
- * default and is what makes the public URL of the same shape work.
+ * `region: "auto"` is what R2 expects. Path-style addressing keeps the bucket
+ * in the path rather than the host, which is the form R2 documents. Checksums
+ * are only sent when an operation requires them, because newer SDK defaults
+ * add CRC headers that S3-compatible providers do not all accept.
  */
-export function tigrisClient(): S3Client {
+export function storageClient(): S3Client {
   if (cached) return cached;
 
   const missing = missingStorageConfig();
@@ -109,33 +106,41 @@ export function tigrisClient(): S3Client {
   cached = new S3Client({
     region: "auto",
     endpoint: endpoint(),
+    forcePathStyle: true,
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
-      accessKeyId: process.env.TIGRIS_STORAGE_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.TIGRIS_STORAGE_SECRET_ACCESS_KEY!,
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
     },
   });
   return cached;
 }
 
 export function endpoint(): string {
-  return (process.env.TIGRIS_STORAGE_ENDPOINT ?? "").replace(/\/+$/, "");
+  return `https://${(process.env.R2_ACCOUNT_ID ?? "").trim()}.r2.cloudflarestorage.com`;
+}
+
+/** The bucket's public base URL, without a trailing slash, or "" when private. */
+export function publicBaseUrl(): string {
+  return (process.env.R2_PUBLIC_URL ?? "").trim().replace(/\/+$/, "");
 }
 
 /**
- * Whether objects are served by Tigris directly.
+ * Whether objects are served by R2 directly.
  *
- * Unset means false, so a deployment that forgets the flag gets the working
- * proxy path rather than a pile of 403s from anonymous reads.
+ * Unset means false, so a deployment that forgets the variable gets the
+ * working proxy path rather than links to a host that was never configured.
  */
 export function isPublicBucket(): boolean {
-  return process.env.TIGRIS_STORAGE_PUBLIC === "true";
+  return publicBaseUrl() !== "";
 }
 
 /** The route that streams an object when the bucket is not public. */
 const PROXY_PREFIX = "/api/media";
 
 export function publicUrlFor(path: string): string {
-  return isPublicBucket() ? `${endpoint()}/${BUCKET}/${encodePath(path)}` : `${PROXY_PREFIX}/${path}`;
+  return isPublicBucket() ? `${publicBaseUrl()}/${encodePath(path)}` : `${PROXY_PREFIX}/${path}`;
 }
 
 /**
@@ -198,7 +203,7 @@ export async function putObject(
   contentType: string,
 ): Promise<PutResult> {
   try {
-    await tigrisClient().send(
+    await storageClient().send(
       new PutObjectCommand({
         Bucket: BUCKET,
         Key: path,
@@ -229,7 +234,7 @@ export async function putObject(
  */
 export async function deleteObjects(paths: string[]): Promise<string | null> {
   if (paths.length === 0) return null;
-  const client = tigrisClient();
+  const client = storageClient();
   const errors: string[] = [];
 
   for (let i = 0; i < paths.length; i += 1000) {
@@ -265,11 +270,11 @@ export async function deleteObjects(paths: string[]): Promise<string | null> {
  * unreferenced.
  *
  * S3 has no rename, so this is a server-side copy followed by the caller's
- * delete. At Tigris the copy is metadata-only, so nothing is re-transferred.
+ * delete. The copy happens inside R2, so nothing is re-transferred.
  */
 export async function copyObject(fromPath: string, toPath: string): Promise<string | null> {
   try {
-    await tigrisClient().send(
+    await storageClient().send(
       new CopyObjectCommand({
         Bucket: BUCKET,
         Key: toPath,
@@ -306,7 +311,7 @@ export interface FetchedObject {
  */
 export async function getObjectStream(path: string): Promise<FetchedObject | null> {
   try {
-    const result = await tigrisClient().send(new GetObjectCommand({ Bucket: BUCKET, Key: path }));
+    const result = await storageClient().send(new GetObjectCommand({ Bucket: BUCKET, Key: path }));
     return {
       body: result.Body as Readable,
       contentType: result.ContentType ?? null,
@@ -324,7 +329,7 @@ export async function getObjectStream(path: string): Promise<FetchedObject | nul
 /** True when the object is absent. */
 export async function objectExists(path: string): Promise<boolean> {
   try {
-    await tigrisClient().send(new GetObjectCommand({ Bucket: BUCKET, Key: path, Range: "bytes=0-0" }));
+    await storageClient().send(new GetObjectCommand({ Bucket: BUCKET, Key: path, Range: "bytes=0-0" }));
     return true;
   } catch (error) {
     const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
@@ -337,7 +342,7 @@ function errorMessage(error: unknown): string {
   const e = error as { message?: string; name?: string };
   // A provider error names itself, which is what makes it diagnosable in a
   // log. The raw message is returned rather than a generic sentence so the
-  // cause -- AccessDenied, PaymentVerificationRequired, a missing bucket -- is
+  // cause -- AccessDenied, an invalid token, a missing bucket -- is
   // visible in the route response the admin sees.
   return e?.message ? `${e.name ?? "StorageError"}: ${e.message}` : "Object storage request failed";
 }

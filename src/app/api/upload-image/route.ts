@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAdminError } from "@/lib/admin/auth";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { putObject, publicUrlFor, isStorageConfigured } from "@/lib/media/storage";
-import { optimizeImage } from "@/lib/media/optimize";
 import { sniffImage } from "@/lib/media/validate";
 
 /**
@@ -10,7 +9,7 @@ import { sniffImage } from "@/lib/media/validate";
  *
  * Three writes, in the order that leaves the fewest half-finished states:
  *
- *   1. the bytes go to Tigris as WebP;
+ *   1. the bytes go to R2 (already resized to WebP in the browser);
  *   2. a media_attachments row is recorded, which is what makes the file
  *      appear in the admin media library;
  *   3. site_content.image_url is upserted, which is what makes the landing
@@ -58,21 +57,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Object storage is not configured" }, { status: 500 });
   }
 
-  const optimized = await optimizeImage(buffer);
-
-  let finalBuffer: Buffer;
-  let storageExt: string;
-  let contentType: string;
-
-  if (optimized.ok) {
-    finalBuffer = optimized.buffer;
-    storageExt = "webp";
-    contentType = "image/webp";
-  } else {
-    finalBuffer = buffer;
-    storageExt = sniff.ext;
-    contentType = sniff.mime;
-  }
+  const finalBuffer = buffer;
+  const storageExt = sniff.ext;
+  const contentType = sniff.mime;
 
   const uniqueId = crypto.randomUUID();
   const storagePath = `${area}/${uniqueId}.${storageExt}`;

@@ -5,6 +5,7 @@ import { Eye, Pen, Save, X, Upload, Image as ImageIcon, ChevronLeft, ChevronRigh
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useToast } from "@/components/ui/toast";
 import type { ReactNode } from "react";
+import { optimizeImageFile } from "@/lib/media/client-optimize";
 
 export type EditMode = "view" | "edit";
 
@@ -292,7 +293,7 @@ export function EditableImage({
    const uploadFile = useCallback(
      async (file: File) => {
        const formData = new FormData();
-       formData.append("file", file);
+       formData.append("file", await optimizeImageFile(file));
        formData.append("id", id);
        formData.append("area", "landing-page");
 

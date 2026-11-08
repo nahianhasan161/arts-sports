@@ -1,6 +1,6 @@
 # Arts Sports E-Commerce Store
 
-A high-conversion e-commerce web platform built with **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, **Zustand**, and **Supabase**.
+A high-conversion e-commerce web platform built with **Next.js 16 (App Router)**, **TypeScript**, **Tailwind CSS**, **Zustand**, and **Supabase**.
 
 ---
 
@@ -49,12 +49,14 @@ A high-conversion e-commerce web platform built with **Next.js 14 (App Router)**
 
 ## 🛠️ Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS (with exact tokens from Stitch design system)
 - **Typography**: Oswald (Display) & Plus Jakarta Sans (Body & Currency)
 - **State Management**: Zustand
 - **Database & Auth**: Supabase (`@supabase/supabase-js`, `@supabase/ssr`)
+- **Hosting**: Cloudflare Workers via OpenNext (`@opennextjs/cloudflare`)
+- **Image storage**: Cloudflare R2 (S3 API)
 - **Icons**: Lucide React
 
 ---
@@ -95,3 +97,16 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## ☁️ Deployment (Cloudflare)
+
+The site is hosted on Cloudflare Workers and product images live in Cloudflare R2.
+Full setup, including the one-time image copy from Tigris and the later switch
+to `artssports.com`, is in [docs/cloudflare.md](docs/cloudflare.md).
+
+```bash
+npm run preview   # production build on a local Worker (http://localhost:8787)
+npm run deploy    # build and deploy to Cloudflare
+```
