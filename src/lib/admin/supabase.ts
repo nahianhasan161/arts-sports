@@ -5,8 +5,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * Supabase client bound to the incoming request cookies, for admin API routes.
  * Extracted so each admin route does not repeat the cookie adapter.
  */
-export function getAdminSupabase() {
-  const cookieStore = cookies();
+export async function getAdminSupabase() {
+  const cookieStore = await cookies();
   return createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (cookiesToSet) => {

@@ -53,7 +53,7 @@ export function createSupabaseServerClient(cookieStore: CookieStore): SupabaseCl
 export async function getSupabaseServerClient(): Promise<SupabaseClient | null> {
   // Dynamically import cookies() to avoid bundling next/headers in client components
   const { cookies } = await import("next/headers");
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   return createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),

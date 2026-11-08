@@ -40,10 +40,8 @@ export const runtime = "nodejs";
  */
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { path: string[] } },
-) {
+export async function GET(_request: Request, props: { params: Promise<{ path: string[] }> }) {
+  const params = await props.params;
   if (!isStorageConfigured()) {
     return NextResponse.json(
       { error: `Object storage is not configured; missing ${missingStorageConfig().join(", ")}` },

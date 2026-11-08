@@ -163,7 +163,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createSupabaseServerClient({
       getAll: () => cookieStore.getAll(),
       setAll: () => {

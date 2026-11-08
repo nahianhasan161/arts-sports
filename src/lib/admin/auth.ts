@@ -21,7 +21,7 @@ export class AdminAuthError extends Error {
 }
 
 export async function requireAdmin(): Promise<AdminContext> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (cookiesToSet) => {
@@ -101,7 +101,7 @@ export interface UserContext {
 }
 
 export async function requireUser(): Promise<UserContext> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (cookiesToSet) => {

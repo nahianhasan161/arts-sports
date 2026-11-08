@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json<CouponQuote>({ valid: false, reason: "coupon_empty" });
     }
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createSupabaseServerClient({
       getAll: () => cookieStore.getAll(),
       setAll: () => {

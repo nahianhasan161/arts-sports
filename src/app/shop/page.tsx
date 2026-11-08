@@ -36,14 +36,15 @@ export const metadata: Metadata = {
 };
 
 interface ShopPageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 function first(v: string | string[] | undefined): string | undefined {
   return typeof v === "string" ? v : Array.isArray(v) ? v[0] : undefined;
 }
 
-export default async function ShopPage({ searchParams }: ShopPageProps) {
+export default async function ShopPage(props: ShopPageProps) {
+  const searchParams = await props.searchParams;
   const category = first(searchParams.category) ?? "all";
   const query = first(searchParams.q) ?? first(searchParams.search) ?? "";
   const subCategory = first(searchParams.sub) ?? "";

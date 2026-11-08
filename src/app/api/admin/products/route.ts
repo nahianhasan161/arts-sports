@@ -20,7 +20,7 @@ function isProductStatus(value: string): value is "draft" | "published" | "archi
 const SKU_ID_CAP = 200;
 
 async function getSupabase() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (cookiesToSet) => {

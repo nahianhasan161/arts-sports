@@ -5,7 +5,7 @@ import type { SizeMeasurement, SizeRegionCode } from "@/types";
 
 const VALID_REGIONS: SizeRegionCode[] = ["GLOBAL", "BD", "US"];
 
-type Context = { params: { sizeId: string } };
+type Context = { params: Promise<{ sizeId: string }> };
 
 /** Coerce arbitrary measurement input into { key: number }, dropping junk. */
 function sanitizeMeasurements(input: unknown): Record<string, number> | null {
@@ -22,7 +22,8 @@ function sanitizeMeasurements(input: unknown): Record<string, number> | null {
   return out;
 }
 
-export async function GET(request: NextRequest, { params }: Context) {
+export async function GET(request: NextRequest, props: Context) {
+  const params = await props.params;
   try {
     await requireAdmin();
   } catch (error) {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest, { params }: Context) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }
@@ -64,7 +65,8 @@ export async function GET(request: NextRequest, { params }: Context) {
   }
 }
 
-export async function POST(request: NextRequest, { params }: Context) {
+export async function POST(request: NextRequest, props: Context) {
+  const params = await props.params;
   try {
     await requireAdmin();
   } catch (error) {
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest, { params }: Context) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }
@@ -122,7 +124,8 @@ export async function POST(request: NextRequest, { params }: Context) {
   }
 }
 
-export async function PUT(request: NextRequest, { params }: Context) {
+export async function PUT(request: NextRequest, props: Context) {
+  const params = await props.params;
   try {
     await requireAdmin();
   } catch (error) {
@@ -130,7 +133,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }
@@ -197,7 +200,8 @@ export async function PUT(request: NextRequest, { params }: Context) {
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: Context) {
+export async function DELETE(request: NextRequest, props: Context) {
+  const params = await props.params;
   try {
     await requireAdmin();
   } catch (error) {
@@ -205,7 +209,7 @@ export async function DELETE(request: NextRequest, { params }: Context) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }

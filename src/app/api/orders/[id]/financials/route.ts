@@ -19,10 +19,8 @@ import type { OrderFinancials, Payment } from "@/types";
  * happened without a second request -- and the ledger is what the numbers are
  * derived from, so showing them together makes a discrepancy visible.
  */
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     await requireAdmin();
   } catch (error) {

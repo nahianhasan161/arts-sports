@@ -62,7 +62,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }
@@ -227,7 +227,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }
@@ -292,7 +292,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }

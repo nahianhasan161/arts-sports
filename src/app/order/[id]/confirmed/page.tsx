@@ -71,11 +71,12 @@ async function loadOrder(orderId: string): Promise<OrderConfirmation | null> {
   return data as OrderConfirmation;
 }
 
-export default async function OrderConfirmedPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function OrderConfirmedPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const order = await loadOrder(params.id);
 
   // An unknown or mistyped reference is a 404, not an empty screen.

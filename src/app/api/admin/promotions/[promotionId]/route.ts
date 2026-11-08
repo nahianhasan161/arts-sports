@@ -3,9 +3,10 @@ import { requireAdmin, handleAdminError } from "@/lib/admin/auth";
 import { getAdminSupabase } from "@/lib/admin/supabase";
 import type { Product } from "@/types";
 
-type Context = { params: { promotionId: string } };
+type Context = { params: Promise<{ promotionId: string }> };
 
-export async function GET(_request: NextRequest, { params }: Context) {
+export async function GET(_request: NextRequest, props: Context) {
+  const params = await props.params;
   try {
     await requireAdmin();
   } catch (error) {
@@ -13,7 +14,7 @@ export async function GET(_request: NextRequest, { params }: Context) {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }

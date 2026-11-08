@@ -28,10 +28,11 @@ import { ProductDetailClient } from "./ProductDetailClient";
  */
 
 interface ProductPageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
+export async function generateMetadata(props: ProductPageProps): Promise<Metadata> {
+  const params = await props.params;
   const product = await getProductBySlug(params.slug);
 
   if (!product) {
@@ -79,7 +80,8 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   };
 }
 
-export default async function ProductDetailPage({ params }: ProductPageProps) {
+export default async function ProductDetailPage(props: ProductPageProps) {
+  const params = await props.params;
   const product = await getProductBySlug(params.slug);
 
   // A product that does not exist, is a draft, or was retired must be a real

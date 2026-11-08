@@ -15,7 +15,8 @@ async function getSupabase() {
  * GET /api/cancellations/[id]
  * Returns a single cancellation — admin sees any, users see own.
  */
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let isAdmin = false;
   try {
     await requireAdmin();
@@ -69,7 +70,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
  * Customer can cancel their own pending/approved cancellation.
  * Admin actions (approve/reject/execute) go through /api/admin/cancellations.
  */
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let userId: string | null = null;
   let isAdmin = false;
 
@@ -173,7 +175,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
  * Customer can delete their own cancellations in eligible states.
  * Admin actions go through /api/admin/cancellations.
  */
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let userId: string | null = null;
   let isAdmin = false;
 

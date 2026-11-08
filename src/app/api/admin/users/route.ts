@@ -5,7 +5,7 @@ import { requireAdmin, requireSuperAdmin, handleAdminError } from "@/lib/admin/a
 import type { Profile, UserRole } from "@/types";
 
 async function getSupabase() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (cookiesToSet) => {

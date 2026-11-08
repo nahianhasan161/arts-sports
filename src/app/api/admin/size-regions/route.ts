@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   try {
-    const supabase = getAdminSupabase();
+    const supabase = await getAdminSupabase();
     if (!supabase) {
       return NextResponse.json({ error: "Service not configured" }, { status: 500 });
     }

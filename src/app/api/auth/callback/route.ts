@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   // Build the redirect response early so Supabase can attach session cookies to it.
   const redirectPath = getSafeRedirectPath(next, origin);
   const response = NextResponse.redirect(new URL(redirectPath, origin));
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

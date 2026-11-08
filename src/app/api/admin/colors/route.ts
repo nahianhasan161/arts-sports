@@ -5,7 +5,7 @@ import { requireAdmin, handleAdminError } from "@/lib/admin/auth";
 import type { ColorPalette } from "@/types";
 
 async function getSupabase() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: (cookiesToSet) => {
