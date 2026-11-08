@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -9,6 +8,7 @@ import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ClientProviders } from "@/components/ClientProviders";
 import { OrganizationSchema } from "@/components/seo/OrganizationSchema";
 import { AnalyticsTracker } from "@/components/seo/AnalyticsTracker";
+import { Pixels } from "@/components/seo/Pixels";
 import { getServerUrl } from "@/lib/config";
 
 const fontSans = "font-sans";
@@ -132,25 +132,7 @@ export default function RootLayout({
         <AuthProvider>
           <ClientProviders>
             <AnalyticsTracker />
-            <Script
-              id="gtag-init"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments)}
-                  gtag('js', new Date());
-                  gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ''}');
-                `,
-              }}
-            />
-            {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-              <Script
-                src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
-                strategy="afterInteractive"
-                async
-              />
-            )}
+            <Pixels />
             <Header />
             <CartDrawer />
             <WishlistDrawer />

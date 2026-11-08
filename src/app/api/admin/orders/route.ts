@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
       .select("*, order_items(*)", { count: "exact" })
       .order("created_at", { ascending: false });
 
-    if (statusFilter) {
+    if (statusFilter?.startsWith("confirm:")) {
+      // Confirmation queues: confirm:needs_call, confirm:awaiting_payment, ...
+      query = query.eq("confirmation_status", statusFilter.slice("confirm:".length));
+    } else if (statusFilter) {
       query = query.eq("status", statusFilter);
     }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { OrderOpsPanel, CONFIRMATION_LABEL, RISK_STYLE, type OrderOps } from "@/components/admin/OrderOpsPanel";
 import { useSearchParams } from "next/navigation";
 import { Search, Package, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +37,8 @@ interface AdminOrder {
   created_at: string;
 }
 
+type AdminOrderRow = AdminOrder & OrderOps;
+
 interface ApiResponse<T> {
   data: T[];
   pagination: { page: number; limit: number; total: number };
@@ -57,7 +60,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminOrders() {
-  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [orders, setOrders] = useState<AdminOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -188,6 +191,8 @@ export default function AdminOrders() {
               className="appearance-none h-9 pl-3 pr-9 text-sm border border-border-light rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/20 bg-surface-card cursor-pointer"
             >
               <option value="all">All Status</option>
+              <option value="confirm:needs_call">Call to confirm</option>
+              <option value="confirm:awaiting_payment">Awaiting payment</option>
               {statusOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -311,6 +316,18 @@ export default function AdminOrders() {
                           <p className="text-xs text-text-muted">
                             {order.customer_phone}
                           </p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {order.risk_level && (
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${RISK_STYLE[order.risk_level]}`}>
+                                {order.risk_level} risk
+                              </span>
+                            )}
+                            {order.confirmation_status && order.confirmation_status !== "confirmed" && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-100 text-amber-800">
+                                {CONFIRMATION_LABEL[order.confirmation_status] ?? order.confirmation_status}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-on-surface text-right">
@@ -374,6 +391,9 @@ export default function AdminOrders() {
                     {expandedOrders.has(order.id) && order.order_items && (
                       <tr className="bg-surface-subtle/30">
                         <td colSpan={7} className="px-4 py-3">
+                          <div className="mb-4">
+                            <OrderOpsPanel order={order} onChanged={fetchOrders} />
+                          </div>
                           <div className="space-y-2">
                             <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
                               Order Items ({order.order_items.length})

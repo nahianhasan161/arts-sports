@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { OrderPixel } from "@/components/seo/OrderPixel";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CheckCircle2, Package, CreditCard, Truck, Phone } from "lucide-react";
@@ -95,6 +96,36 @@ async function loadReturnedPayment(orderId: string, paymentId: string | undefine
   };
 }
 
+interface OrderExtras {
+  confirmation_status: string;
+  payment_plan: string;
+  advance_amount: number;
+  items: { product_id: string; title: string; quantity: number; unit_price: number }[];
+}
+
+/** Phase 1 fields the confirmation RPC does not return. */
+async function loadExtras(orderId: string): Promise<OrderExtras | null> {
+  if (!isServiceSupabaseConfigured()) return null;
+  const { data } = await getServiceSupabase()
+    .from("orders")
+    .select("confirmation_status, payment_plan, advance_amount, order_items(product_id, title, quantity, unit_price)")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    confirmation_status: data.confirmation_status,
+    payment_plan: data.payment_plan,
+    advance_amount: Number(data.advance_amount ?? 0),
+    items: (data.order_items ?? []) as OrderExtras["items"],
+  };
+}
+
+function storeWhatsApp(text: string): string | null {
+  const raw = (process.env.NEXT_PUBLIC_STORE_WHATSAPP ?? "").replace(/\D/g, "");
+  const number = raw.startsWith("880") ? raw : raw.startsWith("01") ? `88${raw}` : "";
+  return number ? `https://wa.me/${number}?text=${encodeURIComponent(text)}` : null;
+}
+
 async function loadOrder(orderId: string): Promise<OrderConfirmation | null> {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return null;
@@ -118,6 +149,7 @@ export default async function OrderConfirmedPage(
   // Sync before reading the order, so a just-completed payment shows its effect.
   const payment = await loadReturnedPayment(params.id, paymentId);
   const order = await loadOrder(params.id);
+  const extras = await loadExtras(params.id);
 
   // An unknown or mistyped reference is a 404, not an empty screen.
   if (!order) notFound();
@@ -159,6 +191,51 @@ export default async function OrderConfirmedPage(
             )}
           </div>
         </div>
+
+        {extras && (extras.payment_plan === "cod" || extras.confirmation_status === "confirmed") && (
+          <OrderPixel
+            event={extras.payment_plan === "cod" ? "Lead" : "Purchase"}
+            orderId={order.order_id}
+            value={Number(order.total_amount)}
+            items={extras.items.map((i) => ({ id: i.product_id, name: i.title, price: Number(i.unit_price), quantity: i.quantity }))}
+          />
+        )}
+
+        {extras && extras.confirmation_status !== "confirmed" && extras.confirmation_status !== "rejected" && (() => {
+          const wa = storeWhatsApp(`Order #${order.order_id} confirm korchi / I confirm order #${order.order_id}`);
+          return (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-space-base mb-space-base text-sm text-amber-900">
+              <p className="font-bold">
+                {extras.confirmation_status === "awaiting_payment"
+                  ? "Waiting for your payment"
+                  : "One more step: confirm your order"}
+              </p>
+              <p className="text-xs mt-1">
+                {extras.confirmation_status === "awaiting_payment"
+                  ? "Your order is confirmed as soon as the payment comes through."
+                  : "We will call you shortly to confirm. To confirm right now, send us the ready-made message on WhatsApp. It is free."}
+              </p>
+              {wa && extras.confirmation_status === "needs_call" && (
+                <a
+                  href={wa}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#25D366] text-white text-xs font-bold uppercase tracking-wider"
+                >
+                  Confirm on WhatsApp
+                </a>
+              )}
+            </div>
+          );
+        })()}
+
+        <p className="text-center text-xs text-text-muted mb-space-base">
+          Track this order any time at{" "}
+          <Link href={`/track?order=${encodeURIComponent(order.order_id)}`} className="underline font-semibold text-primary">
+            Track order
+          </Link>
+          .
+        </p>
 
         {payment && (
           <div

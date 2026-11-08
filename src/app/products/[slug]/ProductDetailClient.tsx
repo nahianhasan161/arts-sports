@@ -2,7 +2,7 @@
 import { badgeClass } from "@/lib/badges";
 import { formatTaka } from "@/lib/pricing";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,6 +26,8 @@ import SizeGuideModal from "@/components/product/SizeGuideModal";
 import { useLiveBadges } from "@/lib/promotions/useLiveBadges";
 import { Product } from "@/types";
 import { useCartStore } from "@/lib/store/cart-store";
+import { trackEvent } from "@/lib/tracking/events";
+import { ShareButtons } from "@/components/product/ShareButtons";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 
 interface ProductDetailClientProps {
@@ -50,7 +52,26 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
   const [quantity, setQuantity] = useState(1);
   const [sizeModalOpen, setSizeModalOpen] = useState(false);
 
-  const { addItem } = useCartStore();
+  const { addItem, setBuyNow } = useCartStore();
+
+  // Ad links can open a specific option: /products/x?color=Blue&size=L.
+  // Read after mount so the server HTML stays the same for every URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const wantColor = params.get("color")?.toLowerCase();
+    const wantSize = params.get("size")?.toLowerCase();
+    const color = wantColor && product.colors.find((c) => c.name.toLowerCase() === wantColor);
+    const size = wantSize && product.sizes.find((s) => s.size.toLowerCase() === wantSize);
+    if (color) setSelectedColor(color.name);
+    if (size) setSelectedSize(size.size);
+  }, [product]);
+
+  useEffect(() => {
+    trackEvent("ViewContent", {
+      value: product.price,
+      items: [{ id: product.id, name: product.title, price: product.price, quantity: 1, category: product.category }],
+    });
+  }, [product]);
   const { toggleWishlist, isInWishlist } = useWishlistStore();
 
   // Live promotion wins over the product's static discount fields, so a
@@ -94,17 +115,25 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
   const currentSizeObj = product.sizes.find((s) => s.size === selectedSize);
   const availableStock = currentSizeObj ? currentSizeObj.stock : product.stock;
 
+  const eventItem = () => ({
+    value: displayPrice * quantity,
+    items: [{ id: product.id, name: product.title, price: displayPrice, quantity, variant: `${selectedSize} / ${selectedColor}` }],
+  });
+
   const handleAddToCart = () => {
     addItem(product, selectedSize, selectedColor, quantity);
+    trackEvent("AddToCart", eventItem());
   };
 
+  // Straight to checkout with just this item; the bag is left as it is.
   const handleBuyNow = () => {
-    addItem(product, selectedSize, selectedColor, quantity);
-    router.push("/checkout");
+    setBuyNow(product, selectedSize, selectedColor, quantity);
+    trackEvent("AddToCart", eventItem());
+    router.push("/checkout?mode=buynow");
   };
 
   return (
-    <div className="w-full pb-space-3xl">
+    <div className="w-full pb-32 lg:pb-space-3xl">
       {/* 1. Breadcrumbs */}
       <div className="w-full bg-surface-subtle border-b border-border-light py-2.5">
         <div className="max-w-container-max mx-auto px-space-base flex items-center gap-1.5 text-xs text-text-muted flex-wrap">
@@ -444,6 +473,8 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   <Zap className="w-4 h-4" />
                   <span>BUY NOW (EXPRESS CHECKOUT)</span>
                 </button>
+
+                <ShareButtons title={product.title} path={`/products/${encodeURIComponent(product.slug)}`} />
               </div>
 
               {/* Delivery ETA & Guarantee */}
@@ -480,6 +511,24 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
           </div>
         </div>
       </section>
+
+      {/* Mobile: buy button stays on screen while scrolling (above the bottom nav). */}
+      <div className="lg:hidden fixed bottom-16 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-border-light px-4 py-2.5 flex items-center gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] text-text-muted truncate">
+            {selectedSize} · {selectedColor}
+          </p>
+          <p className="font-display font-bold text-primary">{formatTaka(displayPrice * quantity)}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleBuyNow}
+          disabled={availableStock <= 0}
+          className="flex-1 h-11 bg-accent-gold text-white font-display text-xs uppercase tracking-wider font-bold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <Zap className="w-4 h-4" /> Buy now
+        </button>
+      </div>
 
       {/* Size Guide Modal - resolved regional chart */}
       <SizeGuideModal

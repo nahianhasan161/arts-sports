@@ -23,6 +23,9 @@ import {
   AlertCircle,
   KeyRound,
   History,
+  PhoneCall,
+  Settings2,
+  Truck,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
@@ -66,6 +69,8 @@ const sidebarGroups: SidebarGroup[] = [
     items: [
       { name: "Orders", href: "/admin/orders", icon: ShoppingCart },
       { name: "Payments", href: "/admin/payments", icon: CreditCard },
+      { name: "Leads", href: "/admin/leads", icon: PhoneCall },
+      { name: "Courier & COD", href: "/admin/courier", icon: Truck },
     ],
   },
   {
@@ -87,6 +92,7 @@ const sidebarGroups: SidebarGroup[] = [
       { name: "User Groups", href: "/admin/user-groups", icon: Shield },
       { name: "Staff & Roles", href: "/admin/roles", icon: KeyRound },
       { name: "Audit Log", href: "/admin/audit-log", icon: History },
+      { name: "Shop Settings", href: "/admin/settings", icon: Settings2 },
     ],
   },
 ];

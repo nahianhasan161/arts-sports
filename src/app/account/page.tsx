@@ -6,6 +6,7 @@ import { ArrowRight, User, Mail, Phone, MapPin, Edit, Save, Shield } from "lucid
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { UserAvatar } from "@/components/auth/UserAvatar";
+import { MyOrders } from "@/components/account/MyOrders";
 
 const AccountPage = () => {
   const { user, isAdmin, signOut } = useAuth();
@@ -301,6 +302,7 @@ const AccountPage = () => {
             </div>
           </div>
         </div>
+        <MyOrders />
       </div>
     </div>
   );

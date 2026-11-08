@@ -18,6 +18,12 @@ interface CartState {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  /** "Buy now": one item checked out on its own, leaving the bag untouched. */
+  buyNowItem: CartItem | null;
+  setBuyNow: (product: Product, size: string, color: string, quantity?: number) => void;
+  clearBuyNow: () => void;
+  /** Reorder: put earlier order lines back in the bag. */
+  addLines: (lines: CartItem[]) => void;
   getTotalCount: () => number;
   getSubtotal: () => number;
 }
@@ -27,6 +33,7 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+      buyNowItem: null,
 
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
@@ -100,6 +107,40 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => set({ items: [] }),
 
+      setBuyNow: (product, size, color, quantity = 1) => {
+        const targetSize = product.sizes.find((s) => s.size === size);
+        const maxStock = targetSize ? targetSize.stock : 20;
+        set({
+          buyNowItem: {
+            id: `${product.id}-${size}-${color}`,
+            productId: product.id,
+            slug: product.slug,
+            title: product.title,
+            price: product.price,
+            original_price: product.original_price,
+            image: product.images[0],
+            size,
+            color,
+            quantity: Math.max(1, Math.min(quantity, maxStock)),
+            maxStock,
+          },
+        });
+      },
+
+      clearBuyNow: () => set({ buyNowItem: null }),
+
+      addLines: (lines) => {
+        set((state) => {
+          const items = [...state.items];
+          for (const line of lines) {
+            const i = items.findIndex((x) => x.id === line.id);
+            if (i > -1) items[i] = { ...items[i], quantity: Math.min(items[i].quantity + line.quantity, items[i].maxStock) };
+            else items.push(line);
+          }
+          return { items, isOpen: true };
+        });
+      },
+
       getTotalCount: () => {
         return get().items.reduce((total, item) => total + item.quantity, 0);
       },
@@ -116,7 +157,7 @@ export const useCartStore = create<CartState>()(
       storage: createJSONStorage(() =>
         withLegacyKey(localStorage, "arts-fashion-cart-storage")
       ),
-      partialize: (state) => ({ items: state.items }),
+      partialize: (state) => ({ items: state.items, buyNowItem: state.buyNowItem }),
     }
   )
 );

@@ -1,6 +1,7 @@
 import "server-only";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { notifyOrderEvent } from "@/lib/notifications";
+import { sendCapiEvent } from "@/lib/tracking/capi";
 import { DEFAULT_GATEWAY, getGateway, type GatewayPayment } from "./gateway";
 import type { PaymentPurpose } from "@/types";
 
@@ -145,6 +146,7 @@ export async function syncGatewayPayment(gatewayCode: string, gatewayPaymentId: 
     await notifyOrderEvent(result.order_id, "payment_received").catch((err) =>
       console.error("payment_received notification failed:", err)
     );
+    await sendPurchaseEvent(result.order_id).catch((err) => console.error("Meta Purchase event failed:", err));
   }
   return result;
 }
@@ -159,4 +161,34 @@ export async function syncPaymentById(paymentId: string): Promise<SyncResult | n
     .maybeSingle();
   if (!data?.gateway || !data.gateway_payment_id) return null;
   return syncGatewayPayment(data.gateway, data.gateway_payment_id);
+}
+
+/**
+ * Meta Purchase from the server once an order's first payment lands. The
+ * order page fires the browser pixel with the same event id.
+ */
+async function sendPurchaseEvent(orderId: string) {
+  const db = getServiceSupabase();
+  const { data: order } = await db
+    .from("orders")
+    .select("id, total_amount, customer_name, customer_phone, customer_email, district, order_items(product_id, quantity)")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return;
+  const items = (order.order_items ?? []) as { product_id: string; quantity: number }[];
+  await sendCapiEvent({
+    name: "Purchase",
+    eventId: `purchase-${order.id}`,
+    value: Number(order.total_amount),
+    contentIds: items.map((i) => i.product_id),
+    numItems: items.reduce((s, i) => s + i.quantity, 0),
+    orderId: order.id,
+    user: {
+      phone: order.customer_phone,
+      email: order.customer_email,
+      name: order.customer_name,
+      district: order.district,
+      externalId: order.customer_phone,
+    },
+  });
 }

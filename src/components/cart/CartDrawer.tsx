@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Truck } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart-store";
+import { useCheckoutSettings } from "@/lib/checkout-settings";
 
 export function CartDrawer() {
   const router = useRouter();
@@ -20,6 +21,8 @@ export function CartDrawer() {
     getTotalCount 
   } = useCartStore();
 
+  const settings = useCheckoutSettings();
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -28,10 +31,10 @@ export function CartDrawer() {
 
   const subtotal = getSubtotal();
   const totalCount = getTotalCount();
-  const freeShippingThreshold = 1500;
+  const freeShippingThreshold = settings.free_delivery_over;
   const progress = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
   const remainingForFree = Math.max(0, freeShippingThreshold - subtotal);
-  const shippingFee = subtotal >= freeShippingThreshold || subtotal === 0 ? 0 : 60;
+  const shippingFee = subtotal >= freeShippingThreshold || subtotal === 0 ? 0 : settings.delivery_fee_dhaka;
   const grandTotal = subtotal + shippingFee;
 
   const handleProceedCheckout = () => {

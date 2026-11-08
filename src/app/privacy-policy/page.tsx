@@ -41,9 +41,23 @@ export default function PrivacyPolicyPage() {
             email address, name and role on the store.
           </li>
           <li>
+            <strong>Unfinished checkouts</strong> — if you type your mobile
+            number at checkout but do not place the order, we keep the number,
+            the name and address you typed and the items in your bag, so our
+            team can call or message you once to help finish the order. Tell us
+            and we will delete it. Unfinished checkouts are not used for
+            anything else.
+          </li>
+          <li>
+            <strong>Order checks</strong> — a one-way code made from your IP
+            address (not the address itself), a random id stored in your
+            browser, and where you came from (for example a Facebook ad link).
+            These help us spot fake orders and see which ads work.
+          </li>
+          <li>
             <strong>Usage data</strong> — which pages were viewed and which
-            items were added to a bag, collected in aggregate by Google
-            Analytics so we can improve the store.
+            items were added to a bag, collected by Google Analytics and the
+            Meta (Facebook) Pixel so we can improve the store and our ads.
           </li>
         </ul>
       </LegalSection>
@@ -58,8 +72,12 @@ export default function PrivacyPolicyPage() {
           <li>Understand which products and pages matter, so we can stock and design better.</li>
         </ul>
         <p>
-          We do not use your data for automated decision-making or profiling,
-          and we do not sell it to anyone.
+          To stop fake cash-on-delivery orders, each order gets an automatic
+          check based on this number&apos;s past deliveries and returns, repeat
+          orders from the same device, and whether you are signed in. The check
+          can only ask you to pay the delivery charge first or lead to a
+          confirmation call; it never refuses an order on its own. Call us if
+          you think it got your order wrong. We do not sell your data to anyone.
         </p>
       </LegalSection>
 
@@ -70,8 +88,9 @@ export default function PrivacyPolicyPage() {
         </p>
         <ul className="list-disc pl-5 flex flex-col gap-1">
           <li>
-            <strong>Courier partners</strong> — your name, address and phone
-            number, so a driver can find you.
+            <strong>Courier partners</strong> — Steadfast and Pathao receive
+            your name, address, phone number and the cash to collect, so a
+            rider can find you.
           </li>
           <li>
             <strong>Payment providers</strong> — bKash and Nagad, to settle a
@@ -84,6 +103,12 @@ export default function PrivacyPolicyPage() {
           <li>
             <strong>Analytics</strong> — Google Analytics, which receives
             page-level usage data and no contact details.
+          </li>
+          <li>
+            <strong>Meta (Facebook)</strong> — when you order, Meta receives
+            the order value and a scrambled (hashed) form of your phone number,
+            email and name, so it can tell us which ads led to sales. Meta
+            cannot read the original details from the hashed form.
           </li>
         </ul>
       </LegalSection>

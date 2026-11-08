@@ -49,6 +49,10 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   // Refunds are admin-only, but an admin session is worth protecting too: a
   // stuck client retrying a refund must not be able to fire a hundred of them.
   refund: { limit: 30, windowMs: 60_000 },
+  // Lead capture fires as the customer types; generous, but not unlimited.
+  lead: { limit: 30, windowMs: 60_000 },
+  // Order lookup by order number + phone: slow enough to stop guessing.
+  track: { limit: 10, windowMs: 60_000 },
 };
 
 export interface RateLimitResult {

@@ -921,7 +921,34 @@ export interface CheckoutRequest {
    */
   provider_txn_id?: string;
   items: CheckoutItemPayload[];
+  /** Structured address (Phase 1). When present, the zone is derived from it. */
+  division?: string;
+  district?: string;
+  thana?: string;
+  /** House, road and area, without the thana and district. */
+  address_line?: string;
+  /** full: pay everything now; cod_advance: pay the delivery charge now; cod: pay on delivery. */
+  payment_plan?: PaymentPlan;
+  /** The browser's estimate of the total, used only for the advance check before the order exists. */
+  expected_total?: number;
+  turnstile_token?: string;
+  device_id?: string;
+  /** Lead row this checkout started as. */
+  session_id?: string;
+  attribution?: {
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_content?: string;
+    utm_term?: string;
+    fbclid?: string;
+    landing_page?: string;
+    referrer?: string;
+  };
 }
+
+export type PaymentPlan = "full" | "cod_advance" | "cod";
+export type ConfirmationStatus = "unconfirmed" | "needs_call" | "awaiting_payment" | "confirmed" | "rejected";
 
 export interface CheckoutResponse {
   success: boolean;
@@ -940,6 +967,10 @@ export interface CheckoutResponse {
   payment_error?: string;
   /** Set when the order was rejected; `order_id` is absent then. */
   error?: string;
+  reason?: string;
+  payment_plan?: PaymentPlan;
+  advance_amount?: number;
+  confirmation_status?: ConfirmationStatus;
 }
 
 // ==========================================================
