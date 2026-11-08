@@ -21,8 +21,12 @@ environment: it uses R2 once `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and
    npx wrangler secret put TIGRIS_STORAGE_BUCKET
    ```
 
-3. In `.env`, set `NEXT_PUBLIC_SITE_URL` to the Worker address
-   (`https://arts-sports.<subdomain>.workers.dev`), then `npm run deploy`.
+3. Put the production site URL in `.env.production.local` (git-ignored; it
+   overrides `.env.local` for production builds only), then `npm run deploy`:
+
+   ```env
+   NEXT_PUBLIC_SITE_URL=https://arts-sports.arts-sports.workers.dev
+   ```
 4. Add that URL to **Supabase → Authentication → URL Configuration** redirect
    URLs so Google sign-in works.
 
@@ -32,7 +36,9 @@ Images keep streaming through `/api/media` from Tigris, exactly as before.
 
 The steps below are for when R2 is enabled on the Cloudflare account.
 
-Until the domain is added, the site uses free Cloudflare addresses:
+Live now at **https://arts-sports.arts-sports.workers.dev** (account
+artssportsbd@gmail.com). Until the domain is added, the site uses free
+Cloudflare addresses:
 
 | What | Before launch | After launch |
 | --- | --- | --- |
@@ -132,8 +138,8 @@ npx wrangler secret put R2_SECRET_ACCESS_KEY
 npx wrangler secret put R2_PUBLIC_URL
 ```
 
-In `.env`, set `NEXT_PUBLIC_SITE_URL` to the Worker address (it is baked in at
-build time), then:
+Make sure `NEXT_PUBLIC_SITE_URL` in `.env.production.local` is the live
+address (it is baked in at build time), then:
 
 ```bash
 npm run deploy
@@ -155,7 +161,7 @@ Try the production build locally first with `npm run preview`
 3. R2 bucket → **Settings → Custom Domains** → add `media.artssports.com`.
 4. Update `.env` and the Worker secret:
    `R2_PUBLIC_URL=https://media.artssports.com`,
-   `NEXT_PUBLIC_SITE_URL=https://artssports.com`.
+   `NEXT_PUBLIC_SITE_URL=https://artssports.com` (in `.env.production.local`).
 5. `node scripts/r2-set-media-prefix.mjs` (rewrites image URLs in the database).
 6. `npm run deploy`.
 7. Add the new domain to Supabase's redirect URLs.
