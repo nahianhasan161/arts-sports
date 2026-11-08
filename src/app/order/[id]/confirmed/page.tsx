@@ -7,6 +7,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatTaka } from "@/lib/pricing";
 import { TrustBadges } from "@/components/seo/TrustBadges";
 import { syncPaymentById } from "@/lib/payments/online";
+import { FinishPaymentButton } from "@/components/payments/FinishPaymentButton";
 import { getServiceSupabase, isServiceSupabaseConfigured } from "@/lib/supabase/service";
 
 /**
@@ -264,12 +265,10 @@ export default async function OrderConfirmedPage(
                 "Your order is saved. Contact us, or place it again with another payment method."}
             </p>
             {payment.checkout_url && payment.gateway_status !== "review" && (
-              <a
-                href={payment.checkout_url}
+              <FinishPaymentButton
+                checkoutUrl={payment.checkout_url}
                 className="inline-block mt-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold"
-              >
-                Finish payment
-              </a>
+              />
             )}
           </div>
         )}

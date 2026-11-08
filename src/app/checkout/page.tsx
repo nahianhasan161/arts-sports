@@ -18,6 +18,7 @@ import { formatTaka } from "@/lib/pricing";
 import { deliveryWindow, isInsideDhaka, parseDhakaOverride } from "@/lib/bd-geo";
 import { getAttribution, getDeviceId } from "@/lib/tracking/attribution";
 import { trackEvent } from "@/lib/tracking/events";
+import { openPaymentPopup } from "@/lib/payments/popup";
 import type { CartItem, PaymentPlan } from "@/types";
 
 /**
@@ -77,6 +78,8 @@ function CheckoutInner() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [placing, setPlacing] = useState(false);
+  // Set while the bKash / Nagad popup is open, after the cart is cleared.
+  const [payingOrder, setPayingOrder] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [advanceNotice, setAdvanceNotice] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -301,17 +304,42 @@ function CheckoutInner() {
       } catch {
         // ignore
       }
+      const orderPage = `/order/${encodeURIComponent(json.order_id)}/confirmed`;
       if (typeof json.checkout_url === "string" && json.checkout_url) {
-        window.location.href = json.checkout_url;
+        // bKash / Nagad opens in a popup on this page. Paid, pending or
+        // closed, the order page re-checks the payment with the gateway and
+        // offers "Finish payment" if it is still unpaid.
+        setPayingOrder(json.order_id);
+        const outcome = await openPaymentPopup(json.checkout_url);
+        if (outcome === "redirected") return;
+        router.replace(json.payment_id ? `${orderPage}?payment=${encodeURIComponent(json.payment_id)}` : orderPage);
         return;
       }
-      router.replace(`/order/${encodeURIComponent(json.order_id)}/confirmed`);
+      router.replace(orderPage);
     } catch {
       setOrderError("Network problem while placing your order. Please try again.");
     } finally {
       setPlacing(false);
     }
   };
+
+  if (payingOrder) {
+    return (
+      <div className="max-w-container-max mx-auto px-space-base py-space-3xl text-center">
+        <Loader2 className="w-6 h-6 mx-auto animate-spin text-primary" aria-hidden />
+        <h1 className="mt-3 font-display text-xl font-bold text-primary uppercase">Finish your payment</h1>
+        <p className="mt-2 text-sm text-muted">
+          Your order is saved. Complete the bKash / Nagad payment in the window that opened.
+        </p>
+        <Link
+          href={`/order/${encodeURIComponent(payingOrder)}/confirmed`}
+          className="inline-block mt-4 text-xs font-bold underline text-primary"
+        >
+          View my order
+        </Link>
+      </div>
+    );
+  }
 
   if (mounted && items.length === 0) {
     return (
