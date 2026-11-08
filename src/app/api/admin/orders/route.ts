@@ -48,6 +48,9 @@ export async function GET(request: NextRequest) {
     if (statusFilter?.startsWith("confirm:")) {
       // Confirmation queues: confirm:needs_call, confirm:awaiting_payment, ...
       query = query.eq("confirmation_status", statusFilter.slice("confirm:".length));
+    } else if (statusFilter === "pending") {
+      // Unpaid online orders are not real orders yet; they have their own queue.
+      query = query.eq("status", "pending").neq("confirmation_status", "awaiting_payment");
     } else if (statusFilter) {
       query = query.eq("status", statusFilter);
     }

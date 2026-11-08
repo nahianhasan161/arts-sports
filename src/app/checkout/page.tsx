@@ -329,7 +329,7 @@ function CheckoutInner() {
         <Loader2 className="w-6 h-6 mx-auto animate-spin text-primary" aria-hidden />
         <h1 className="mt-3 font-display text-xl font-bold text-primary uppercase">Finish your payment</h1>
         <p className="mt-2 text-sm text-muted">
-          Your order is saved. Complete the bKash / Nagad payment in the window that opened.
+          Complete the bKash / Nagad payment in the window that opened. Your order is placed once the payment comes through.
         </p>
         <Link
           href={`/order/${encodeURIComponent(payingOrder)}/confirmed`}

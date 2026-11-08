@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { OrderPixel } from "@/components/seo/OrderPixel";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { CheckCircle2, Package, CreditCard, Truck, Phone } from "lucide-react";
+import { CheckCircle2, Package, CreditCard, Truck, Phone, Clock, XCircle } from "lucide-react";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { formatTaka } from "@/lib/pricing";
 import { TrustBadges } from "@/components/seo/TrustBadges";
@@ -53,7 +53,7 @@ interface OrderConfirmation {
 
 /** A confirmation has never been indexed, and never should be. */
 export const metadata: Metadata = {
-  title: "Order Confirmed",
+  title: "Your Order",
   robots: { index: false, follow: false },
 };
 
@@ -76,8 +76,24 @@ interface ReturnedPayment {
  * that payment from the gateway first, so the order shows as confirmed
  * straight away instead of waiting for the webhook.
  */
-async function loadReturnedPayment(orderId: string, paymentId: string | undefined): Promise<ReturnedPayment | null> {
-  if (!paymentId || !/^[0-9a-f-]{36}$/i.test(paymentId) || !isServiceSupabaseConfigured()) return null;
+async function loadReturnedPayment(orderId: string, requestedId: string | undefined): Promise<ReturnedPayment | null> {
+  if (!isServiceSupabaseConfigured()) return null;
+  let paymentId = requestedId && /^[0-9a-f-]{36}$/i.test(requestedId) ? requestedId : null;
+  if (!paymentId) {
+    // Opened without ?payment (a bookmark, the track page): use the order's
+    // latest online payment, so an unpaid order can still be paid from here.
+    const { data: latest } = await getServiceSupabase()
+      .from("payments")
+      .select("id")
+      .eq("order_id", orderId)
+      .eq("type", "charge")
+      .not("gateway", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    paymentId = latest?.id ?? null;
+  }
+  if (!paymentId) return null;
   try {
     await syncPaymentById(paymentId);
   } catch (err) {
@@ -156,6 +172,12 @@ export default async function OrderConfirmedPage(
   if (!order) notFound();
 
   const paymentLabel = PAYMENT_LABELS[order.payment_method] ?? order.payment_method;
+  // An order that must be paid online first is not placed until it is paid.
+  const onlineFirst = Boolean(extras && extras.payment_plan !== "cod");
+  const awaitingPayment = onlineFirst && extras?.confirmation_status === "awaiting_payment" && order.status === "pending";
+  const beingVerified = awaitingPayment && payment?.status === "initiated" && payment.gateway_status === "review";
+  const cancelledUnpaid = onlineFirst && order.status === "cancelled" && extras?.confirmation_status !== "confirmed";
+  const amountDue = payment?.amount ?? extras?.advance_amount ?? 0;
   const placedOn = order.created_at
     ? new Date(order.created_at).toLocaleDateString("en-GB", {
         day: "numeric",
@@ -167,18 +189,72 @@ export default async function OrderConfirmedPage(
   return (
     <div className="w-full bg-surface">
       <div className="max-w-3xl mx-auto px-space-base py-space-2xl">
-        {/* Success header */}
+        {/* Header: placed, waiting for payment, or cancelled unpaid */}
         <div className="text-center mb-space-xl">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-10 h-10" />
-          </div>
-          <h1 className="font-display text-2xl sm:text-3xl uppercase font-bold text-primary mb-2">
-            Thank you — your order is placed
-          </h1>
-          <p className="text-sm text-text-muted max-w-lg mx-auto">
-            We have received your order and reserved your items. Keep this
-            reference to quote if you need to contact us.
-          </p>
+          {beingVerified ? (
+            <>
+              <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-10 h-10" />
+              </div>
+              <h1 className="font-display text-2xl sm:text-3xl uppercase font-bold text-primary mb-2">
+                Checking your payment
+              </h1>
+              <p className="text-sm text-text-muted max-w-lg mx-auto">
+                We could not match your payment automatically. Our team will check it
+                shortly, and your order is placed as soon as it is confirmed.
+              </p>
+            </>
+          ) : awaitingPayment ? (
+            <>
+              <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-10 h-10" />
+              </div>
+              <h1 className="font-display text-2xl sm:text-3xl uppercase font-bold text-primary mb-2">
+                Your order is not placed yet
+              </h1>
+              <p className="text-sm text-text-muted max-w-lg mx-auto">
+                Pay {formatTaka(amountDue)} with bKash or Nagad to place it. We hold your
+                items for a short while; if the payment does not come through, the
+                order is cancelled by itself.
+              </p>
+              {payment?.checkout_url && (
+                <FinishPaymentButton
+                  checkoutUrl={payment.checkout_url}
+                  label={`Pay ${formatTaka(amountDue)} now`}
+                  className="inline-block mt-4 px-6 py-3 rounded-lg bg-primary text-white text-sm font-bold font-display uppercase tracking-wider"
+                />
+              )}
+              <p className="text-xs text-text-muted mt-3">
+                Already sent the money? This page updates within a minute.
+              </p>
+            </>
+          ) : cancelledUnpaid ? (
+            <>
+              <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                <XCircle className="w-10 h-10" />
+              </div>
+              <h1 className="font-display text-2xl sm:text-3xl uppercase font-bold text-primary mb-2">
+                Order cancelled: payment not received
+              </h1>
+              <p className="text-sm text-text-muted max-w-lg mx-auto">
+                The payment was not completed, so this order was not placed. You can
+                order again any time.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <h1 className="font-display text-2xl sm:text-3xl uppercase font-bold text-primary mb-2">
+                Thank you — your order is placed
+              </h1>
+              <p className="text-sm text-text-muted max-w-lg mx-auto">
+                We have received your order and reserved your items. Keep this
+                reference to quote if you need to contact us.
+              </p>
+            </>
+          )}
 
           <div className="mt-5 inline-flex flex-col items-center gap-1 px-6 py-4 bg-surface-card border border-border-light rounded-xl">
             <span className="text-[11px] font-display uppercase tracking-wider text-text-muted font-bold">
@@ -202,21 +278,15 @@ export default async function OrderConfirmedPage(
           />
         )}
 
-        {extras && extras.confirmation_status !== "confirmed" && extras.confirmation_status !== "rejected" && (() => {
+        {extras && extras.confirmation_status === "needs_call" && order.status !== "cancelled" && (() => {
           const wa = storeWhatsApp(`Order #${order.order_id} confirm korchi / I confirm order #${order.order_id}`);
           return (
             <div className="rounded-xl border border-amber-300 bg-amber-50 p-space-base mb-space-base text-sm text-amber-900">
-              <p className="font-bold">
-                {extras.confirmation_status === "awaiting_payment"
-                  ? "Waiting for your payment"
-                  : "One more step: confirm your order"}
-              </p>
+              <p className="font-bold">One more step: confirm your order</p>
               <p className="text-xs mt-1">
-                {extras.confirmation_status === "awaiting_payment"
-                  ? "Your order is confirmed as soon as the payment comes through."
-                  : "We will call you shortly to confirm. To confirm right now, send us the ready-made message on WhatsApp. It is free."}
+                We will call you shortly to confirm. To confirm right now, send us the ready-made message on WhatsApp. It is free.
               </p>
-              {wa && extras.confirmation_status === "needs_call" && (
+              {wa && (
                 <a
                   href={wa}
                   target="_blank"
@@ -238,7 +308,7 @@ export default async function OrderConfirmedPage(
           .
         </p>
 
-        {payment && (
+        {payment && !awaitingPayment && !cancelledUnpaid && (
           <div
             className={`rounded-xl border p-space-base mb-space-base text-sm ${
               payment.status === "successful"
@@ -285,9 +355,13 @@ export default async function OrderConfirmedPage(
             <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold uppercase">
               {order.status || "pending"}
             </span>
-            <p className="text-xs text-text-muted">
-              Our team will call you to confirm the order before dispatch.
-            </p>
+            {!awaitingPayment && !cancelledUnpaid && (
+              <p className="text-xs text-text-muted">
+                {extras?.confirmation_status === "confirmed"
+                  ? "Your order is confirmed and will be packed for dispatch."
+                  : "Our team will call you to confirm the order before dispatch."}
+              </p>
+            )}
           </div>
         </div>
 

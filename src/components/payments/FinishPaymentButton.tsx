@@ -5,7 +5,15 @@ import { useRouter } from "next/navigation";
 import { openPaymentPopup } from "@/lib/payments/popup";
 
 /** Reopens the bKash / Nagad popup for an order that is not paid yet. */
-export function FinishPaymentButton({ checkoutUrl, className }: { checkoutUrl: string; className?: string }) {
+export function FinishPaymentButton({
+  checkoutUrl,
+  className,
+  label = "Finish payment",
+}: {
+  checkoutUrl: string;
+  className?: string;
+  label?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -22,7 +30,7 @@ export function FinishPaymentButton({ checkoutUrl, className }: { checkoutUrl: s
 
   return (
     <a href={checkoutUrl} onClick={onClick} aria-disabled={open} className={className}>
-      {open ? "Opening…" : "Finish payment"}
+      {open ? "Opening…" : label}
     </a>
   );
 }
