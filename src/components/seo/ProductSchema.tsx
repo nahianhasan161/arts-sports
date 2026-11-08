@@ -39,7 +39,7 @@ export function ProductSchema({ product }: ProductSchemaProps) {
       product.description?.replace(/<[^>]*>/g, "").slice(0, 160),
     brand: {
       "@type": "Brand",
-      name: "Arts Fashion",
+      name: "Arts Sports",
     },
     offers: {
       "@type": "Offer",
@@ -51,7 +51,7 @@ export function ProductSchema({ product }: ProductSchemaProps) {
         : "https://schema.org/OutOfStock",
       seller: {
         "@type": "Organization",
-        name: "Arts Fashion",
+        name: "Arts Sports",
       },
       itemCondition: "https://schema.org/NewCondition",
     },

@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { CheckoutItemPayload, CheckoutRequest, CheckoutResponse } from "@/types";
 
 /**
@@ -50,7 +51,18 @@ const REJECTIONS: Record<string, { status: number; message: string }> = {
   empty_order: { status: 400, message: "Your bag is empty." },
   invalid_quantity: { status: 400, message: "An item has an invalid quantity." },
   invalid_shipping_fee: { status: 400, message: "Invalid delivery charge." },
+  // A variant with no stock row at all is a configuration fault on our side,
+  // not a depleted product. It is reported as an internal error so it reaches
+  // the store owner instead of the customer as a "sold out" that lost the sale.
+  variant_unallocated: {
+    status: 503,
+    message: "This item is temporarily unavailable. Please try again shortly or call us to place your order.",
+  },
   insufficient_stock: { status: 409, message: "An item just sold out." },
+  inventory_not_allocatable: {
+    status: 503,
+    message: "This item is temporarily unavailable. Please try again shortly or call us to place your order.",
+  },
   product_not_found: { status: 422, message: "An item in your bag no longer exists." },
 };
 
@@ -63,6 +75,30 @@ function reasonOf(message: string): string {
 export async function POST(request: Request) {
   let payload: CheckoutRequest;
 
+  /*
+   * Rate limited before the body is even parsed.
+   *
+   * A checkout request reserves stock for 30 minutes, so ten of them in a
+   * minute can drain a catalogue's availability with orders that never pay.
+   * Nothing limited this before, and the reservations are released by nothing
+   * either -- there is still no expiry job -- so an unthrottled loop is a slow
+   * way to take the store offline.
+   */
+  const limit = checkRateLimit(request as NextRequest, "checkout");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Too many orders placed in a short time. Please wait a moment and try again.",
+        reason: "rate_limited",
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfter) },
+      }
+    );
+  }
+
   try {
     payload = (await request.json()) as CheckoutRequest;
   } catch {
@@ -73,6 +109,11 @@ export async function POST(request: Request) {
   const phone = typeof payload?.customer_phone === "string" ? payload.customer_phone.trim() : "";
   const address = typeof payload?.delivery_address === "string" ? payload.delivery_address.trim() : "";
   const notes = typeof payload?.notes === "string" ? payload.notes.trim().slice(0, 500) : "";
+  // The wallet reference for a bKash or Nagad payment. Trimmed and capped
+  // rather than validated against a pattern: each provider has its own shape,
+  // and rejecting a valid reference is worse than storing a slightly odd one.
+  const providerTxn =
+    typeof payload?.provider_txn_id === "string" ? payload.provider_txn_id.trim().slice(0, 100) : "";
   const shippingFee = Number(payload?.shipping_fee ?? 0);
   const couponCode = typeof payload?.coupon_code === "string" ? payload.coupon_code.trim() : "";
   const rawItems = Array.isArray(payload?.items) ? payload.items : [];
@@ -133,6 +174,20 @@ export async function POST(request: Request) {
     if (!supabase) {
       return NextResponse.json({ success: false, error: "Service not configured" }, { status: 500 });
     }
+
+    /*
+     * The order's owner: the signed-in customer, or null for a guest.
+     *
+     * create_order_with_reservations() derives its own user_id from
+     * auth.uid(), so this is read rather than accepted from the payload -- a
+     * client that posted someone else's id would otherwise have the order
+     * recorded against the wrong account. It exists to attach the charge row
+     * below, and it matches whatever the order RPC stored.
+     */
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const userId = user?.id ?? null;
 
     // Resolve variants server-side. The browser-supplied variant_id is
     // ignored entirely: it is untrusted input, and a wrong value would
@@ -207,6 +262,40 @@ export async function POST(request: Request) {
       shipping_fee: number;
       total_amount: number;
     };
+
+    /*
+     * Record the charge, here and not by a second request from the browser.
+     *
+     * The client used to POST /api/payments after the order was created. That
+     * route requires a signed-in user, so for the majority of orders --
+     * guest checkout, which is how most of a COD store is bought -- the charge
+     * was never recorded at all, and the order stood with no payment row
+     * behind it. The payments table allows an insert from any role, so this
+     * route writes it directly, with the same user_id the order carries: the
+     * signed-in customer's, or null for a guest.
+     *
+     * A failure here is logged and not thrown. The order is already placed and
+     * paid for in the customer's hands; losing the charge row because a
+     * second insert failed would be a worse trade than an admin recording it
+     * by hand from the payments page.
+     */
+    try {
+      const { error: payErr } = await supabase.from("payments").insert({
+        order_id: result.order_id,
+        user_id: userId,
+        type: "charge",
+        provider: payload.payment_method ?? "cod",
+        amount: Number(result.total_amount),
+        provider_txn_id: providerTxn || null,
+        status: "initiated",
+        metadata: { recorded_by: "checkout" },
+      });
+      if (payErr) {
+        console.error("Order placed but the charge row could not be recorded:", payErr.message);
+      }
+    } catch (err) {
+      console.error("Order placed but recording the charge threw:", err);
+    }
 
     return NextResponse.json<CheckoutResponse>({
       success: true,

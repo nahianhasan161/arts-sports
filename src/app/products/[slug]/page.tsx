@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 300) ||
-    `${product.title} — Arts Fashion. Premium everyday apparel in combed compact organic cotton.`;
+    `${product.title} — Arts Sports. Premium everyday apparel in combed compact organic cotton.`;
 
   const title = `${product.title} | Buy Online`;
   const canonical = `/products/${encodeURIComponent(product.slug)}`;

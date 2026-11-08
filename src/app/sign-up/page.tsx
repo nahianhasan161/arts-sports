@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, FormEvent, useEffect } from "react";
-import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail, User } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,7 +99,7 @@ export default function SignUpPage() {
   return (
     <AuthLayout
       title="Create Account"
-      description="Join Arts Fashion today to enjoy exclusive benefits and track your orders easily."
+      description="Join Arts Sports today to enjoy exclusive benefits and track your orders easily."
       footerText="Already have an account?"
       footerLinkLabel="Sign In"
       footerLinkHref="/sign-in"
@@ -108,7 +108,7 @@ export default function SignUpPage() {
         <h2 className="font-display text-2xl uppercase tracking-wider font-bold text-primary mb-1">
           Create Account
         </h2>
-        <p className="text-xs text-text-muted">Start your Arts Fashion journey</p>
+        <p className="text-xs text-text-muted">Start your Arts Sports journey</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-space-base">
@@ -121,9 +121,11 @@ export default function SignUpPage() {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sign-up-name">Full Name</Label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
-              <span className="block w-4 h-4">👤</span>
-            </div>
+            {/* Was an emoji in a sized span, which renders at a different
+                optical size on every platform and sat off the text baseline.
+                The same Lucide icon the sign-in form uses, so the two forms
+                match. */}
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
             <Input
               id="sign-up-name"
               type="text"
@@ -131,6 +133,7 @@ export default function SignUpPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="Your full name"
+              className="pl-9"
             />
           </div>
         </div>
@@ -146,6 +149,7 @@ export default function SignUpPage() {
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="your.email@example.com"
+              className="pl-9"
             />
           </div>
         </div>
@@ -161,6 +165,7 @@ export default function SignUpPage() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               placeholder="Create a password"
+              className="pl-9 pr-10"
             />
             <button
               type="button"
@@ -188,6 +193,7 @@ export default function SignUpPage() {
               value={form.confirmPassword}
               onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
               placeholder="Confirm your password"
+              className="pl-9 pr-10"
             />
             <button
               type="button"

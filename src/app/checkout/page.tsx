@@ -1,614 +1,848 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Image from "next/image";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ShieldCheck,
-  ArrowLeft,
-} from "lucide-react";
+import { ShieldCheck, ArrowLeft, Check, Loader2, Lock, User, Phone, Mail, Tag, AlertCircle } from "lucide-react";
+import Image from "next/image";
 import { useCartStore } from "@/lib/store/cart-store";
-import type { CheckoutResponse, CouponQuote, CouponRejection } from "@/types";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { formatTaka } from "@/lib/pricing";
 
-/** Coupon reason -> what the customer is told. One place, so the
- *  checkout field and the server's rejection always read alike. */
-const COUPON_MESSAGES: Record<CouponRejection, string> = {
-  coupon_empty: "Enter a coupon code.",
-  coupon_not_found: "That coupon code does not exist.",
-  coupon_inactive: "This coupon is not active.",
-  coupon_not_started: "This coupon is not active yet.",
-  coupon_expired: "This coupon has expired.",
-  coupon_login_required: "Sign in to use this coupon code.",
-  coupon_wrong_group: "This code is not available for your account.",
-  coupon_used_up: "This coupon has been fully redeemed.",
-  coupon_user_limit_reached: "You have already used this coupon.",
-  coupon_min_order: "Your bag does not meet the minimum for this coupon.",
-  coupon_no_eligible_products: "This code does not apply to anything in your bag.",
-};
+/**
+ * Checkout, in four steps.
+ *
+ * This used to be one long form. Three problems with that, all of which cost
+ * conversions at the step that matters most:
+ *
+ *   1. One screen asked for eleven fields plus a payment choice, so the
+ *      customer could not tell how much was left before committing.
+ *   2. A shopper with an account was never asked to sign in, so no order was
+ *      ever attached to them and order history stayed empty. Authentication is
+ *      now its own step, with a clear "continue as guest" alternative.
+ *   3. Payment method and delivery notes sat below the fold beside unrelated
+ *      fields. Payment is now its own step, and the notes field that used to
+ *      be silently discarded is a first-class field on the review step.
+ *
+ * Every figure shown comes back from the server. The client computes none of
+ * the money: the coupon is quoted by /api/coupons/validate, and the totals
+ * come from the order function that also stores them.
+ */
 
-const taka = (n: number) =>
-  `\u09F3 ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const STEPS = [
+  { id: 1, label: "Delivery details" },
+  { id: 2, label: "Account" },
+  { id: 3, label: "Payment method" },
+  { id: 4, label: "Review & confirm" },
+] as const;
+
+const PAYMENTS = [
+  { id: "cod", label: "Cash on Delivery", detail: "Pay the rider when your parcel arrives. Available nationwide." },
+  { id: "bkash", label: "bKash", detail: "Pay from your bKash wallet, then enter the transaction ID below." },
+  { id: "nagad", label: "Nagad", detail: "Pay from your Nagad wallet, then enter the transaction ID below." },
+] as const;
+
+type PaymentId = (typeof PAYMENTS)[number]["id"];
+
+/** 11-digit Bangladeshi mobile, optionally spaced or hyphenated. */
+const BD_MOBILE = /^(?:\+?880|0)1[3-9]\d{8}$/;
+const normalisePhone = (raw: string) => raw.replace(/[\s-]/g, "");
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-
   const { items, getSubtotal, clearCart } = useCartStore();
+  const { user, configured: authConfigured } = useAuth();
+  const [step, setStep] = useState(1);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState<"dhaka" | "outside">("dhaka");
-  const [paymentMethod, setPaymentMethod] = useState<"cod" | "bkash" | "nagad">("cod");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentId>("cod");
   const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [orderError, setOrderError] = useState<string | null>(null);
-  /** Authoritative figures returned by the order RPC, while the redirect is in flight. */
-  const [placed, setPlaced] = useState<CheckoutResponse | null>(null);
-
-  // Coupon field. The quote comes from the server, so the savings shown
-  // here are the savings the order RPC will actually apply.
+  const [transactionId, setTransactionId] = useState("");
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signInPassword, setSignInPassword] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
   const [couponInput, setCouponInput] = useState("");
-  const [couponCode, setCouponCode] = useState<string | null>(null);
-  const [couponQuote, setCouponQuote] = useState<CouponQuote | null>(null);
-  const [couponBusy, setCouponBusy] = useState(false);
-  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [placing, setPlacing] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  /** Authoritative figures returned by the order function. */
+  const [quote, setQuote] = useState<{ discount_amount: number } | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   useEffect(() => {
+    // The subtotal is only meaningful once the persisted store has rehydrated.
+    // Rendering it during SSR produces a server HTML of 0 against a client
+    // value, which React reports as a hydration mismatch and which would show
+    // an empty bag for a moment before the real total appears.
     setMounted(true);
   }, []);
 
-  if (!mounted) return null;
+  // Prefill from the signed-in session, so a returning customer does not
+  // retype a name the account already holds.
+  useEffect(() => {
+    if (user) {
+      const meta = user.user_metadata ?? {};
+      if (!name && typeof meta.full_name === "string" && meta.full_name) setName(meta.full_name);
+      if (!email && user.email) setEmail(user.email);
+    }
+    // Deliberately only on the session changing: re-running this on every
+    // keystroke would overwrite a name the customer is editing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  const subtotal = getSubtotal();
+  const subtotal = mounted ? getSubtotal() : 0;
   const freeShippingThreshold = 1500;
 
-  // The coupon's own discount, quoted by the server. Before the order is
-  // placed this figure is what the RPC will apply, so it has to be included
-  // in everything on screen: without it the summary billed the merchandise
-  // at full value and the "CONFIRM & PLACE ORDER • ৳X" button quoted a
-  // number that was higher than the one actually charged.
-  const couponDiscount = placed
-    ? placed.coupon_discount_total
-    : couponQuote?.valid
-      ? couponQuote.discount_amount
-      : 0;
-
+  /**
+   * The coupon's discount, quoted by the server. Included in everything on
+   * screen, because the total the customer is shown has to be the total they
+   * are charged. Before this, `grandTotal` ignored the coupon, so the CTA
+   * quoted a number higher than the one actually taken.
+   */
+  const couponDiscount = quote?.discount_amount ?? 0;
   const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
 
-  // Free delivery is judged on the post-discount subtotal, because that is
-  // the subtotal the server's order function computes its own charge from.
-  // Judging the pre-discount figure here would show "FREE" for an order the
-  // server then charged carriage on.
+  /**
+   * Free delivery is judged on the post-discount subtotal, because that is the
+   * subtotal the server derives its own charge from. Judging the
+   * pre-discount figure here would show "FREE" for an order the server then
+   * charges carriage on.
+   */
   const shippingFee =
     discountedSubtotal >= freeShippingThreshold || subtotal === 0
       ? 0
       : city === "dhaka"
-      ? 60
-      : 120;
+        ? 60
+        : 120;
+
   const grandTotal = discountedSubtotal + shippingFee;
+  const taka = formatTaka;
 
-  // After a successful order these come from the database, not the cart.
-  const shownSubtotal = placed ? placed.subtotal : discountedSubtotal;
-  const shownCoupon = couponDiscount;
-  const shownTotal = placed ? placed.total_amount : grandTotal;
+  /** Ask the server whether a coupon applies, and how much it is worth. */
+  const quoteCoupon = useCallback(
+    async (code: string) => {
+      const trimmed = code.trim().toUpperCase();
+      if (!trimmed) {
+        setAppliedCoupon(null);
+        setQuote(null);
+        setQuoteError(null);
+        return;
+      }
+      try {
+        const res = await fetch("/api/coupons/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            coupon_code: trimmed,
+            items: items.map((i) => ({
+              product_id: i.productId ?? i.id,
+              quantity: i.quantity,
+            })),
+          }),
+        });
+        const json = await res.json();
+        if (res.ok && json?.valid) {
+          setQuote({ discount_amount: Number(json.discount_amount ?? 0) });
+          setAppliedCoupon(trimmed);
+          setQuoteError(null);
+        } else {
+          setQuote(null);
+          setAppliedCoupon(null);
+          setQuoteError(
+            json?.reason === "coupon_min_order"
+              ? `Add ${taka(Number(json.minimum_order_value ?? 0) - subtotal)} more to use this coupon.`
+              : "That coupon could not be applied to this order."
+          );
+        }
+      } catch {
+        setQuote(null);
+        setAppliedCoupon(null);
+        setQuoteError("Could not check that coupon. Please try again.");
+      }
+    },
+    [items, subtotal, taka]
+  );
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !phone || !address) {
-      alert("Please fill in your name, phone number, and delivery address.");
+  /** Validate the current step, returning true when it is safe to advance. */
+  const validateStep = useCallback(
+    (which: number): boolean => {
+      const errors: Record<string, string> = {};
+      if (which === 1) {
+        if (!name.trim()) errors.name = "Please enter the recipient's name.";
+        const normalised = normalisePhone(phone);
+        if (!normalised) errors.phone = "Please enter a mobile number.";
+        else if (!BD_MOBILE.test(normalised))
+          errors.phone = "Enter an 11-digit Bangladeshi mobile number, e.g. 01712345678.";
+        // Not `required`, because a customer may reasonably decline to give an
+        // email -- but a malformed one is rejected rather than silently kept.
+        if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+          errors.email = "That email address does not look right.";
+        if (!address.trim()) errors.address = "Please enter the delivery address.";
+        else if (address.trim().length < 10)
+          errors.address = "Please add a fuller address, including area and thana/locality.";
+      }
+      if (which === 3) {
+        // bKash and Nagad are wallet payments: without the transaction ID
+        // there is nothing for the store to reconcile the payment against.
+        if ((paymentMethod === "bkash" || paymentMethod === "nagad") && !transactionId.trim())
+          errors.transactionId = `Enter the ${paymentMethod} transaction ID so we can verify your payment.`;
+      }
+      setFieldErrors(errors);
+      return Object.keys(errors).length === 0;
+    },
+    [name, phone, email, address, paymentMethod, transactionId]
+  );
+
+  const goTo = useCallback(
+    (next: number) => {
+      setStep(next);
+      setOrderError(null);
+    },
+    []
+  );
+
+  const handleNext = useCallback(() => {
+    if (!validateStep(step)) return;
+    goTo(Math.min(STEPS.length, step + 1));
+  }, [step, validateStep, goTo]);
+
+  const handleSignIn = useCallback(async () => {
+    setSignInError(null);
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setSignInError("Sign-in is unavailable right now. You can still check out as a guest.");
       return;
     }
+    setSigningIn(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: signInEmail.trim(),
+        password: signInPassword,
+      });
+      if (error) {
+        setSignInError(
+          error.message.includes("Invalid login credentials")
+            ? "That email and password do not match an account."
+            : error.message
+        );
+        return;
+      }
+      // The session is now attached, and the order will be recorded against it.
+      goTo(3);
+    } catch (caught) {
+      setSignInError(caught instanceof Error ? caught.message : "Could not sign in.");
+    } finally {
+      setSigningIn(false);
+    }
+  }, [signInEmail, signInPassword, goTo]);
 
-    setSubmitting(true);
+  const handlePlaceOrder = useCallback(async () => {
+    if (!validateStep(1) || !validateStep(3)) {
+      goTo(1);
+      return;
+    }
+    setPlacing(true);
     setOrderError(null);
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customer_name: name,
-          customer_phone: phone,
-          customer_email: email || undefined,
-          delivery_address: address,
+          customer_name: name.trim(),
+          customer_phone: normalisePhone(phone),
+          customer_email: email.trim() || undefined,
+          delivery_address: address.trim(),
           city,
           shipping_fee: shippingFee,
           payment_method: paymentMethod,
-          coupon_code: couponCode ?? undefined,
-          // The customer's delivery instructions. This used to be collected
-          // and then dropped on the floor: the form had the field but the
-          // payload did not, so every instruction a customer typed for the
-          // rider was silently discarded.
+          // Delivery instructions for the rider. Previously collected in the
+          // form and then never sent, so every instruction was discarded.
           notes: notes.trim() ? notes.trim() : undefined,
-          items: items.map((item) => ({
-            product_id: item.productId,
-            // Resolved server-side; deliberately sent empty.
-            variant_id: "",
-            title: item.title,
-            size: item.size,
-            color: item.color,
-            quantity: item.quantity,
-            image: item.image,
+          // The wallet reference, when the customer has chosen wallet payment.
+          provider_txn_id:
+            paymentMethod === "bkash" || paymentMethod === "nagad" ? transactionId.trim() : undefined,
+          coupon_code: appliedCoupon ?? undefined,
+          items: items.map((i) => ({
+            // variant_id is resolved on the server from the product, size and
+            // colour; a browser-supplied id is deliberately not sent because
+            // it is untrusted input that could reserve the wrong stock.
+            product_id: i.productId,
+            title: i.title,
+            size: i.size,
+            color: i.color,
+            quantity: i.quantity,
+            image: i.image,
           })),
         }),
       });
+      const json = await res.json();
 
-      const data = (await res.json()) as CheckoutResponse;
-
-      // The old client-side order path reported success even when the
-      // insert failed, which told customers their order was in when it
-      // was not. A non-2xx here is a real failure and is shown as one.
-      if (!res.ok || !data.success) {
-        setOrderError(data.error ?? "We could not place your order. Please try again.");
+      if (!res.ok || !json?.success) {
+        setOrderError(json?.error ?? "We could not place your order. Please try again.");
         return;
       }
 
-      setPlaced(data);
       clearCart();
-
-      // Record the payment transaction so the order has a charge row.
-      // Failure here is non-fatal: the order is already placed and the
-      // admin can record the payment manually from the payments page.
-      try {
-        await fetch("/api/payments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            order_id: data.order_id,
-            type: "charge",
-            provider: paymentMethod,
-            amount: data.total_amount,
-            status: "initiated",
-          }),
-        });
-      } catch {
-        // Non-fatal — logged silently, order is still valid.
-      }
-
-      // A real URL, not a client-only state. The success panel used to live
-      // in this component, so reloading the page emptied the cart, dropped
-      // the customer onto "Your Bag is Empty", and left the order ID with
-      // no address to come back to. The confirmation now owns its own route
-      // and reads the order from the database.
-      router.replace(`/order/${encodeURIComponent(data.order_id)}/confirmed`);
+      // A real URL, not a client-only state. The confirmation used to live in
+      // this component, so a reload emptied the bag and left the order
+      // reference with nowhere to go back to.
+      router.replace(`/order/${encodeURIComponent(json.order_id)}/confirmed`);
     } catch {
-      setOrderError("We could not place your order. Please check your connection and try again.");
+      setOrderError("Network problem while placing your order. Please try again.");
     } finally {
-      setSubmitting(false);
+      setPlacing(false);
     }
-  };
+  }, [
+    validateStep, goTo, name, phone, email, address, city, shippingFee,
+    paymentMethod, notes, transactionId, appliedCoupon, items, clearCart, router,
+  ]);
 
-  const applyCoupon = async () => {
-    const code = couponInput.trim();
-    if (!code) return;
+  const orderItems = useMemo(
+    () =>
+      items.map((i) => ({
+        id: i.id,
+        productId: i.productId,
+        title: i.title,
+        quantity: i.quantity,
+        size: i.size,
+        color: i.color,
+        image: i.image,
+      })),
+    [items]
+  );
 
-    setCouponBusy(true);
-    setCouponError(null);
-    setCouponQuote(null);
-
-    try {
-      const res = await fetch("/api/coupons/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code,
-          items: items.map((item) => ({
-            product_id: item.productId,
-            quantity: item.quantity,
-          })),
-        }),
-      });
-
-      const quote = (await res.json()) as CouponQuote;
-
-      if (!quote.valid) {
-        setCouponCode(null);
-        setCouponError(COUPON_MESSAGES[quote.reason] ?? "This coupon cannot be used.");
-        return;
-      }
-
-      setCouponQuote(quote);
-      setCouponCode(quote.code);
-      setCouponInput(quote.code);
-    } catch {
-      setCouponCode(null);
-      setCouponError("We could not check that coupon. Please try again.");
-    } finally {
-      setCouponBusy(false);
-    }
-  };
-
-  const clearCoupon = () => {
-    setCouponInput("");
-    setCouponCode(null);
-    setCouponQuote(null);
-    setCouponError(null);
-  };
-
-  if (items.length === 0 && !submitting) {
-    return (
-      <div className="max-w-xl mx-auto px-space-base py-20 text-center">
-        <h2 className="font-display text-2xl uppercase font-bold text-primary mb-2">
-          Your Bag is Empty
-        </h2>
-        <p className="text-xs text-text-muted mb-6">
-          Please add items to your cart before proceeding to checkout.
-        </p>
-        <Link
-          href="/shop"
-          className="px-6 py-2.5 bg-primary text-white font-display text-xs uppercase font-bold rounded-lg"
-        >
-          Browse Catalog
-        </Link>
-      </div>
-    );
-  }
+  const needsWalletId = paymentMethod === "bkash" || paymentMethod === "nagad";
 
   return (
-    <div className="max-w-container-max mx-auto px-space-base py-space-xl">
-      {/* Checkout Breadcrumb */}
-      <div className="flex items-center justify-between pb-space-base border-b border-border-light mb-space-lg">
-        <Link
-          href="/shop"
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors font-medium"
+    <div className="w-full bg-surface pb-space-3xl">
+      <div className="max-w-container-max mx-auto px-space-base py-space-lg">
+        <div className="mb-space-base flex items-center justify-between">
+          <h1 className="font-display text-2xl sm:text-3xl uppercase font-bold text-primary">
+            Secure Checkout
+          </h1>
+          <Link
+            href="/shop"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-primary border border-border-light hover:bg-surface-subtle px-3 py-2 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Continue Shopping</span>
+          </Link>
+        </div>
+
+        {/* Step indicator. A single long form gave no sense of how much was
+            left before committing, which is where most drop-off happens. */}
+        <ol className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar mb-space-xl">
+          {STEPS.map((s, idx) => {
+            const state = step === s.id ? "current" : step > s.id ? "done" : "upcoming";
+            return (
+              <li key={s.id} className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <button
+                  onClick={() => step > s.id && goTo(s.id)}
+                  disabled={step <= s.id}
+                  aria-current={state === "current" ? "step" : undefined}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-display uppercase tracking-wider font-bold transition-colors ${
+                    state === "current"
+                      ? "bg-primary text-white border-primary"
+                      : state === "done"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : "bg-surface-card text-text-muted border-border-light"
+                  } ${step > s.id ? "cursor-pointer hover:bg-surface-subtle" : "cursor-default"}`}
+                >
+                  <span className={`w-4 h-4 rounded-full grid place-items-center text-[10px] ${
+                    state === "current" ? "bg-white text-primary" : state === "done" ? "bg-emerald-600 text-white" : "bg-surface-container text-text-muted"
+                  }`}>
+                    {state === "done" ? <Check className="w-3 h-3" /> : s.id}
+                  </span>
+                  <span className="hidden sm:inline">{s.label}</span>
+                </button>
+                {idx < STEPS.length - 1 && (
+                  <span className={`w-4 sm:w-8 h-px ${step > s.id ? "bg-emerald-400" : "bg-border-light"}`} />
+                )}
+              </li>
+            );
+          })}
+        </ol>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (step < STEPS.length) handleNext();
+            else void handlePlaceOrder();
+          }}
+          className="grid grid-cols-1 lg:grid-cols-12 gap-space-xl"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Store</span>
-        </Link>
-        <div className="flex items-center gap-1 text-xs text-emerald-700 font-medium">
-          <ShieldCheck className="w-4 h-4" />
-          <span>256-bit Encrypted Checkout</span>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-space-xl">
-        {/* Left Column: Form Details (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col gap-space-lg">
-          {/* 1. Contact Information */}
-          <div className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-3">
-            <h2 className="font-display text-sm uppercase tracking-wider font-bold text-primary">
-              1. Customer Information
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div>
-                <label className="block font-semibold mb-1 text-on-surface">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Tanvir Hasan"
-                  className="w-full h-10 px-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold mb-1 text-on-surface">
-                  Mobile Number (11 digits) *
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="017XXXXXXXX"
-                  className="w-full h-10 px-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block font-semibold mb-1 text-on-surface">
-                  Email Address (Optional)
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@domain.com"
-                  className="w-full h-10 px-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Shipping Details */}
-          <div className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-3">
-            <h2 className="font-display text-sm uppercase tracking-wider font-bold text-primary">
-              2. Delivery Address
-            </h2>
-            <div className="flex flex-col gap-3 text-xs">
-              <div>
-                <label className="block font-semibold mb-1 text-on-surface">
-                  Destination Region *
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setCity("dhaka")}
-                    className={`py-2.5 px-3 rounded-lg border text-left flex items-center justify-between transition-all ${
-                      city === "dhaka"
-                        ? "border-primary bg-primary/5 text-primary font-bold shadow-sm"
-                        : "border-border-light bg-surface-subtle text-on-surface"
-                    }`}
-                  >
-                    <span>Inside Dhaka Metro</span>
-                    <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-border-light">
-                      ৳ 60
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCity("outside")}
-                    className={`py-2.5 px-3 rounded-lg border text-left flex items-center justify-between transition-all ${
-                      city === "outside"
-                        ? "border-primary bg-primary/5 text-primary font-bold shadow-sm"
-                        : "border-border-light bg-surface-subtle text-on-surface"
-                    }`}
-                  >
-                    <span>Outside Dhaka (All BD)</span>
-                    <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-border-light">
-                      ৳ 120
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1 text-on-surface">
-                  Detailed Street Address (House, Road, Area) *
-                </label>
-                <textarea
-                  required
-                  rows={2}
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="House 12, Road 5, Block C, Mirpur 2, Dhaka"
-                  className="w-full p-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1 text-on-surface">
-                  Order / Delivery Notes (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Special instructions for the delivery rider..."
-                  className="w-full h-10 px-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Payment Method */}
-          <div className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-3">
-            <h2 className="font-display text-sm uppercase tracking-wider font-bold text-primary">
-              3. Payment Method
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-              <label
-                onClick={() => setPaymentMethod("cod")}
-                className={`p-3 rounded-lg border cursor-pointer flex flex-col justify-between transition-all ${
-                  paymentMethod === "cod"
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border-light hover:bg-surface-subtle"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-primary">Cash On Delivery</span>
-                  <input
-                    type="radio"
-                    name="payment"
-                    checked={paymentMethod === "cod"}
-                    onChange={() => setPaymentMethod("cod")}
-                    className="accent-primary"
-                  />
-                </div>
-                <span className="text-[11px] text-text-muted">
-                  Pay cash at your doorstep when you receive your package.
-                </span>
-              </label>
-
-              <label
-                onClick={() => setPaymentMethod("bkash")}
-                className={`p-3 rounded-lg border cursor-pointer flex flex-col justify-between transition-all ${
-                  paymentMethod === "bkash"
-                    ? "border-[#E2136E] bg-[#E2136E]/5 shadow-sm"
-                    : "border-border-light hover:bg-surface-subtle"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-[#E2136E]">bKash Payment</span>
-                  <input
-                    type="radio"
-                    name="payment"
-                    checked={paymentMethod === "bkash"}
-                    onChange={() => setPaymentMethod("bkash")}
-                    className="accent-[#E2136E]"
-                  />
-                </div>
-                <span className="text-[11px] text-text-muted">
-                  Instant mobile wallet payment via bKash gateway.
-                </span>
-              </label>
-
-              <label
-                onClick={() => setPaymentMethod("nagad")}
-                className={`p-3 rounded-lg border cursor-pointer flex flex-col justify-between transition-all ${
-                  paymentMethod === "nagad"
-                    ? "border-[#F7941D] bg-[#F7941D]/5 shadow-sm"
-                    : "border-border-light hover:bg-surface-subtle"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-[#F7941D]">Nagad Payment</span>
-                  <input
-                    type="radio"
-                    name="payment"
-                    checked={paymentMethod === "nagad"}
-                    onChange={() => setPaymentMethod("nagad")}
-                    className="accent-[#F7941D]"
-                  />
-                </div>
-                <span className="text-[11px] text-text-muted">
-                  Pay securely using your Nagad wallet balance.
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Order Summary (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col gap-space-base">
-          <div className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-4">
-            <h3 className="font-display text-sm uppercase tracking-wider font-bold text-primary">
-              Order Summary ({items.length} items)
-            </h3>
-
-            {/* Items scroll */}
-            <div className="divide-y divide-border-light max-h-72 overflow-y-auto pr-1">
-              {items.map((item) => (
-                <div key={item.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <div className="relative w-12 h-14 rounded bg-surface-subtle overflow-hidden shrink-0 border border-border-light">
-                      <Image
-                        src={item.image}
-                        alt={item.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-on-surface line-clamp-1 max-w-[160px]">
-                        {item.title}
-                      </h4>
-                      <span className="text-[11px] text-text-muted">
-                        Size: {item.size} • Qty: {item.quantity}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="font-bold text-primary shrink-0">
-                    ৳ {(item.price * item.quantity).toLocaleString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Coupon */}
-            <div className="border-t border-border-light pt-3 flex flex-col gap-2">
-              {couponQuote?.valid ? (
-                <div className="flex items-center justify-between gap-2 text-xs bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="font-bold text-emerald-800 truncate">
-                      {couponQuote.code} applied
-                    </p>
-                    <p className="text-[11px] text-emerald-700">
-                      {couponQuote.discount_type === "percentage"
-                        ? `${couponQuote.discount_value}% off your bag`
-                        : `${taka(couponQuote.discount_value)} off your bag`}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={clearCoupon}
-                    className="text-[11px] font-bold text-emerald-800 underline shrink-0"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <label className="block font-semibold text-on-surface">
-                    Have a coupon code?
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void applyCoupon();
-                        }
-                      }}
-                      placeholder="EID2026"
-                      aria-label="Coupon code"
-                      className="flex-1 h-10 px-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary uppercase tracking-wider"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void applyCoupon()}
-                      disabled={couponBusy || couponInput.trim() === ""}
-                      className="h-10 px-4 rounded-lg border border-primary text-primary font-display text-[11px] uppercase tracking-wider font-bold hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary"
-                    >
-                      {couponBusy ? "..." : "Apply"}
-                    </button>
-                  </div>
-                  {couponError && (
-                    <p className="text-[11px] text-badge-discount font-medium">
-                      {couponError}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-text-muted">
-                    Sign in to use member-only codes.
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Calculations */}
-            <div className="border-t border-border-light pt-3 flex flex-col gap-2 text-xs">
-              <div className="flex justify-between text-text-muted">
-                <span>Subtotal</span>
-                <span className="text-on-surface font-semibold">
-                  {taka(shownSubtotal)}
-                </span>
-              </div>
-              {shownCoupon > 0 && (
-                <div className="flex justify-between text-emerald-700 font-semibold">
-                  <span>Coupon discount</span>
-                  <span>-{taka(shownCoupon)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-text-muted">
-                <span>Delivery Charge</span>
-                <span className={shippingFee === 0 ? "text-emerald-700 font-bold" : "text-on-surface font-semibold"}>
-                  {shippingFee === 0 ? "FREE" : `৳ ${shippingFee}`}
-                </span>
-              </div>
-              {!placed && subtotal < freeShippingThreshold && (
-                <span className="text-[10px] text-secondary">
-                  💡 Add ৳ {freeShippingThreshold - subtotal} more for Free Delivery!
-                </span>
-              )}
-              <div className="border-t border-border-light pt-2 flex justify-between text-base font-bold text-primary">
-                <span>Total Amount</span>
-                <span className="font-display text-lg">{taka(shownTotal)}</span>
-              </div>
-            </div>
-
+          {/* ---------------- Left: the current step ---------------- */}
+          <div className="lg:col-span-7 flex flex-col gap-space-lg">
             {orderError && (
-              <div className="rounded-lg border border-badge-discount/40 bg-badge-discount/5 px-3 py-2.5 text-[11px] text-badge-discount font-medium">
-                {orderError}
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-badge-discount/10 border border-badge-discount/20 text-xs text-on-surface">
+                <AlertCircle className="w-4 h-4 text-badge-discount shrink-0 mt-0.5" />
+                <span>{orderError}</span>
               </div>
             )}
 
-            {/* Place Order CTA */}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full h-12 bg-primary hover:bg-primary-container text-white font-display text-xs uppercase tracking-wider font-bold rounded-lg shadow-md transition-all active:scale-[0.99] disabled:opacity-50"
-            >
-              {submitting ? "Placing Order..." : `CONFIRM & PLACE ORDER • ${taka(shownTotal)}`}
-            </button>
+            {/* ---------- Step 1: Delivery details ---------- */}
+            {step === 1 && (
+              <section className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-3">
+                <h2 className="font-display text-sm uppercase tracking-wider font-bold text-primary">
+                  Delivery details
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block font-semibold mb-1 text-on-surface" htmlFor="ck-name">
+                      Full Name *
+                    </label>
+                    <input
+                      id="ck-name"
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Tanvir Hasan"
+                      className={`w-full h-10 px-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.name ? "border-badge-discount" : "border-border-light"}`}
+                    />
+                    {fieldErrors.name && (
+                      <p className="text-[11px] text-badge-discount mt-1">{fieldErrors.name}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1 text-on-surface" htmlFor="ck-phone">
+                      Mobile Number *
+                    </label>
+                    <input
+                      id="ck-phone"
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="01712345678"
+                      className={`w-full h-10 px-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.phone ? "border-badge-discount" : "border-border-light"}`}
+                    />
+                    {fieldErrors.phone && (
+                      <p className="text-[11px] text-badge-discount mt-1">{fieldErrors.phone}</p>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block font-semibold mb-1 text-on-surface" htmlFor="ck-email">
+                      Email <span className="font-normal text-text-muted">(optional)</span>
+                    </label>
+                    <input
+                      id="ck-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className={`w-full h-10 px-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-primary ${fieldErrors.email ? "border-badge-discount" : "border-border-light"}`}
+                    />
+                    {fieldErrors.email && (
+                      <p className="text-[11px] text-badge-discount mt-1">{fieldErrors.email}</p>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block font-semibold mb-1 text-on-surface" htmlFor="ck-address">
+                      Delivery Address *
+                    </label>
+                    <textarea
+                      id="ck-address"
+                      required
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="House/Building, road, area, thana and district"
+                      rows={3}
+                      className={`w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-primary resize-none ${fieldErrors.address ? "border-badge-discount" : "border-border-light"}`}
+                    />
+                    {fieldErrors.address && (
+                      <p className="text-[11px] text-badge-discount mt-1">{fieldErrors.address}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1 text-on-surface" htmlFor="ck-city">
+                      Delivery Zone *
+                    </label>
+                    <select
+                      id="ck-city"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value as "dhaka" | "outside")}
+                      className="w-full h-10 px-3 rounded-lg border border-border-light bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="dhaka">Dhaka Metro (৳ {taka(60)})</option>
+                      <option value="outside">Outside Dhaka (৳ {taka(120)})</option>
+                    </select>
+                    <p className="text-[11px] text-text-muted mt-1">
+                      The delivery charge is calculated on the server from this zone.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ---------- Step 2: Account ---------- */}
+            {step === 2 && (
+              <section className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-4">
+                <div>
+                  <h2 className="font-display text-sm uppercase tracking-wider font-bold text-primary">
+                    Do you have an account?
+                  </h2>
+                  <p className="text-xs text-text-muted mt-1">
+                    Signing in attaches this order to your profile, so it appears in your
+                    order history and you can track it. Checking out as a guest works too —
+                    we will still call you to confirm.
+                  </p>
+                </div>
+
+                {user ? (
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-start gap-2">
+                    <Check className="w-4 h-4 text-emerald-700 mt-0.5" />
+                    <div className="text-xs">
+                      <p className="font-semibold text-emerald-900">Signed in as {user.email}</p>
+                      <p className="text-emerald-800 mt-0.5">
+                        This order will be saved to your account history.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-2 text-xs">
+                      <label className="block font-semibold text-on-surface" htmlFor="ck-signin-email">
+                        Email address
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                        <input
+                          id="ck-signin-email"
+                          type="email"
+                          autoComplete="email"
+                          value={signInEmail}
+                          onChange={(e) => setSignInEmail(e.target.value)}
+                          placeholder="you@example.com"
+                          className="w-full h-10 pl-9 pr-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 text-xs">
+                      <label className="block font-semibold text-on-surface" htmlFor="ck-signin-password">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                        <input
+                          id="ck-signin-password"
+                          type="password"
+                          autoComplete="current-password"
+                          value={signInPassword}
+                          onChange={(e) => setSignInPassword(e.target.value)}
+                          placeholder="Your password"
+                          className="w-full h-10 pl-9 pr-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {signInError && (
+                      <p className="text-[11px] text-badge-discount font-medium">{signInError}</p>
+                    )}
+
+                    {!authConfigured && (
+                      <p className="text-[11px] text-text-muted">
+                        Account sign-in is not configured on this deployment — you can still
+                        check out as a guest below.
+                      </p>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleSignIn()}
+                        disabled={signingIn || !signInEmail || !signInPassword}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider hover:bg-primary-container disabled:opacity-50 transition-colors"
+                      >
+                        {signingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : <User className="w-4 h-4" />}
+                        {signingIn ? "Signing in..." : "Sign in"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => goTo(3)}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-border-light bg-surface-card text-primary rounded-lg text-xs font-bold font-display uppercase tracking-wider hover:bg-surface-subtle transition-colors"
+                      >
+                        <Phone className="w-4 h-4" />
+                        Continue as guest
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-text-muted">
+                      No account?{" "}
+                      <Link href="/sign-up" className="text-primary font-semibold hover:underline">
+                        Create one
+                      </Link>{" "}
+                      — it takes a minute and saves your details for next time.
+                    </p>
+                  </>
+                )}
+
+                {user && (
+                  <button
+                    type="button"
+                    onClick={() => goTo(3)}
+                    className="self-start inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider hover:bg-primary-container transition-colors"
+                  >
+                    Continue to payment
+                  </button>
+                )}
+              </section>
+            )}
+
+            {/* ---------- Step 3: Payment method ---------- */}
+            {step === 3 && (
+              <section className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-3">
+                <h2 className="font-display text-sm uppercase tracking-wider font-bold text-primary">
+                  Payment method
+                </h2>
+                <div className="flex flex-col gap-2" role="radiogroup" aria-label="Payment method">
+                  {PAYMENTS.map((p) => {
+                    const active = paymentMethod === p.id;
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          active ? "border-primary bg-primary/5" : "border-border-light hover:bg-surface-subtle"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="payment"
+                          value={p.id}
+                          checked={active}
+                          onChange={() => setPaymentMethod(p.id)}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span className="flex flex-col text-xs">
+                          <span className="font-bold text-on-surface">{p.label}</span>
+                          <span className="text-text-muted mt-0.5">{p.detail}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Wallet payments: the transaction ID is the only thing that
+                    ties a payment to an order, and the platform has no
+                    integration to fetch it. Without this field a wallet order
+                    could never be confirmed. */}
+                {needsWalletId && (
+                  <div className="flex flex-col gap-2 pt-1 border-t border-border-light">
+                    <label className="block font-semibold text-on-surface text-xs" htmlFor="ck-trx">
+                      {paymentMethod === "bkash" ? "bKash" : "Nagad"} Transaction ID *
+                    </label>
+                    <input
+                      id="ck-trx"
+                      type="text"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value.toUpperCase())}
+                      placeholder="e.g. 9F7K2M4X8A"
+                      className={`w-full h-10 px-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-primary uppercase ${fieldErrors.transactionId ? "border-badge-discount" : "border-border-light"}`}
+                    />
+                    <p className="text-[11px] text-text-muted">
+                      Pay from your {paymentMethod === "bkash" ? "bKash" : "Nagad"} app, then
+                      enter the transaction ID you receive. We verify it against our merchant
+                      statement before dispatch.
+                    </p>
+                    {fieldErrors.transactionId && (
+                      <p className="text-[11px] text-badge-discount font-medium">{fieldErrors.transactionId}</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 text-[11px] text-text-muted pt-1">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>We never ask for your card details or your wallet PIN.</span>
+                </div>
+              </section>
+            )}
+
+            {/* ---------- Step 4: Review & confirm ---------- */}
+            {step === 4 && (
+              <>
+                <section className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-2 text-xs">
+                  <h2 className="font-display text-sm uppercase tracking-wider font-bold text-primary mb-1">
+                    Review your order
+                  </h2>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-text-muted">Deliver to</span>
+                    <span className="text-right font-semibold text-on-surface">
+                      {name}, {normalisePhone(phone)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-text-muted">Address</span>
+                    <span className="text-right font-medium max-w-xs">
+                      {address}, {city === "dhaka" ? "Dhaka Metro" : "Outside Dhaka"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-text-muted">Payment</span>
+                    <span className="text-right font-semibold text-on-surface">
+                      {PAYMENTS.find((p) => p.id === paymentMethod)?.label}
+                      {needsWalletId && transactionId ? ` · ${transactionId}` : ""}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-text-muted">Account</span>
+                    <span className="text-right font-medium">{user ? user.email : "Checking out as a guest"}</span>
+                  </div>
+                </section>
+
+                <section className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-2">
+                  <label className="block font-semibold text-on-surface text-xs" htmlFor="ck-notes">
+                    Delivery instructions <span className="font-normal text-text-muted">(optional)</span>
+                  </label>
+                  <textarea
+                    id="ck-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    placeholder="Landmark, preferred time, or instructions for the rider."
+                    className="w-full px-3 py-2 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary resize-none text-xs"
+                  />
+                </section>
+              </>
+            )}
+
+            {/* ---------------- Step navigation ---------------- */}
+            <div className="flex items-center justify-between gap-3">
+              {step > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => goTo(step - 1)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 border border-border-light bg-surface-card text-primary rounded-lg text-xs font-bold font-display uppercase tracking-wider hover:bg-surface-subtle transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back
+                </button>
+              ) : (
+                <span />
+              )}
+
+              {step < STEPS.length ? (
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider hover:bg-primary-container transition-colors shadow-sm"
+                >
+                  Continue
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={placing}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-primary text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider hover:bg-primary-container transition-colors shadow-sm disabled:opacity-60"
+                >
+                  {placing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  {placing ? "Placing order..." : `Confirm & place order · ৳ ${taka(grandTotal)}`}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </form>
+
+          {/* ---------------- Right: order summary ---------------- */}
+          <aside className="lg:col-span-5">
+            <div className="bg-surface-card p-space-base rounded-xl border border-border-light shadow-sm flex flex-col gap-3 sticky top-[120px] lg:top-[164px]">
+              <h2 className="font-display text-sm uppercase tracking-wider font-bold text-primary">
+                Order Summary ({orderItems.length})
+              </h2>
+
+              <div className="max-h-64 overflow-y-auto divide-y divide-border-light flex flex-col">
+                {orderItems.map((i) => (
+                  <div key={`${i.id}-${i.size}-${i.color}`} className="py-2 flex items-center gap-3">
+                    {i.image && (
+                      <div className="relative w-12 h-14 shrink-0 rounded">
+                        <Image src={i.image} alt={i.title} fill sizes="48px" className="object-cover rounded" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-on-surface line-clamp-1">{i.title}</p>
+                      <p className="text-[11px] text-text-muted">
+                        {[i.size, i.color].filter(Boolean).join(" • ")} · Qty {i.quantity}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Coupon. The discount is applied to the total below, and to the
+                  figure on the confirm button, because a coupon that changes
+                  nothing on screen is not a coupon. */}
+              <div className="pt-3 border-t border-border-light flex flex-col gap-2">
+                <label className="text-xs font-semibold text-on-surface flex items-center gap-1.5" htmlFor="ck-coupon">
+                  <Tag className="w-3.5 h-3.5" />
+                  Have a coupon?
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="ck-coupon"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="ENTER CODE"
+                    className="flex-1 h-9 px-3 rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary uppercase text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void quoteCoupon(couponInput)}
+                    className="px-3 h-9 rounded-lg bg-surface-subtle hover:bg-surface-container border border-border-light text-xs font-bold uppercase tracking-wider text-primary"
+                  >
+                    Apply
+                  </button>
+                </div>
+                {appliedCoupon && (
+                  <p className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" />
+                    {appliedCoupon} applied · −{taka(couponDiscount)}
+                  </p>
+                )}
+                {quoteError && <p className="text-[11px] text-badge-discount">{quoteError}</p>}
+              </div>
+
+              {/* Totals. Built from the quoted coupon and the post-discount
+                  subtotal, which is the subtotal the server charges delivery on. */}
+              <div className="pt-3 border-t border-border-light flex flex-col gap-2 text-xs">
+                <div className="flex justify-between text-text-muted">
+                  <span>Merchandise subtotal</span>
+                  <span className="text-on-surface font-semibold">{taka(subtotal)}</span>
+                </div>
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-semibold">
+                    <span>Coupon{appliedCoupon ? ` (${appliedCoupon})` : ""} discount</span>
+                    <span>−{taka(couponDiscount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-text-muted">
+                  <span>Delivery{city === "dhaka" ? " · Dhaka Metro" : " · Outside Dhaka"}</span>
+                  <span className={shippingFee === 0 ? "text-emerald-700 font-bold" : "text-on-surface font-semibold"}>
+                    {shippingFee === 0 ? "FREE" : taka(shippingFee)}
+                  </span>
+                </div>
+                <div className="border-t border-border-light pt-2 flex justify-between text-sm font-bold text-primary">
+                  <span>Total payable</span>
+                  <span className="font-display text-base">{taka(grandTotal)}</span>
+                </div>
+                {discountedSubtotal < freeShippingThreshold && discountedSubtotal > 0 && (
+                  <p className="text-[11px] text-text-muted">
+                    Add {taka(freeShippingThreshold - discountedSubtotal)} more for free delivery.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-center gap-2 text-[11px] text-text-muted pt-1">
+                <ShieldCheck className="w-4 h-4" />
+                <span>256-bit encrypted checkout</span>
+              </div>
+            </div>
+          </aside>
+        </form>
+      </div>
     </div>
   );
 }

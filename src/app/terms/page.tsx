@@ -3,14 +3,14 @@ import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
 export const metadata = {
   title: "Terms of Service",
   description:
-    "The terms that apply when you shop at Arts Fashion: orders and acceptance, pricing, payment, delivery, returns, liability limits, and how complaints are escalated.",
+    "The terms that apply when you shop at Arts Sports: orders and acceptance, pricing, payment, delivery, returns, liability limits, and how complaints are escalated.",
 };
 
 export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      intro="These terms are the agreement between you and Arts Fashion when you place an order. Please read them before ordering — using this site to buy something means you accept them."
+      intro="These terms are the agreement between you and Arts Sports when you place an order. Please read them before ordering — using this site to buy something means you accept them."
     >
       <LegalSection title="1. Who may order">
         <p>
@@ -117,7 +117,7 @@ export default function TermsPage() {
       <LegalSection title="9. Intellectual property">
         <p>
           All photography, copy, design and code on this site belongs to Arts
-          Fashion or its licensors. You may not copy, reproduce or use any of it
+          Sports or its licensors. You may not copy, reproduce or use any of it
           for commercial purposes without written permission. You may share links
           to our pages freely.
         </p>
@@ -126,7 +126,7 @@ export default function TermsPage() {
       <LegalSection title="10. Complaints and escalation">
         <p>
           Contact us first on <strong>+880 9677 666 888</strong> or{" "}
-          <strong>support@artsfashion.com</strong>. We aim to answer within two
+          <strong>support@artssports.com</strong>. We aim to answer within two
           working days and to resolve most complaints on the first contact.
         </p>
         <p>

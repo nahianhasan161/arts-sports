@@ -21,6 +21,7 @@ import {
 import { useCartStore } from "@/lib/store/cart-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { UserAvatar } from "@/components/auth/UserAvatar";
 
 export function Header() {
   const router = useRouter();
@@ -107,7 +108,7 @@ export function Header() {
               <Link href="/returns" className="hover:text-white transition-colors">
                 Returns
               </Link>
-              <a href="mailto:corporate@artsfashion.com" className="hover:text-white transition-colors">
+              <a href="mailto:corporate@artssports.com" className="hover:text-white transition-colors">
                 Corporate Sales
               </a>
             </div>
@@ -140,8 +141,8 @@ export function Header() {
 
           <Link href="/" className="flex items-center flex-shrink-0">
             <Image
-              src="/logo.jpg"
-              alt="arts fashion"
+              src="/main-logo-arts-sports.webp"
+              alt="arts sports"
               width={220}
               height={36}
               className="h-7 sm:h-8 md:h-9 w-auto object-contain"
@@ -206,22 +207,12 @@ export function Header() {
                 className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-surface-subtle text-on-surface-variant hover:text-primary transition-colors"
                 aria-label="Account menu"
               >
-                {user?.user_metadata?.picture ||
-                user?.user_metadata?.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={
-                      user?.user_metadata?.picture ||
-                      user?.user_metadata?.avatar_url || ""
-                    }
-                    alt={user?.user_metadata?.full_name || "User"}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="w-5 h-5 text-primary" />
-                  </div>
-                )}
+                {/* Resolved by UserAvatar, which falls back past a stale token
+                    to profiles.avatar_url and then to the customer's
+                    initials. This was an inline img reading
+                    user_metadata.picture only, so the avatar vanished whenever
+                    the issued JWT did not carry it. */}
+                <UserAvatar size={32} />
                 <span className="hidden sm:block text-sm font-medium text-on-surface truncate max-w-[140px]">
                   {user?.user_metadata?.full_name ||
                     user?.user_metadata?.name ||

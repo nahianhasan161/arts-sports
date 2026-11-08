@@ -3,7 +3,7 @@ import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
 export const metadata = {
   title: "Refund Policy",
   description:
-    "How Arts Fashion issues refunds: the 7-day return window, when a refund is full or partial, how cash-on-delivery and mobile-wallet refunds are paid, and how long each takes.",
+    "How Arts Sports issues refunds: the 7-day return window, when a refund is full or partial, how cash-on-delivery and mobile-wallet refunds are paid, and how long each takes.",
 };
 
 export default function RefundPolicyPage() {

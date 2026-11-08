@@ -15,13 +15,13 @@ const fontSans = "font-sans";
 
 export const metadata: Metadata = {
   title: {
-    default: "Arts Fashion | Premium Everyday Apparel",
-    template: "%s | Arts Fashion",
+    default: "Arts Sports | Premium Everyday Apparel",
+    template: "%s | Arts Sports",
   },
   description:
-    "Arts Fashion • Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort. Shop men's polos, t-shirts, trousers, and sports jerseys.",
+    "Arts Sports • Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort. Shop men's polos, t-shirts, trousers, and sports jerseys.",
   keywords: [
-    "Arts Fashion",
+    "Arts Sports",
     "premium apparel",
     "organic cotton",
     "polo t-shirts",
@@ -32,9 +32,9 @@ export const metadata: Metadata = {
     "custom t-shirts",
     "B2B wholesale",
   ],
-  authors: [{ name: "Arts Fashion" }],
-  creator: "Arts Fashion",
-  publisher: "Arts Fashion",
+  authors: [{ name: "Arts Sports" }],
+  creator: "Arts Sports",
+  publisher: "Arts Sports",
   formatDetection: {
     email: false,
     telephone: false,
@@ -54,8 +54,8 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_BD",
     url: getServerUrl(),
-    siteName: "Arts Fashion",
-    title: "Arts Fashion | Premium Everyday Apparel",
+    siteName: "Arts Sports",
+    title: "Arts Sports | Premium Everyday Apparel",
     description:
       "Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort.",
     images: [
@@ -63,16 +63,16 @@ export const metadata: Metadata = {
         url: "/og-cover.jpg",
         width: 1200,
         height: 630,
-        alt: "Arts Fashion — Minimalist Aura Collection",
+        alt: "Arts Sports — Minimalist Aura Collection",
         type: "image/jpeg",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    site: "@artsfashion",
-    creator: "@artsfashion",
-    title: "Arts Fashion | Premium Everyday Apparel",
+    site: "@artssports",
+    creator: "@artssports",
+    title: "Arts Sports | Premium Everyday Apparel",
     description:
       "Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort.",
     images: ["/og-cover.jpg"],

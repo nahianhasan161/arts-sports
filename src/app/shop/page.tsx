@@ -24,12 +24,12 @@ const SORTS = new Set(["newest", "popular", "price_asc", "price_desc"]);
 export const metadata: Metadata = {
   title: "Shop All Collections",
   description:
-    "Browse the full Arts Fashion catalogue — men's polos, t-shirts and trousers, women's kurti and tops, kids' apparel, and sports jersey editions. Combed compact cotton, made for daylong comfort.",
+    "Browse the full Arts Sports catalogue — men's polos, t-shirts and trousers, women's kurti and tops, kids' apparel, and sports jersey editions. Combed compact cotton, made for daylong comfort.",
   alternates: { canonical: "/shop" },
   openGraph: {
-    title: "Shop All Collections | Arts Fashion",
+    title: "Shop All Collections | Arts Sports",
     description:
-      "Browse the full Arts Fashion catalogue — polos, t-shirts, trousers, kurti, kids' apparel and sports editions.",
+      "Browse the full Arts Sports catalogue — polos, t-shirts, trousers, kurti, kids' apparel and sports editions.",
     url: "/shop",
     type: "website",
   },

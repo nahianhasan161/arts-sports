@@ -34,7 +34,7 @@ import "server-only";
  *
  * Tigris shares one global namespace across every account on the platform, so a
  * name that reads as obvious, like `product-images`, is frequently already
- * taken by an unrelated account and cannot be created. `artsfashion-media` is
+ * taken by an unrelated account and cannot be created. `artssports-media` is
  * this account's.
  */
 
@@ -47,7 +47,7 @@ import {
 } from "@aws-sdk/client-s3";
 import type { Readable } from "stream";
 
-export const BUCKET = process.env.TIGRIS_STORAGE_BUCKET ?? "artsfashion-media";
+export const BUCKET = process.env.TIGRIS_STORAGE_BUCKET ?? "artssports-media";
 
 /**
  * Extensions the app will ever store, as decided by sniffImage().
@@ -97,7 +97,7 @@ export function isStorageConfigured(): boolean {
  *
  * `region: "auto"` is what Tigris expects and is not a real region. The
  * endpoint is the account's global host, so a bucket is addressed in virtual
- * hosted style -- `artsfashion-media.t3.storage.dev` -- which is the SDK
+ * hosted style -- `artssports-media.t3.storage.dev` -- which is the SDK
  * default and is what makes the public URL of the same shape work.
  */
 export function tigrisClient(): S3Client {

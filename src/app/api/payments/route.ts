@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireUser, handleAuthError } from "@/lib/admin/auth";
+import { createSupabaseServerClient, getSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser, requireAdmin, handleAuthError, handleAdminError } from "@/lib/admin/auth";
 
 /**
  * GET /api/payments
@@ -63,6 +63,97 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data });
   } catch (error) {
     return handleAuthError(error);
+  }
+}
+
+/**
+ * PATCH /api/payments
+ * Change a payment's status. Admins only.
+ *
+ * This is the last mile of the payment workflow, and it did not exist: the
+ * admin payments table has a status dropdown that calls PATCH on this route,
+ * but the route only implemented GET and POST. Next.js answered 405, so an
+ * admin could see an "initiated" bKash charge, compare the transaction ID
+ * against the merchant statement, try to mark it successful -- and have the
+ * click silently fail. Every wallet payment therefore stayed "initiated" no
+ * matter what the admin did.
+ *
+ * It requires an admin rather than merely a signed-in user, because confirming
+ * someone else's payment is not something a customer account should be able to
+ * do. The POST above stays user-scoped and is what checkout uses.
+ */
+
+/** The terminal states a payment may be moved into, and who may move it. */
+const ALLOWED_STATUSES = ["initiated", "successful", "failed", "cancelled", "refunded"] as const;
+
+export async function PATCH(request: NextRequest) {
+  let callerId: string;
+  try {
+    // requireAdmin() also loads the caller's profile, so the role check is
+    // authoritative rather than a claim in the payload.
+    const context = await requireAdmin();
+    callerId = context.user.id;
+  } catch (error) {
+    return handleAdminError(error);
+  }
+
+  try {
+    const supabase = await getSupabaseServerClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Service not configured" }, { status: 500 });
+    }
+
+    const body = await request.json();
+    const id = typeof body?.id === "string" ? body.id.trim() : "";
+    const status = typeof body?.status === "string" ? body.status.trim() : "";
+
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+    if (!ALLOWED_STATUSES.includes(status as (typeof ALLOWED_STATUSES)[number])) {
+      return NextResponse.json(
+        { error: `status must be one of: ${ALLOWED_STATUSES.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    // Read the current row first so the transition can be reported rather
+    // than silently overwriting. A payment already refunded being moved back
+    // to successful would unwind a refund nobody recorded.
+    const { data: existing, error: readError } = await supabase
+      .from("payments")
+      .select("id, status, provider, order_id")
+      .eq("id", id)
+      .single();
+
+    if (readError || !existing) {
+      return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+    }
+    if (existing.status === status) {
+      // Idempotent: a second click on the same status is not an error, and
+      // the admin should not be shown a failure for it.
+      return NextResponse.json({ data: existing });
+    }
+
+    const { data, error } = await supabase
+      .from("payments")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id, order_id, provider, status, amount, provider_txn_id, updated_at")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Who changed it, in the log rather than in the row: payments has no
+    // updated_by column, and adding one for an audit trail is a schema change
+    // this fix does not need.
+    console.info(`payment ${data.id} (${data.provider}, order ${data.order_id}): "${existing.status}" -> "${data.status}" by admin ${callerId}`);
+
+    return NextResponse.json({ data });
+  } catch (error) {
+    return handleAdminError(error);
   }
 }
 

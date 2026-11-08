@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { checkReturnableQuantity } from "@/lib/returns/quantity";
 
 async function getSupabase() {
   return getSupabaseServerClient();
@@ -91,6 +92,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "order_id and at least one return item are required" },
         { status: 400 }
+      );
+    }
+
+    /*
+     * The quantity limit is checked here, not only at refund time.
+     *
+     * It used to be enforced only by the trigger on refund_items, so a customer
+     * could request a return of 99 units against a 2-unit line, have the request
+     * accepted, and only be told no when the admin tried to refund it. The
+     * refund guard is still authoritative -- it runs against live data inside
+     * the transaction -- but an impossible request is refused when it is made.
+     */
+    const check = await checkReturnableQuantity(supabase, order_id, items);
+    if (!check.ok) {
+      return NextResponse.json(
+        { error: check.error, reason: check.reason, detail: check.detail },
+        { status: check.status }
       );
     }
 

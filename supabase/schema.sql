@@ -1,5 +1,5 @@
 -- ==========================================================
--- ARTS FASHION E-COMMERCE DATABASE SCHEMA (SUPABASE / POSTGRESQL)
+-- ARTS SPORTS E-COMMERCE DATABASE SCHEMA (SUPABASE / POSTGRESQL)
 -- ==========================================================
 
 -- 1. Enable UUID Extension

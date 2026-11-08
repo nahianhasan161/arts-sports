@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdmin, handleAdminError } from "@/lib/admin/auth";
+import { checkReturnableQuantity } from "@/lib/returns/quantity";
 
 async function getSupabase() {
   return getSupabaseServerClient();
@@ -100,6 +101,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    /*
+     * The same quantity rule the customer route applies.
+     *
+     * An admin approving a return the customer's own request would have been
+     * refused for is confusing, and two copies of the arithmetic eventually
+     * disagree -- so this calls the shared helper rather than reimplementing it.
+     * The authoritative guard is still the trigger on refund_items, which runs
+     * against live rows when the money moves.
+     */
+    const check = await checkReturnableQuantity(supabase, order_id, items);
+    if (!check.ok) {
+      return NextResponse.json(
+        { error: check.error, reason: check.reason, detail: check.detail },
+        { status: check.status }
+      );
+    }
+
     // Create the return record
     const { data: returnRecord, error: returnError } = await supabase
       .from("returns")
@@ -163,7 +181,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, status, refund_amount, refund_payment_id, notes } = body;
+    const { id, status, refund_payment_id, notes } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Return id is required" }, { status: 400 });
@@ -177,11 +195,26 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    /*
+     * refund_amount is deliberately not writable here.
+     *
+     * It used to be, which is how a number got onto a return with no payment
+     * row behind it: the admin prompt on the returns table asked for a "refund
+     * amount" and wrote it straight to this column. The value is now derived by
+     * execute_refund() from the refunds that actually ran, so it can only ever
+     * equal money that moved. To refund a return, POST the refund with this
+     * return's id.
+     */
+    const ignoredRefundAmount = body.refund_amount !== undefined;
+
     const updates: Record<string, unknown> = {};
     if (status !== undefined) updates.status = status;
-    if (refund_amount !== undefined) updates.refund_amount = Number(refund_amount);
     if (refund_payment_id !== undefined) updates.refund_payment_id = refund_payment_id;
     if (notes !== undefined) updates.notes = notes;
+
+    if (Object.keys(updates).length === 0 && !ignoredRefundAmount) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+    }
 
     const { data, error } = await supabase
       .from("returns")
@@ -194,7 +227,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({
+      data,
+      ...(ignoredRefundAmount
+        ? {
+            note: "refund_amount is derived from the refunds executed against this return. Use POST /api/admin/refunds with return_id to refund it.",
+          }
+        : {}),
+    });
   } catch (error) {
     return handleAdminError(error);
   }

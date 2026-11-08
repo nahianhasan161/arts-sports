@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getSupabaseBrowserClient, supabaseConfigProblem } from "@/lib/supabase/client";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
 
 function OAuthCallbackContent() {
@@ -24,7 +24,10 @@ function OAuthCallbackContent() {
         const supabase = getSupabaseBrowserClient();
 
         if (!supabase) {
-          setError("Supabase authentication is not configured.");
+          setError(
+            supabaseConfigProblem() ??
+              "Sign-in is unavailable in this session. Restart the dev server if the credentials are already set."
+          );
           setStatus("error");
           return;
         }

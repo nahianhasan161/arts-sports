@@ -25,7 +25,7 @@ export function AuthLayout({
           <div className="inline-flex items-center gap-2 text-accent-gold mb-space-lg">
             <span className="w-10 h-px bg-accent-gold"></span>
             <span className="font-display uppercase text-xs tracking-[0.25em] font-bold">
-              Arts Fashion Account
+              Arts Sports Account
             </span>
             <span className="w-10 h-px bg-accent-gold"></span>
           </div>

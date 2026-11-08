@@ -3,11 +3,11 @@ import { getServerUrl } from "@/lib/config";
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "Arts Fashion",
+  name: "Arts Sports",
   url: getServerUrl(),
-  logo: `${getServerUrl()}/logo.png`,
+  logo: `${getServerUrl()}/main-logo-arts-sports.webp`,
   description:
-    "Arts Fashion — Premium everyday apparel crafted from combed compact organic cotton. Handcrafted for daylong comfort.",
+    "Arts Sports — Premium everyday apparel crafted from combed compact organic cotton. Handcrafted for daylong comfort.",
   foundingDate: "2020",
   foundingLocation: "Dhaka, Bangladesh",
   address: {
@@ -21,14 +21,14 @@ const organizationSchema = {
     "@type": "ContactPoint",
     telephone: "+880-1700-000000",
     contactType: "Customer Service",
-    email: "support@artsfashion.com",
+    email: "support@artssports.com",
     availableLanguage: ["en", "bn"],
   },
   sameAs: [
-    "https://www.facebook.com/artsfashion",
-    "https://www.instagram.com/artsfashion",
-    "https://www.tiktok.com/@artsfashion",
-    "https://www.linkedin.com/company/artsfashion",
+    "https://www.facebook.com/artssports",
+    "https://www.instagram.com/artssports",
+    "https://www.tiktok.com/@artssports",
+    "https://www.linkedin.com/company/artssports",
   ],
   makesOffer: {
     "@type": "Offer",

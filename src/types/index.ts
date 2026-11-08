@@ -455,12 +455,33 @@ export interface Order {
 // ==========================================================
 
 export type PaymentType = "charge" | "refund" | "chargeback";
+
+/**
+ * Why a payment row exists.
+ *
+ * `checkout` is the ordinary customer-initiated charge. The rest exist so a
+ * payment can be recorded after the fact without being a fabricated checkout
+ * row: a bKash collection taken over the phone, a manual cash-on-delivery
+ * settlement, a correction, or a dispute outcome. Before this, there was no way
+ * to attach a delayed payment except by inventing one.
+ */
+export type PaymentPurpose =
+  | "checkout"
+  | "retroactive"
+  | "reconciliation"
+  | "adjustment"
+  | "dispute_resolution"
+  | "cod_settlement";
+
 export type PaymentStatus =
   | "initiated"
   | "successful"
+  | "partially_refunded"
   | "failed"
   | "cancelled"
-  | "refunded";
+  | "refunded"
+  | "charged_back";
+
 export type PaymentProvider = "cod" | "bkash" | "nagad" | "stripe" | "paypal";
 
 export interface Payment {
@@ -472,6 +493,12 @@ export interface Payment {
   provider_txn_id: string | null;
   amount: number;
   status: PaymentStatus;
+  /** Why the row exists. Defaults to 'checkout'. */
+  purpose?: PaymentPurpose;
+  /** The charge this row gives money back to, when type is 'refund'. */
+  refund_of_payment_id?: string | null;
+  /** The admin who recorded the row; null when the customer initiated it. */
+  recorded_by?: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -479,6 +506,135 @@ export interface Payment {
   cancelled_by?: string | null;
   cancellation_id?: string | null;
   payment_method_id?: string | null;
+}
+
+// ==========================================================
+// Refunds — An order's refund is an aggregate, not a number
+// item_total − deductions_total = refund_total, and the whole
+// thing is bounded by what was actually paid.
+// ==========================================================
+
+export type RefundStatus =
+  | "quoted"
+  | "approved"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+/**
+ * Why a refund is smaller than the items returned.
+ *
+ * Each deduction is a row with an amount and a label, so "we refunded the item
+ * minus the delivery charge" is auditable instead of being a smaller number
+ * with no explanation attached.
+ */
+export type RefundDeductionKind =
+  | "delivery_fee"
+  | "restocking_fee"
+  | "coupon_clawback"
+  | "wear_and_tear"
+  | "customer_request"
+  | "shipping_difference";
+
+export interface Refund {
+  id: string;
+  order_id: string;
+  /** Set when the refund originated from a customer return request. */
+  return_id: string | null;
+  /** Set when it originated from an admin cancellation. */
+  cancellation_id: string | null;
+  /** The charge being given money back. */
+  original_payment_id: string;
+  user_id: string | null;
+  status: RefundStatus;
+  /** SUM(refund_items.line_total) */
+  item_total: number;
+  /** SUM(refund_deductions.amount) */
+  deductions_total: number;
+  /** item_total − deductions_total. Must equal what was paid out. */
+  refund_total: number;
+  provider: PaymentProvider;
+  /** The wallet reference, for a bKash or Nagad refund. */
+  transaction_ref: string | null;
+  reason: string | null;
+  notes: string | null;
+  /** Admin who approved it. */
+  approved_by: string | null;
+  approved_at: string | null;
+  /** Admin who executed it. */
+  executed_by: string | null;
+  executed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RefundItem {
+  id: string;
+  refund_id: string;
+  /** The order line being refunded, so quantity and price have an anchor. */
+  order_item_id: string;
+  quantity: number;
+  /** Per-unit amount refunded, which can be less than unit_price. */
+  unit_refund: number;
+  /** unit_refund × quantity */
+  line_total: number;
+  created_at: string;
+}
+
+export interface RefundDeduction {
+  id: string;
+  refund_id: string;
+  kind: RefundDeductionKind;
+  label: string;
+  amount: number;
+  notes: string | null;
+  created_at: string;
+}
+
+// ==========================================================
+// Order financials — derived, never stored
+// ==========================================================
+
+/**
+ * The money position of an order, read from order_financials.
+ *
+ * Every figure is derived from the payments table. None of it is stored on
+ * orders, because a stored copy is a second writer that no one notices is
+ * wrong — and a wrong refundable balance is a real financial bug.
+ */
+export interface OrderFinancials {
+  order_id: string;
+  status: string;
+  city: string;
+  total_amount: number;
+  subtotal: number;
+  discount_total: number;
+  shipping_fee: number;
+  payment_method: string;
+  created_at: string;
+  /** Charges that actually settled. This is what refunds are checked against. */
+  amount_paid: number;
+  /** All charge rows, settled or not. */
+  amount_charged: number;
+  amount_refunded: number;
+  amount_charged_back: number;
+  /** Refunds in flight, reserving part of the balance. */
+  refund_pending: number;
+  /** amount_paid − refunds − chargebacks, clamped at zero. */
+  refundable_balance: number;
+  /** refundable_balance minus refunds in flight. */
+  refundable_now: number;
+  /** paid − refunded − charged back. Can go negative when over-refunded. */
+  net_position: number;
+  /** What the customer still owes. */
+  outstanding_balance: number;
+  /** True when refunds exceed what was collected. A fault, not a state. */
+  is_over_refunded: boolean;
+  charge_count: number;
+  refund_count: number;
+  paid_at: string | null;
+  first_charged_at: string | null;
 }
 
 // ==========================================================
@@ -589,10 +745,17 @@ export interface PaymentMethod {
 }
 
 // ==========================================================
-// Refund Transactions — Ledger for refunds
+// Refund Transactions — admin detail for the refunds aggregate
 // ==========================================================
 
-export type RefundStatus = "pending" | "processed" | "failed" | "cancelled";
+/**
+ * The status of a refund_transactions row.
+ *
+ * Renamed from RefundStatus, which the new refunds aggregate owns, because two
+ * types describing different tables cannot share a name -- and because this is
+ * the workflow state of the settlement, not of the refund itself.
+ */
+export type RefundTransactionStatus = "pending" | "processed" | "failed" | "cancelled";
 
 export interface RefundTransaction {
   id: string;
@@ -602,7 +765,9 @@ export interface RefundTransaction {
   user_id: string | null;
   amount: number;
   payment_method: string;
-  status: RefundStatus;
+  status: RefundTransactionStatus;
+  /** The refunds row this row is the settlement detail for. */
+  refund_id?: string | null;
   processed_at: string | null;
   processed_by: string | null;
   transaction_ref: string | null;
@@ -743,6 +908,12 @@ export interface CheckoutRequest {
   coupon_code?: string;
   /** Delivery instructions for the rider. Stored on the order. */
   notes?: string;
+  /**
+   * The bKash or Nagad transaction reference, when the customer has chosen a
+   * wallet payment. Recorded on the payments row so the store can reconcile
+   * the payment against its merchant statement.
+   */
+  provider_txn_id?: string;
   items: CheckoutItemPayload[];
 }
 

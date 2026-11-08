@@ -3,7 +3,7 @@ import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
 export const metadata = {
   title: "Privacy Policy",
   description:
-    "What personal data Arts Fashion collects, why we collect it, who we share it with, how long we keep it, and the rights you have over your own data.",
+    "What personal data Arts Sports collects, why we collect it, who we share it with, how long we keep it, and the rights you have over your own data.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -14,9 +14,9 @@ export default function PrivacyPolicyPage() {
     >
       <LegalSection title="1. Who we are">
         <p>
-          Arts Fashion is the business that operates this store. For any
+          Arts Sports is the business that operates this store. For any
           question about your data, contact us at{" "}
-          <strong>support@artsfashion.com</strong> or on{" "}
+          <strong>support@artssports.com</strong> or on{" "}
           <strong>+880 9677 666 888</strong>.
         </p>
       </LegalSection>
@@ -137,7 +137,7 @@ export default function PrivacyPolicyPage() {
         </ul>
         <p>
           Make any of these requests by emailing{" "}
-          <strong>support@artsfashion.com</strong> from the address on your
+          <strong>support@artssports.com</strong> from the address on your
           order, or calling us with your order reference. We will respond within
           14 days and will not charge you for it.
         </p>

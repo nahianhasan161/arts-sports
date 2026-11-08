@@ -3,7 +3,7 @@ import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
 export const metadata = {
   title: "Shipping Policy",
   description:
-    "Arts Fashion delivery charges and timelines: ৳60 inside Dhaka, ৳120 nationwide, free over ৳1,500, dispatch times and how to track an order.",
+    "Arts Sports delivery charges and timelines: ৳60 inside Dhaka, ৳120 nationwide, free over ৳1,500, dispatch times and how to track an order.",
 };
 
 export default function ShippingPolicyPage() {

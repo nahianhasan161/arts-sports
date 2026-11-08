@@ -1,5 +1,5 @@
 -- ==========================================================
--- MIGRATION: Full Arts Fashion Schema with Admin RBAC
+-- MIGRATION: Full Arts Sports Schema with Admin RBAC
 -- Idempotent - safe to run on existing databases
 -- ==========================================================
 

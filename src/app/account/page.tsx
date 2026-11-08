@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { ArrowRight, User, Mail, Phone, MapPin, Edit, Save, Shield } from "lucide-react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { UserAvatar } from "@/components/auth/UserAvatar";
 
 const AccountPage = () => {
   const { user, isAdmin, signOut } = useAuth();
@@ -80,22 +81,10 @@ const AccountPage = () => {
         <div className="lg:w-1/3">
           <div className="bg-surface-card border border-border-light rounded-xl p-space-lg shadow-sm">
              <div className="flex flex-col items-center text-center">
-                {user?.user_metadata?.picture ||
-                user?.user_metadata?.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={
-                      user?.user_metadata?.picture ||
-                      user?.user_metadata?.avatar_url || ""
-                    }
-                    alt={user?.user_metadata?.full_name || "User"}
-                    className="w-20 h-20 rounded-full object-cover mb-space-base"
-                  />
-               ) : (
-                 <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-space-base">
-                   <User className="w-10 h-10 text-primary" />
-                 </div>
-               )}
+                {/* Same component the header uses, so the two avatars can never
+                    disagree again -- they were two copies of the same
+                    token-only lookup, and both went blank at once. */}
+                <UserAvatar size={80} className="mb-space-base" />
 
               <h1 className="font-display text-xl uppercase tracking-wider font-bold text-primary mb-1">
                 {user?.user_metadata?.full_name ||

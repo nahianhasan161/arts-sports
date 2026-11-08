@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { withLegacyKey } from "./legacy-storage";
 import { Product } from "@/types";
 
 interface WishlistState {
@@ -52,8 +53,10 @@ export const useWishlistStore = create<WishlistState>()(
       getCount: () => get().items.length,
     }),
     {
-      name: "arts-fashion-wishlist-storage",
-      storage: createJSONStorage(() => localStorage),
+      name: "arts-sports-wishlist-storage",
+      storage: createJSONStorage(() =>
+        withLegacyKey(localStorage, "arts-fashion-wishlist-storage")
+      ),
       partialize: (state) => ({ items: state.items }),
     }
   )

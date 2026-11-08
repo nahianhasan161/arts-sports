@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Search, Package, ChevronDown, ChevronRight } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Search, Package, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PaymentTransactionsTable } from "@/components/admin/payments/PaymentTransactionsTable";
+import { ManualOrderForm } from "@/components/admin/orders/ManualOrderForm";
 
 interface OrderItem {
   id: string;
@@ -61,19 +64,40 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  /** Whether the manual order form is open. */
+  const [creating, setCreating] = useState(false);
+  const searchParamsFromUrl = useSearchParams();
 
   const fetchOrders = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/orders?limit=1000");
+      /*
+       * `?order_id=` deep-links to one order, which is how the returns screen
+       * gets here ("view the order this return belongs to"). When it is set the
+       * list is that single order rather than everything.
+       *
+       * readSearchParams() is called on each fetch rather than memoised, because
+       * Next's hook returns a fresh object and an effect depending on it would
+       * refetch on every render.
+       */
+      const orderIdFromUrl = searchParamsFromUrl.get("order_id");
+      if (orderIdFromUrl) {
+        setExpandedOrders(new Set([orderIdFromUrl]));
+      }
+
+      const response = await fetch(
+        orderIdFromUrl
+          ? `/api/admin/orders?order_id=${encodeURIComponent(orderIdFromUrl)}&limit=1`
+          : "/api/admin/orders?limit=1000"
+      );
       const data: ApiResponse<AdminOrder> = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load orders");
       }
 
-      let filtered = data.data;
+      let filtered = orderIdFromUrl ? data.data : data.data;
       if (statusFilter !== "all") {
         filtered = data.data.filter((o) => o.status === statusFilter);
       }
@@ -172,8 +196,27 @@ export default function AdminOrders() {
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
           </div>
+          {/* Phone and messenger orders are most of the trade, and there was no
+              way to record one. */}
+          <button
+            onClick={() => setCreating((v) => !v)}
+            className="inline-flex items-center gap-1.5 h-9 px-3 text-xs font-bold uppercase tracking-wider text-white bg-primary rounded-lg hover:bg-primary-container transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New order
+          </button>
         </div>
       </div>
+
+      {/* Manual order entry */}
+      {creating && (
+        <ManualOrderForm
+          onCreated={() => {
+            setCreating(false);
+            void fetchOrders();
+          }}
+        />
+      )}
 
       {/* Error */}
       {error && (
@@ -249,11 +292,11 @@ export default function AdminOrders() {
                 </tr>
               ) : (
                 orders.map((order) => (
-                  <>
-                    <tr
-                      key={order.id}
-                      className="border-b border-border-light last:border-b-0"
-                    >
+                  // A Fragment, not a bare <tr>: an expanded order now renders
+                  // its items AND its transactions, and an arrow returning two
+                  // elements without one is a syntax error.
+                  <React.Fragment key={order.id}>
+                    <tr className="border-b border-border-light last:border-b-0">
                       <td className="px-4 py-3 text-sm font-medium text-on-surface">
                         {order.id}
                       </td>
@@ -369,10 +412,20 @@ export default function AdminOrders() {
                               ))}
                             </div>
                           </div>
+
+                          {/* Transactions, on the order they belong to.
+                              Previously an admin had to open the payments tab
+                              and find these rows among everything else. */}
+                          <div className="mt-4 pt-4 border-t border-border-light">
+                            <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                              Payment Transactions
+                            </h4>
+                            <PaymentTransactionsTable orderId={order.id} />
+                          </div>
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))
               )}
             </tbody>

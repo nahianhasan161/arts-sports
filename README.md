@@ -1,4 +1,4 @@
-# Arts Fashion E-Commerce Store
+# Arts Sports E-Commerce Store
 
 A high-conversion e-commerce web platform built with **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, **Zustand**, and **Supabase**.
 
@@ -64,7 +64,8 @@ A high-conversion e-commerce web platform built with **Next.js 14 (App Router)**
 ### 1. Installation
 
 ```bash
-cd /Users/al-nahianhasan/Documents/Projects/Nextjs/arts-fashion
+git clone https://github.com/nahianhasan161/arts-sports.git
+cd arts-sports
 npm install
 ```
 

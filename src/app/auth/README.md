@@ -1,4 +1,4 @@
-# Arts Fashion E-Commerce Store - Authentication
+# Arts Sports E-Commerce Store - Authentication
 
 This directory contains Next.js pages for user authentication:
 - `/sign-in` - Sign in page

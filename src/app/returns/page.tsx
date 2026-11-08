@@ -13,7 +13,7 @@ import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
 export const metadata = {
   title: "Return & Exchange Policy",
   description:
-    "Arts Fashion's 7-day return and size-exchange policy: what qualifies, how to request a return, who pays return shipping, and how long a refund takes.",
+    "Arts Sports's 7-day return and size-exchange policy: what qualifies, how to request a return, who pays return shipping, and how long a refund takes.",
 };
 
 export default function ReturnsPolicyPage() {
@@ -82,7 +82,7 @@ export default function ReturnsPolicyPage() {
       <LegalSection title="5. How to start a return">
         <p>
           Call <strong>+880 9677 666 888</strong> between 9 AM and 10 PM, or
-          email <strong>support@artsfashion.com</strong>, with your order
+          email <strong>support@artssports.com</strong>, with your order
           reference and the item you want to return. Our team will confirm the
           return and arrange collection with a courier partner.
         </p>

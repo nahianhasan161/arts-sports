@@ -11,7 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getSupabaseBrowserClient, supabaseConfigProblem } from "@/lib/supabase/client";
+import { consume } from "@/lib/rate-limit";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -36,7 +37,24 @@ export default function SignInPage() {
     const supabase = getSupabaseBrowserClient();
 
     if (!supabase) {
-      setError("Supabase authentication is not configured.");
+      // "Supabase authentication is not configured" was all the customer ever
+      // got, which is wrong in the common case: the single most frequent
+      // trigger is a dev server that was started before the credentials were
+      // pasted into .env.local, since NEXT_PUBLIC_* is inlined at build time.
+      setError(
+        supabaseConfigProblem() ??
+          "Sign-in is unavailable in this session. If the credentials are set in .env.local, restart the dev server so it picks them up."
+      );
+      setLoading(false);
+      return;
+    }
+
+    // Throttled before the request is made. The endpoint limit is the one that
+    // holds, but a client-side gate stops the button being spammed while the
+    // server is still deciding and gives the shopper an answer immediately.
+    const gate = consume("signIn");
+    if (!gate.allowed) {
+      setError(`Too many sign-in attempts. Try again in ${gate.retryAfter}s.`);
       setLoading(false);
       return;
     }
@@ -77,7 +95,7 @@ export default function SignInPage() {
         <h2 className="font-display text-2xl uppercase tracking-wider font-bold text-primary mb-1">
           Sign In
         </h2>
-        <p className="text-xs text-text-muted">Access your Arts Fashion account</p>
+          <p className="text-xs text-text-muted">Access your Arts Sports account</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-space-base">
@@ -98,6 +116,11 @@ export default function SignInPage() {
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="your.email@example.com"
+              /* The icon is absolutely positioned at left-3 and is 16px wide,
+                 so it ends at 28px. Input's own px-2.5 starts the text at
+                 10px, which drew the icon on top of the text. pl-9 clears it,
+                 and cn merges it over the hardcoded px-2.5. */
+              className="pl-9"
             />
           </div>
         </div>
@@ -113,6 +136,7 @@ export default function SignInPage() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               placeholder="Enter your password"
+              className="pl-9 pr-10"
             />
             <button
               type="button"

@@ -8,7 +8,7 @@
 
 export const config = {
   app: {
-    name: "Arts Fashion",
+    name: "Arts Sports",
     tagline: "Premium Everyday Apparel",
     url: getServerUrl(),
     version: process.env.NEXT_PUBLIC_APP_VERSION ?? "1.0.0",
@@ -36,7 +36,7 @@ export const config = {
     currency: "BDT",
     currencySymbol: "৳",
     phone: "+880-1700-000000",
-    email: "support@artsfashion.com",
+    email: "support@artssports.com",
     supportWhatsApp: "8801700000000",
   },
 
@@ -75,9 +75,9 @@ export function getServerUrl(): string {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "https://artsfashion.com";
+    return "https://artssports.com";
   }
-  return "http://localhost:3111";
+  return "http://localhost:3112";
 }
 
 export function formatPrice(amount: number): string {

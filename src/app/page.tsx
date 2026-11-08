@@ -12,19 +12,19 @@ import { getServerUrl } from "@/lib/config";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Arts Fashion | Premium Everyday Apparel",
+  title: "Arts Sports | Premium Everyday Apparel",
   description:
     "Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort. Shop men's polos, t-shirts, trousers, and sports jerseys.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Arts Fashion | Premium Everyday Apparel",
+    title: "Arts Sports | Premium Everyday Apparel",
     description:
       "Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion.",
     url: getServerUrl(),
     type: "website",
-    images: [{ url: "/og-cover.jpg", width: 1200, height: 630, alt: "Arts Fashion" }],
+    images: [{ url: "/og-cover.jpg", width: 1200, height: 630, alt: "Arts Sports" }],
   },
 };
 
@@ -76,7 +76,7 @@ export default async function HomePage() {
             <EditableImage
               id="hero-image"
               src={savedImage(content, "hero-image", "/images/hero-polo-model.jpg")}
-              alt="Arts Fashion Minimalist Aura Hero Collection"
+              alt="Arts Sports Minimalist Aura Hero Collection"
               className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#091523]/85 via-[#091523]/40 to-transparent flex flex-col justify-end md:justify-center p-space-base sm:p-space-xl md:p-space-2xl text-white">

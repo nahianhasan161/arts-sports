@@ -55,8 +55,8 @@ export function LegalPage({ title, intro, children }: LegalPageProps) {
               +880 9677 666 888
             </a>{" "}
             between 9 AM and 10 PM, or email{" "}
-            <a href="mailto:support@artsfashion.com" className="text-primary font-semibold hover:underline">
-              support@artsfashion.com
+            <a href="mailto:support@artssports.com" className="text-primary font-semibold hover:underline">
+              support@artssports.com
             </a>
             .
           </p>

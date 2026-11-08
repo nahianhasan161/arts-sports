@@ -93,9 +93,13 @@ export function AdminPaymentsClient() {
   const statusColors: Record<PaymentStatus, string> = {
     initiated: "bg-yellow-100 text-yellow-700",
     successful: "bg-green-100 text-green-700",
+    // Amber, not red: money out but the charge is still good and more may yet
+    // follow. Red would read as "this payment is bad".
+    partially_refunded: "bg-amber-100 text-amber-700",
     failed: "bg-red-100 text-red-700",
     cancelled: "bg-gray-100 text-gray-700",
     refunded: "bg-purple-100 text-purple-700",
+    charged_back: "bg-purple-100 text-purple-700",
   };
 
   const typeColors: Record<PaymentType, string> = {

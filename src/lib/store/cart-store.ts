@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { withLegacyKey } from "./legacy-storage";
 import { CartItem, Product } from "@/types";
 
 interface CartState {
@@ -111,8 +112,10 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: "arts-fashion-cart-storage",
-      storage: createJSONStorage(() => localStorage),
+      name: "arts-sports-cart-storage",
+      storage: createJSONStorage(() =>
+        withLegacyKey(localStorage, "arts-fashion-cart-storage")
+      ),
       partialize: (state) => ({ items: state.items }),
     }
   )

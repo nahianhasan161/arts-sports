@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseServerClient, isDynamicServerUsage } from "@/lib/supabase/server";
 import { requireAdmin, handleAdminError } from "@/lib/admin/auth";
 
 async function getSupabase() {
@@ -73,8 +73,21 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/admin/payments
- * Create a new payment transaction (charge or refund).
- * Admin-only. Used for manual COD payment recording and future MFS refunds.
+ * Record a charge for an order, or a COD settlement.
+ * Admin-only.
+ *
+ * A refund is NOT accepted here.
+ *
+ * This endpoint used to accept `type: 'refund'` and insert the row directly,
+ * which bypassed every guard in execute_refund(): the refundable-balance check,
+ * the per-line quantity limit, the deduction arithmetic, and the derived
+ * payment status. An admin could therefore record a refund of any size, with no
+ * items and no deductions, and leave the charge marked 'successful' because
+ * nothing recomputed it.
+ *
+ * Refunds now go through POST /api/admin/refunds, which is the single entry
+ * point and enforces all of it. This route keeps the raw insert for the case it
+ * exists for: recording money that arrived.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -99,11 +112,67 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validTypes = ["charge", "refund", "chargeback"];
-    if (!validTypes.includes(type)) {
+    if (type === "refund") {
+      // A pointer, not just a refusal: the caller needs to know where to go and
+      // what to send, or this is a dead end that pushes them back to guessing.
       return NextResponse.json(
-        { error: `type must be one of: ${validTypes.join(", ")}` },
+        {
+          error: "Refunds must be recorded through /api/admin/refunds, which validates the amount against what the order has paid.",
+          reason: "refund_not_allowed_here",
+          detail:
+            "POST /api/admin/refunds with { order_id, original_payment_id, provider, items, deductions? }.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (type !== "charge" && type !== "chargeback") {
+      return NextResponse.json(
+        { error: "type must be one of: charge, chargeback" },
         { status: 400 }
+      );
+    }
+
+    /*
+     * A manual charge may not take the customer past the order total.
+     *
+     * This is the same guard POST /api/payments/retrospective applies, and it is
+     * missing here only because this route predates it. Without it an operator
+     * can record two ৳1060 charges against a ৳1060 order and the order's
+     * amount_paid doubles, which then doubles every refundable balance derived
+     * from it.
+     */
+    const { data: outstanding, error: finError } = await supabase
+      .from("order_financials")
+      .select("amount_paid, outstanding_balance")
+      .eq("order_id", order_id)
+      .maybeSingle();
+
+    if (finError) {
+      return NextResponse.json({ error: finError.message }, { status: 500 });
+    }
+
+    // No row means no payments of any kind, so the outstanding balance is the
+    // order's own total.
+    let limit = Number(outstanding?.outstanding_balance ?? 0);
+    if (!outstanding) {
+      const { data: orderRow } = await supabase
+        .from("orders")
+        .select("total_amount")
+        .eq("id", order_id)
+        .single();
+      limit = Number(orderRow?.total_amount ?? 0);
+    }
+
+    const offered = Number(amount);
+    if (offered > limit) {
+      return NextResponse.json(
+        {
+          error: "That amount is more than the order still owes.",
+          reason: "amount_exceeds_outstanding",
+          detail: `outstanding ${limit.toFixed(2)}, offered ${offered.toFixed(2)}`,
+        },
+        { status: 409 }
       );
     }
 
@@ -115,7 +184,10 @@ export async function POST(request: NextRequest) {
         provider: provider || "cod",
         amount: Number(amount),
         provider_txn_id: provider_txn_id || null,
-        status: status || "initiated",
+        // 'successful' is the honest default here: an operator recording a
+        // charge is recording money already in hand, so a row parked at
+        // 'initiated' would never advance on its own.
+        status: status || "successful",
         metadata: metadata || {},
       })
       .select()
@@ -127,7 +199,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data }, { status: 201 });
   } catch (error) {
-    return handleAdminError(error);
+    if (!isDynamicServerUsage(error)) {
+      console.error("Unexpected payments create error:", error);
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 

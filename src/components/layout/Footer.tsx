@@ -88,17 +88,17 @@ export function Footer() {
           <div className="lg:col-span-2 flex flex-col gap-space-sm">
             <Link href="/" className="inline-flex items-center">
               <div className="bg-white px-3 py-1.5 rounded-md inline-flex items-center shadow-sm">
-                <Image
-                  src="/logo.jpg"
-                  alt="arts fashion"
-                  width={160}
-                  height={30}
-                  className="h-6 w-auto object-contain"
-                />
+                 <Image
+                   src="/main-logo-arts-sports.webp"
+                   alt="arts sports"
+                   width={160}
+                   height={30}
+                   className="h-6 w-auto object-contain"
+                 />
               </div>
             </Link>
             <p className="text-xs leading-relaxed max-w-sm text-[#718096]">
-              Arts Fashion is engineered with high fabric standards, bespoke craftsmanship, and contemporary everyday apparel. Designed with passion, loved worldwide.
+              Arts Sports is engineered with high fabric standards, bespoke craftsmanship, and contemporary everyday apparel. Designed with passion, loved worldwide.
             </p>
             <div className="flex items-center gap-3 pt-2">
               <a
@@ -170,7 +170,7 @@ export function Footer() {
             <Link href="/account" className="text-xs hover:text-white transition-colors">
               Track Your Order
             </Link>
-            <Link href="mailto:support@artsfashion.com" className="text-xs hover:text-white transition-colors">
+            <Link href="mailto:support@artssports.com" className="text-xs hover:text-white transition-colors">
               Contact Support
             </Link>
           </div>
@@ -186,7 +186,7 @@ export function Footer() {
             <Link href="/terms" className="text-xs hover:text-white transition-colors">
               Terms of Service
             </Link>
-            <Link href="mailto:corporate@artsfashion.com" className="text-xs hover:text-white transition-colors">
+            <Link href="mailto:corporate@artssports.com" className="text-xs hover:text-white transition-colors">
               Corporate &amp; Bulk Orders
             </Link>
             <a href="tel:+8809677666888" className="text-xs hover:text-white transition-colors">
@@ -227,7 +227,7 @@ export function Footer() {
       <div className="bg-[#0b1017] py-4 border-t border-white/5">
         <div className="max-w-container-max mx-auto px-space-base flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#4a5568] gap-2">
           <span>
-            © {new Date().getFullYear()} Arts Fashion Ltd. All rights reserved.
+            © {new Date().getFullYear()} Arts Sports Ltd. All rights reserved.
           </span>
           <div className="flex items-center gap-4">
             <Link href="/privacy-policy" className="hover:text-white transition-colors">
