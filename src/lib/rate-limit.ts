@@ -53,6 +53,9 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   lead: { limit: 30, windowMs: 60_000 },
   // Order lookup by order number + phone: slow enough to stop guessing.
   track: { limit: 10, windowMs: 60_000 },
+  // Review photos and review/question text from signed-in shoppers.
+  reviewUpload: { limit: 12, windowMs: 60_000 },
+  reviewSubmit: { limit: 6, windowMs: 60_000 },
 };
 
 export interface RateLimitResult {

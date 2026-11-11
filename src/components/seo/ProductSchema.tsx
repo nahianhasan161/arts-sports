@@ -3,6 +3,8 @@ import { getServerUrl } from "@/lib/config";
 
 interface ProductSchemaProps {
   product: Product;
+  /** Approved customer reviews. aggregateRating is only emitted when there are some. */
+  rating?: { count: number; average: number | null };
 }
 
 /**
@@ -22,7 +24,7 @@ interface ProductSchemaProps {
  *    being hardcoded InStock. Claiming in-stock on an out-of-stock product
  *    produces a rich result for something a shopper cannot buy.
  */
-export function ProductSchema({ product }: ProductSchemaProps) {
+export function ProductSchema({ product, rating }: ProductSchemaProps) {
   const inStock = product.sizes?.some((s) => (s.stock ?? 0) > 0) || (product.stock ?? 0) > 0;
 
   const schema = {
@@ -55,6 +57,16 @@ export function ProductSchema({ product }: ProductSchemaProps) {
       },
       itemCondition: "https://schema.org/NewCondition",
     },
+    // Real, approved reviews only (product_reviews). Never from products.rating.
+    ...(rating && rating.count > 0 && rating.average !== null && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: rating.average,
+        reviewCount: rating.count,
+        bestRating: 5,
+        worstRating: 1,
+      },
+    }),
     ...(product.category && {
       category: product.category,
     }),

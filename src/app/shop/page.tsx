@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getProducts, getProductsCount, getCategories } from "@/lib/services/products";
+import { getTerms, resolveTermProductIds, TERM_TYPES, type TermType } from "@/lib/services/catalog";
 import { ShopContent } from "./ShopContent";
 
 /**
@@ -61,6 +62,18 @@ export default async function ShopPage(props: ShopPageProps) {
     .filter(Boolean);
   const page = Math.max(1, Number(first(searchParams.page) ?? "1") || 1);
 
+  // Team / league / season / edition / brand / player filters: comma-separated
+  // slugs per type in the URL, resolved to the product ids they match.
+  const termSelection: Partial<Record<TermType, string[]>> = {};
+  for (const type of TERM_TYPES) {
+    const slugs = first(searchParams[type])
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (slugs && slugs.length > 0) termSelection[type] = slugs;
+  }
+  const [productIds, terms] = await Promise.all([resolveTermProductIds(termSelection), getTerms()]);
+
   const [products, total, categories] = await Promise.all([
     getProducts({
       category,
@@ -68,13 +81,19 @@ export default async function ShopPage(props: ShopPageProps) {
       search: query || undefined,
       sizes: sizes && sizes.length > 0 ? sizes : undefined,
       sortBy,
+      productIds: productIds ?? undefined,
       // The grid applies the size, price and stock predicates the query
       // builder does not understand, so fetch a generous page and filter
       // it. The count below is the authoritative total.
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     }),
-    getProductsCount({ category, subCategory: subCategory || undefined, search: query || undefined }),
+    getProductsCount({
+      category,
+      subCategory: subCategory || undefined,
+      search: query || undefined,
+      productIds: productIds ?? undefined,
+    }),
     getCategories(),
   ]);
 
@@ -98,6 +117,8 @@ export default async function ShopPage(props: ShopPageProps) {
         products={products}
         total={total}
         categories={categories}
+        terms={terms}
+        termSelection={termSelection}
         parentName={parent?.name}
         category={category}
         subCategory={subCategory}

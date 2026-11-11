@@ -8,11 +8,23 @@ import { Home, ChevronRight, SlidersHorizontal, ArrowUpDown } from "lucide-react
 import { ProductCard } from "@/components/product/ProductCard";
 import { FilterSidebar } from "@/components/shop/FilterSidebar";
 import type { Category, Product } from "@/types";
+import type { CatalogTerm, TermType } from "@/lib/services/catalog";
+
+const FACET_ORDER: [TermType, string][] = [
+  ["team", "Team"],
+  ["league", "League"],
+  ["edition", "Edition"],
+  ["season", "Season"],
+  ["player", "Player"],
+  ["brand", "Brand"],
+];
 
 interface ShopContentProps {
   products: Product[];
   total: number;
   categories: Category[];
+  terms: CatalogTerm[];
+  termSelection: Partial<Record<TermType, string[]>>;
   parentName?: string;
   category: string;
   subCategory: string;
@@ -31,6 +43,8 @@ export function ShopContent({
   products,
   total,
   categories,
+  terms,
+  termSelection,
   parentName,
   category,
   subCategory,
@@ -88,6 +102,14 @@ export function ShopContent({
       applyParams({ sizes: next.length > 0 ? next.join(",") : null });
     },
     [applyParams, sizes]
+  );
+  const toggleTerm = useCallback(
+    (type: TermType, slug: string) => {
+      const current = termSelection[type] ?? [];
+      const next = current.includes(slug) ? current.filter((s) => s !== slug) : [...current, slug];
+      applyParams({ [type]: next.length > 0 ? next.join(",") : null });
+    },
+    [applyParams, termSelection]
   );
   const toggleInStock = useCallback(
     () => applyParams({ stock: inStockOnly ? null : "in" }),
@@ -201,6 +223,37 @@ export function ShopContent({
               ))}
             </div>
           )}
+
+          {/* Team, league, edition, season: each row only appears when the
+              admin has created terms of that type. */}
+          {FACET_ORDER.map(([type, label]) => {
+            const list = terms.filter((t) => t.type === type);
+            if (list.length === 0) return null;
+            return (
+              <div key={type} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 -mx-space-base px-space-base md:mx-0 md:px-0">
+                <span className="text-[10px] font-display font-bold uppercase tracking-widest text-text-muted shrink-0 w-14">
+                  {label}
+                </span>
+                {list.map((t) => {
+                  const active = (termSelection[type] ?? []).includes(t.slug);
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => toggleTerm(type, t.slug)}
+                      aria-pressed={active}
+                      className={`px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors border ${
+                        active
+                          ? "bg-primary text-white border-primary shadow-sm"
+                          : "bg-surface-subtle hover:bg-surface-container text-on-surface border-border-light"
+                      }`}
+                    >
+                      {t.name_en}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </section>
 

@@ -27,9 +27,12 @@ export async function getProducts(options?: {
   sortBy?: string;
   limit?: number;
   offset?: number;
+  /** Restrict to these product ids (team/league/season filters). Empty = no matches. */
+  productIds?: string[];
   /** Column to order by, for callers that need something other than the sort presets. */
   order?: { column: string; ascending?: boolean };
 }): Promise<Product[]> {
+  if (options?.productIds && options.productIds.length === 0) return [];
   // If Supabase is configured and reachable
   const supabase = await getActiveSupabaseClient();
   if (supabase) {
@@ -48,6 +51,9 @@ export async function getProducts(options?: {
       }
       if (options?.subCategory) {
         query = query.eq("sub_category", options.subCategory);
+      }
+      if (options?.productIds) {
+        query = query.in("id", options.productIds);
       }
       if (options?.minPrice !== undefined) {
         query = query.gte("price", options.minPrice);
@@ -271,7 +277,9 @@ export async function getProductsCount(options?: {
   subCategory?: string;
   search?: string;
   status?: string;
+  productIds?: string[];
 }): Promise<number> {
+  if (options?.productIds && options.productIds.length === 0) return 0;
   const supabase = await getActiveSupabaseClient();
   if (supabase) {
     try {
@@ -286,6 +294,9 @@ export async function getProductsCount(options?: {
       }
       if (options?.subCategory) {
         query = query.eq("sub_category", options.subCategory);
+      }
+      if (options?.productIds) {
+        query = query.in("id", options.productIds);
       }
       if (options?.search) {
         const term = options.search.replace(/[,%()]/g, " ").trim();

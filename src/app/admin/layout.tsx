@@ -26,6 +26,8 @@ import {
   PhoneCall,
   Settings2,
   Truck,
+  Trophy,
+  MessageSquareText,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
@@ -53,6 +55,8 @@ const sidebarGroups: SidebarGroup[] = [
       { name: "Products", href: "/admin/products", icon: Package },
       { name: "Media", href: "/admin/media", icon: Images },
       { name: "Categories", href: "/admin/categories", icon: Tag },
+      { name: "Teams & collections", href: "/admin/catalog", icon: Trophy },
+      { name: "Reviews & Q&A", href: "/admin/reviews", icon: MessageSquareText },
       { name: "Colors", href: "/admin/colors", icon: Palette },
       { name: "Sizes", href: "/admin/sizes", icon: Ruler },
     ],

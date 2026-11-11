@@ -23,6 +23,17 @@ import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 
+const DEFAULT_NAV = [
+  { name: "Shop All", href: "/shop" },
+  { name: "Men", href: "/shop?category=men" },
+  { name: "Women", href: "/shop?category=women" },
+  { name: "Kids", href: "/shop?category=kids" },
+  { name: "Sports", href: "/shop?category=sports" },
+  { name: "New Arrivals", href: "/shop?sort=newest" },
+  { name: "Top Selling", href: "/shop?sort=popular" },
+  { name: "Mega Deals", href: "/shop?deals=true" },
+];
+
 export function Header() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -67,16 +78,28 @@ export function Header() {
     }
   };
 
-  const navCategories = [
-    { name: "Shop All", href: "/shop" },
-    { name: "Men", href: "/shop?category=men" },
-    { name: "Women", href: "/shop?category=women" },
-    { name: "Kids", href: "/shop?category=kids" },
-    { name: "Sports", href: "/shop?category=sports" },
-    { name: "New Arrivals", href: "/shop?sort=newest" },
-    { name: "Top Selling", href: "/shop?sort=popular" },
-    { name: "Mega Deals", href: "/shop?deals=true" },
-  ];
+  // Menu: Shop All, then the sports the admin created, then collections
+  // marked "show in menu", then deals. Starts as the static list so the bar
+  // is never empty while /api/catalog/nav loads or if it fails.
+  const [navCategories, setNavCategories] = useState<{ name: string; href: string }[]>(DEFAULT_NAV);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/catalog/nav")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((nav: { sports: { name: string; href: string }[]; collections: { name: string; href: string }[] } | null) => {
+        if (!alive || !nav || (nav.sports.length === 0 && nav.collections.length === 0)) return;
+        setNavCategories([
+          { name: "Shop All", href: "/shop" },
+          ...nav.sports.map(({ name, href }) => ({ name, href })),
+          ...nav.collections,
+          { name: "Mega Deals", href: "/shop?deals=true" },
+        ]);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   return (
     <header className="fixed top-0 w-full z-40 bg-surface-card shadow-sm">
       {/* 1. Utility Top Bar */}

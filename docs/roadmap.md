@@ -10,6 +10,8 @@
 
 > এই file-টা চলমান plan। কোনো সিদ্ধান্ত বদলালে এখানে update করুন।
 
+> 3D দোকান, 360° ছবি, custom jersey-র live preview আর Flutter অ্যাপের plan আলাদা file-এ: [3d-store-and-app.md](3d-store-and-app.md)।
+
 ## নেওয়া সিদ্ধান্ত (2026-11-08)
 
 | বিষয় | সিদ্ধান্ত |
@@ -161,7 +163,30 @@ SMS OTP আর paid fraud-check service ব্যবহার হবে না�
 
 ---
 
+## পরে করার কাজ (Phase 1-এর বাকি, 2026-11-11)
+
+Phase 1-এর code সব তৈরি। নিচেরগুলো করতে আপনার সিদ্ধান্ত বা key লাগবে, তাই পরে:
+
+| কাজ | কী লাগবে |
+| --- | --- |
+| Migration `20261108200000_social_selling.sql` live DB-তে apply | আপনার অনুমতি; `node scripts/apply-sql.mjs --only 20261108200000` |
+| Google login ঠিক করা | Supabase Auth এখনও পুরনো Vercel URL-এ। অনুমতি দিলে `node scripts/fix-auth-redirects.mjs` চালানো হবে। Custom domain পেলে আবার |
+| Courier | Steadfast আর Pathao-র API key ও webhook secret। আগে sandbox-এ booking test (adapter এখনও আসল API-তে চেষ্টা হয়নি) |
+| Tracking | Meta Pixel ID + CAPI token, GA4 measurement ID |
+| Bot check | Turnstile site key + secret |
+| Google One Tap | Google client ID |
+| Contact link | `NEXT_PUBLIC_STORE_WHATSAPP`, `NEXT_PUBLIC_MESSENGER_PAGE` |
+| UnivaPayment | একটা ছোট আসল payment test |
+| Product share ছবি (1.6) | আলাদা Worker বা paid Cloudflare plan (Worker এখন 3 MiB সীমার কাছে) |
+| Commit | uncommitted auth fix, 3D doc, roadmap |
+
+---
+
 ## Phase 2 — Sports store-এর মতো catalog
+
+> **অবস্থা (2026-11-11):** 2.1, 2.3, 2.5, 2.6 তৈরি। Migration `20261111100000_catalog_phase2.sql` লেখা আছে কিন্তু **live DB-তে apply করা হয়নি**; apply না হলে নতুন অংশগুলো খালি দেখাবে বা লুকানো থাকবে, site ভাঙবে না।
+> **বাকি (Phase 2b):** 2.2 variant-এর storefront picker (হাতা, kit, weight, grip) আর product editor, 2.4 bundle। দুটোতেই order RPC আর `lib/pricing.ts` বদলাতে হয় (দাম মিলিয়ে), তাই আলাদা করে।
+> "২৪ ঘণ্টায় কতজন কিনেছে" ও live viewer চালু; "wishlist-এ রেখেছে" বাকি, কারণ wishlist এখন শুধু browser-এ থাকে, database-এ নয়।
 
 ### 2.1 Category, filter আর collection
 

@@ -10,6 +10,7 @@ import { Product } from "@/types";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useLiveBadges } from "@/lib/promotions/useLiveBadges";
+import { useProofBadge } from "@/lib/catalog/useProofBadge";
 
 interface ProductCardProps {
   product: Product;
@@ -24,6 +25,8 @@ export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardPr
   // never outlive the promotion that produced it.
   const liveBadges = useLiveBadges([product.id]);
   const live = liveBadges[product.id];
+
+  const proof = useProofBadge(product.id);
 
   const isLiked = isInWishlist(product.id);
 
@@ -45,8 +48,12 @@ export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardPr
   // on every save. The fallback chain is safe to read now for a reason it was
   // not before: both ends of it come from the same numbers as the price, so a
   // card cannot show a badge its own price contradicts.
-  const badgeText = live?.badge_label ?? product.badge;
-  const badgeType = live?.badge_type ?? product.badge_type;
+  // Computed from real sales/publish dates, and only when nothing else is
+  // already labelling the card.
+  const proofText = proof?.bestseller ? "Bestseller" : proof?.new ? "New" : null;
+  const badgeText = live?.badge_label ?? product.badge ?? proofText;
+  const badgeType =
+    live?.badge_type ?? product.badge_type ?? (proof?.bestseller ? "popular" : proof?.new ? "new" : undefined);
   const displayPrice = live?.final_price ?? product.price;
 
   // The base the saving was taken from. live.base_price is the server's figure

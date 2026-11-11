@@ -28,6 +28,7 @@ import { Product } from "@/types";
 import { useCartStore } from "@/lib/store/cart-store";
 import { trackEvent } from "@/lib/tracking/events";
 import { ShareButtons } from "@/components/product/ShareButtons";
+import { SocialProof } from "@/components/product/SocialProof";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 
 interface ProductDetailClientProps {
@@ -416,15 +417,8 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   })}
                 </div>
 
-                {/* Stock Warning */}
-                {availableStock <= 10 && availableStock > 0 && (
-                  <div className="flex items-center gap-2 text-xs text-badge-discount font-medium bg-badge-discount/10 px-3 py-1.5 rounded-lg mt-2">
-                    <AlertCircle className="w-4 h-4 animate-pulse shrink-0" />
-                    <span>
-                      Hurry! Only <strong className="font-bold">{availableStock}</strong> units remaining in Size <strong className="font-bold">{selectedSize}</strong>.
-                    </span>
-                  </div>
-                )}
+                {/* Scarcity and social proof: real stock, real orders, live viewers. */}
+                <SocialProof productId={product.id} stock={availableStock} size={selectedSize} />
               </div>
 
               {/* Quantity Selector & CTAs */}

@@ -3,6 +3,15 @@ import type { Metadata } from "next";
 import { getProductBySlug } from "@/lib/services/products";
 import { roundPercent } from "@/lib/pricing";
 import { getServerUrl } from "@/lib/config";
+import {
+  getApprovedQuestions,
+  getApprovedReviews,
+  getProductTerms,
+  getRatingSummary,
+  getTerms,
+} from "@/lib/services/catalog";
+import { ProductReviews } from "@/components/product/ProductReviews";
+import { EditionCompare } from "@/components/product/EditionCompare";
 import { ProductSchema } from "@/components/seo/ProductSchema";
 import { ProductDetailClient } from "./ProductDetailClient";
 
@@ -97,12 +106,20 @@ export default async function ProductDetailPage(props: ProductPageProps) {
         : 0)
   );
 
+  const [summary, reviews, questions, productTerms, editions] = await Promise.all([
+    getRatingSummary(product.id),
+    getApprovedReviews(product.id),
+    getApprovedQuestions(product.id),
+    getProductTerms(product.id),
+    getTerms("edition"),
+  ]);
+
   return (
     <>
       {/* Price, currency and availability for rich results. Only emitted for
           a real published product, and only with in-stock availability, so
           the markup can never claim stock the database does not have. */}
-      <ProductSchema product={product} />
+      <ProductSchema product={product} rating={summary} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -129,6 +146,8 @@ export default async function ProductDetailPage(props: ProductPageProps) {
         }}
       />
       <ProductDetailClient product={product} discountPercent={discountPercent} />
+      <EditionCompare editions={editions} current={productTerms.map((t) => t.id)} />
+      <ProductReviews productId={product.id} summary={summary} reviews={reviews} questions={questions} />
     </>
   );
 }
