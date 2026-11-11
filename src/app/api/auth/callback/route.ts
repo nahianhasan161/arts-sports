@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 
 export async function GET(request: NextRequest) {
@@ -16,23 +16,21 @@ export async function GET(request: NextRequest) {
   }
 
   // Build the redirect response early so Supabase can attach session cookies to it.
-  const redirectPath = getSafeRedirectPath(next, origin);
+  // The second argument is the fallback path, not the origin: passing the
+  // origin here sent an unsafe `next` to the home page instead of /account.
+  const redirectPath = getSafeRedirectPath(next);
   const response = NextResponse.redirect(new URL(redirectPath, origin));
   const cookieStore = await cookies();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) =>
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          ),
-      },
-    },
-  );
+  // Returns null when the Supabase env is missing, so the check below works
+  // (createServerClient with `!` env values never returned null).
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (cookiesToSet) =>
+      cookiesToSet.forEach(({ name, value, options }) =>
+        response.cookies.set(name, value, options)
+      ),
+  });
 
   if (!supabase) {
     const redirectUrl = new URL("/sign-in", origin);

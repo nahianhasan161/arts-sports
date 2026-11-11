@@ -25,7 +25,12 @@ export default function SignInPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
+      // Read once on mount (not during render) so SSR and hydration match.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setReturnTo(getSafeRedirectPath(searchParams.get("next") || null));
+      // /api/auth/callback sends failed Google sign-ins back here with ?error=.
+      const callbackError = searchParams.get("error");
+      if (callbackError) setError(`Google sign-in failed: ${callbackError}`);
     }
   }, []);
 
