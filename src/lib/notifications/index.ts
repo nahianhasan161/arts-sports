@@ -22,7 +22,18 @@ export type Template =
   | "payment_received"
   | "order_confirmed"
   | "order_shipped"
-  | "order_delivered";
+  | "order_delivered"
+  // Custom jersey (Phase 3). {link} is the customer's private order page.
+  | "custom_submitted"
+  | "custom_changes_needed"
+  | "custom_rejected"
+  | "custom_mockup_ready"
+  | "custom_approved"
+  | "custom_advance_received"
+  | "custom_payment_received"
+  | "custom_stage"
+  | "custom_ready"
+  | "custom_delivered";
 
 export interface NotifyInput {
   template: Template;
@@ -33,6 +44,7 @@ export interface NotifyInput {
   channels?: Channel[];
   orderId?: string | null;
   customerId?: string | null;
+  customOrderId?: string | null;
 }
 
 export interface NotifyOutcome {
@@ -73,6 +85,8 @@ export async function notify(input: NotifyInput): Promise<NotifyOutcome[]> {
         recipient: to,
         order_id: input.orderId ?? null,
         customer_id: input.customerId ?? null,
+        // Only sent when set, so order messages do not depend on the Phase 3 column.
+        ...(input.customOrderId ? { custom_order_id: input.customOrderId } : {}),
         subject: channel === "email" ? subject : null,
         body,
         action_url: result.actionUrl ?? null,

@@ -60,7 +60,7 @@ export default async function HomePage() {
             </span>
           </div>
           <Link
-            href="/shop"
+            href="/custom-jersey"
             className="inline-flex items-center gap-1 font-display text-xs text-secondary hover:text-primary font-bold uppercase tracking-wider transition-colors"
           >
             <span>Get Custom Quote</span>

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { MyOrders } from "@/components/account/MyOrders";
+import { MyCustomOrders } from "@/components/account/MyCustomOrders";
 
 const AccountPage = () => {
   const { user, isAdmin, signOut } = useAuth();
@@ -303,6 +304,7 @@ const AccountPage = () => {
           </div>
         </div>
         <MyOrders />
+        <MyCustomOrders />
       </div>
     </div>
   );

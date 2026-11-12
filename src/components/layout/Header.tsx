@@ -25,6 +25,7 @@ import { UserAvatar } from "@/components/auth/UserAvatar";
 
 const DEFAULT_NAV = [
   { name: "Shop All", href: "/shop" },
+  { name: "Custom Jersey", href: "/custom-jersey" },
   { name: "Men", href: "/shop?category=men" },
   { name: "Women", href: "/shop?category=women" },
   { name: "Kids", href: "/shop?category=kids" },
@@ -90,6 +91,7 @@ export function Header() {
         if (!alive || !nav || (nav.sports.length === 0 && nav.collections.length === 0)) return;
         setNavCategories([
           { name: "Shop All", href: "/shop" },
+          { name: "Custom Jersey", href: "/custom-jersey" },
           ...nav.sports.map(({ name, href }) => ({ name, href })),
           ...nav.collections,
           { name: "Mega Deals", href: "/shop?deals=true" },

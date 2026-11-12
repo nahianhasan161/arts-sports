@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getGateway, WebhookVerificationError } from "@/lib/payments/gateway";
 import { syncGatewayPayment } from "@/lib/payments/online";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { syncCustomGatewayPayment } from "@/lib/custom-jersey/server";
 
 /**
  * POST /api/payments/webhooks/<gateway>
@@ -67,7 +68,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ gat
   }
 
   try {
-    const result = await syncGatewayPayment(code, event.paymentId);
+    // A custom jersey advance or balance is kept in its own table; anything
+    // else is an order payment.
+    const custom = await syncCustomGatewayPayment(code, event.paymentId);
+    const result = custom ?? (await syncGatewayPayment(code, event.paymentId));
     await db
       .from("payment_webhooks")
       .update({ processed: true, processed_at: new Date().toISOString() })

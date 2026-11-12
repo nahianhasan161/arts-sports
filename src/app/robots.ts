@@ -30,6 +30,7 @@ export default function robots(): MetadataRoute.Robots {
           "/sign-up",
           "/checkout",
           "/order/",
+          "/custom-jersey/order/",
           "/api/",
         ],
       },

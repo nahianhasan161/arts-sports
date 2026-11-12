@@ -31,6 +31,11 @@ Bangladesh sports e-commerce + (planned) offline POS. Custom jersey is the key p
 - Types: `src/types/index.ts` (large — grep for the type you need)
 - Catalogue (Phase 2): `lib/services/catalog.ts` (terms, collections, reviews reads), pages `/team/[slug]`, `/collection/[slug]`,
   admin `/admin/catalog` + `/admin/reviews`; SQL `20261111100000_catalog_phase2.sql` (needs `20261108200000` first)
+- Custom jersey (Phase 3): `lib/custom-jersey/` (`pricing.ts` shared estimate, `server.ts` status moves/payments/notify,
+  `roster.ts` CSV/xlsx import), `components/custom-jersey/`, pages `/custom-jersey`, `/custom-jersey/order/[token]`,
+  admin `/admin/custom-orders` (board) + `/admin/custom-jersey` (prices); SQL `20261113100000_custom_jersey.sql`.
+  Its payments are in `custom_order_payments`, not `payments`. Customer access = `access_token` in the URL, no login.
+- Client i18n: `useT()` from `src/i18n/client.ts` (reads the `lang` cookie)
 - Stores: `lib/store/` (cart, wishlist)
 - DB schema: `supabase/migrations/*.sql` is the truth. `supabase/schema.sql` is old/legacy.
 - `scripts/` = one-off diag/test scripts; ignore unless relevant.
@@ -51,4 +56,5 @@ For docs, `grep -n '^#'` first and read just the relevant section.
 
 ## Current state
 - Branch `cloudflare-migration`. Phase 0 and 1 built (keys/migration pending, see roadmap "পরে করার কাজ"). Phase 2 built except 2.2 picker + 2.4 bundles; its migration is NOT applied live.
+- Phase 3 (custom jersey) built; its migration is NOT applied live and has never been run against a Postgres, and the seeded prices are placeholders. See the status box under Phase 3 in the roadmap.
 - Plans: `docs/roadmap.md` (phases), `docs/3d-store-and-app.md` (3D/360°/Flutter), `docs/cloudflare.md` (deploy/R2)

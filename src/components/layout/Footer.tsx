@@ -158,6 +158,9 @@ export function Footer() {
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
               Customer Care
             </h5>
+            <Link href="/custom-jersey" className="text-xs hover:text-white transition-colors">
+              Custom Jersey
+            </Link>
             <Link href="/returns" className="text-xs hover:text-white transition-colors">
               Return &amp; Exchange Policy
             </Link>

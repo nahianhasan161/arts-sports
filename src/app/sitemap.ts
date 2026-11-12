@@ -24,6 +24,8 @@ export const revalidate = 3600;
 const STATIC_ROUTES: { path: string; priority: number; changeFrequency: "daily" | "weekly" | "monthly" }[] = [
   { path: "/", priority: 1.0, changeFrequency: "daily" },
   { path: "/shop", priority: 0.9, changeFrequency: "daily" },
+  { path: "/custom-jersey", priority: 0.9, changeFrequency: "weekly" },
+  { path: "/custom-jersey/gallery", priority: 0.6, changeFrequency: "weekly" },
   { path: "/returns", priority: 0.6, changeFrequency: "monthly" },
   { path: "/refund-policy", priority: 0.5, changeFrequency: "monthly" },
   { path: "/shipping-policy", priority: 0.6, changeFrequency: "monthly" },

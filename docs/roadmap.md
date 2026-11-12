@@ -18,7 +18,7 @@
 | --- | --- |
 | Payment gateway | **UnivaPayment** (নিজেদের, [univapayment-web](https://github.com/nahianhasan161/univapayment-web))। এখন bKash আর Nagad। Card পরে UnivaPayment-এ বা অন্য gateway দিয়ে। |
 | Courier | **Steadfast + Pathao**, এলাকা আর খরচ দেখে বাছাই |
-| Delivery charge | ঢাকার ভেতরে **৳৬০**, বাইরে **৳১২০** |
+| Delivery charge | ঢাকার ভেতরে **৳৭০**, বাইরে **৳১২০** |
 | পুরো টাকা আগে দিলে | আলাদা কোনো সুবিধা নেই |
 | ভুয়া order আটকানো | **শুধু free উপায়**, কোনো paid service না, OTP না |
 | খেলা | Football, Cricket, Badminton, Gym/Running |
@@ -255,6 +255,27 @@ Phase 1-এর code সব তৈরি। নিচেরগুলো করত
 ---
 
 ## Phase 3 — Custom Jersey (মূল আকর্ষণ)
+
+> **অবস্থা (2026-11-13):** 3.1–3.4 তৈরি। Migration `20261113100000_custom_jersey.sql` লেখা আছে কিন্তু **live DB-তে apply করা হয়নি** (আর কোনো Postgres-এ চালিয়ে দেখাও হয়নি); apply না হলে `/custom-jersey` পাতায় "phone/WhatsApp-এ order দিন" লেখা দেখায়, site ভাঙে না।
+>
+> | কোথায় | কী |
+> | --- | --- |
+> | `/custom-jersey` | Order form: দুই পথ (upload / design বাছাই), কাপড়, option, দলের তালিকা (Excel/CSV/paste), তারিখ, সাথে সাথে আনুমানিক দাম। Login লাগে না। বাংলা/English switch আছে। |
+> | `/custom-jersey/order/<token>` | Customer-এর নিজের পাতা (গোপন link): mockup, পরিবর্তন চাওয়া, tick দিয়ে confirm, অগ্রিম/বাকি payment, ধাপ, বার্তা। |
+> | `/custom-jersey/gallery` | অনুমতি পাওয়া জার্সির ছবি। |
+> | `/admin/custom-orders` | Production board (kanban), দেরি হলে লাল, দায়িত্বপ্রাপ্ত staff, mockup + চূড়ান্ত দাম পাঠানো, নগদ/card payment লেখা। Permission: `custom_orders.manage`। |
+> | `/admin/custom-jersey` | কাপড়, দামের table, design template, gallery। |
+>
+> **চালুর আগে আপনার যা করতে হবে:**
+> - Migration apply-এর অনুমতি: `node scripts/apply-sql.mjs --only 20261113100000`।
+> - **আসল দাম বসানো।** Migration-এ কাপড়ের দাম (৳৪৫০–৭৫০), ছাড়ের ধাপ, নাম/নম্বর/logo/ফুল হাতা/শর্টস আর জরুরি চার্জ **আনুমানিক ধরে দেওয়া**; `/admin/custom-jersey` থেকে ঠিক করুন।
+> - Online অগ্রিমের জন্য UnivaPayment key (না থাকলে পাতায় "দোকানে বা WhatsApp-এ দিন" দেখায়, staff হাতে payment লেখে)। SMS/email provider না থাকলে message শুধু `notifications` table-এ জমা হয়।
+>
+> **যা এখনো হয়নি:**
+> - Design template এখন code-এ আঁকা ৮টা pattern (plain, stripes, hoops…) × ৩ রং। আসল ছবির layer দিয়ে template ([3d-store-and-app.md](3d-store-and-app.md) ধাপ W4) পরে; `jersey_templates.layers` কলাম তার জন্য রাখা।
+> - Dokan/POS থেকে custom order বানানো (4.3)। এখন staff customer-এর হয়ে website-এর form পূরণ করতে পারে।
+> - AI দিয়ে design (`custom_orders.source = 'ai'` রাখা আছে)।
+> - Admin-এ নতুন order এলে আলাদা notification নেই; board-এর "New" কলামে দেখা যায়।
 
 ### 3.1 দুটো পথ
 

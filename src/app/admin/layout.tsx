@@ -28,6 +28,7 @@ import {
   Truck,
   Trophy,
   MessageSquareText,
+  Shirt,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 
@@ -75,6 +76,13 @@ const sidebarGroups: SidebarGroup[] = [
       { name: "Payments", href: "/admin/payments", icon: CreditCard },
       { name: "Leads", href: "/admin/leads", icon: PhoneCall },
       { name: "Courier & COD", href: "/admin/courier", icon: Truck },
+    ],
+  },
+  {
+    label: "Custom jersey",
+    items: [
+      { name: "Custom orders", href: "/admin/custom-orders", icon: Shirt },
+      { name: "Prices & setup", href: "/admin/custom-jersey", icon: Settings2 },
     ],
   },
   {

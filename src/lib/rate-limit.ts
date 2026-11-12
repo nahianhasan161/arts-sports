@@ -56,6 +56,10 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   // Review photos and review/question text from signed-in shoppers.
   reviewUpload: { limit: 12, windowMs: 60_000 },
   reviewSubmit: { limit: 6, windowMs: 60_000 },
+  // Custom jersey: design files (up to 15 MB each), new requests, and actions on the order page.
+  customUpload: { limit: 15, windowMs: 60_000 },
+  customSubmit: { limit: 4, windowMs: 60_000 },
+  customAction: { limit: 30, windowMs: 60_000 },
 };
 
 export interface RateLimitResult {
