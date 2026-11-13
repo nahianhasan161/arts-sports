@@ -35,7 +35,23 @@ Bangladesh sports e-commerce + (planned) offline POS. Custom jersey is the key p
   `roster.ts` CSV/xlsx import), `components/custom-jersey/`, pages `/custom-jersey`, `/custom-jersey/order/[token]`,
   admin `/admin/custom-orders` (board) + `/admin/custom-jersey` (prices); SQL `20261113100000_custom_jersey.sql`.
   Its payments are in `custom_order_payments`, not `payments`. Customer access = `access_token` in the URL, no login.
-- Client i18n: `useT()` from `src/i18n/client.ts` (reads the `lang` cookie)
+- Shop (Phase 4): `lib/pos/` (`server.ts` helpers + error text, `codes.ts` Code128/QR, `types.ts`), `components/admin/pos/` +
+  `components/admin/inventory/`, pages `/admin/pos` (+ `receipt/[id]`, `custom-receipt/[id]`), `/admin/inventory`, `/admin/customers`;
+  APIs `api/admin/{pos,inventory,customers}`; SQL `20261114100000_pos_stock_crm.sql` (needs `20261113100000` first).
+  Shop sales are in `pos_sales`/`pos_sale_items`/`pos_payments`, not `orders`. Stock changes go through `stock_apply()`.
+  Text for these screens: `i18n/messages/shop.{en,bn}.ts`. Staff accounts enter `/admin`; the sidebar filters by permission.
+- Client i18n: `useT()` from `src/i18n/client.ts` (reads the `lang` cookie). **Bangla is the default locale**; English is the switch.
+  Header/footer text: `i18n/messages/site.{en,bn}.ts`. Admin menu, dashboards, branches: `admin.{en,bn}.ts`.
+- Theme: light/dark via the `dark` class on `<html>` (`lib/theme.ts`, toggles in `components/layout/Preferences.tsx`).
+  Brand colours are CSS variables in `globals.css` (`--c-*`), mapped in `tailwind.config.ts`. Use the token classes
+  (`bg-surface-card`, `text-on-surface`, `border-border-light`...), not `bg-white`/hex, or dark mode breaks.
+- Admin shell: `app/admin/layout.tsx` (full-height sidebar, top bar) + menu in `components/admin/nav.ts`. Two workspaces:
+  **online** and **store** (POS); stock/customers/products are shared. A new admin page needs a `nav.ts` entry and
+  `admin.nav.<id>.{name,desc}` text. The site header/footer are hidden under `/admin` (`components/layout/SiteChrome.tsx`).
+- Dashboards: `/admin` (website, `api/admin/overview`), `/admin/store` (shop, `api/admin/store/overview`),
+  `/admin/store/branches` (shops = `showrooms` table), `/admin/help` (guide text in `components/admin/help/guide.ts`).
+- Demo data: `supabase/demo/{seed,remove}.sql`, run with `node --env-file=.env.local scripts/demo-data.mjs seed|remove [--dry-run]`.
+  All demo ids start with `demo-`. Ask before running it on the live DB.
 - Stores: `lib/store/` (cart, wishlist)
 - DB schema: `supabase/migrations/*.sql` is the truth. `supabase/schema.sql` is old/legacy.
 - `scripts/` = one-off diag/test scripts; ignore unless relevant.
@@ -55,6 +71,10 @@ For docs, `grep -n '^#'` first and read just the relevant section.
 - Don't touch `.next/`, `.open-next/`, `.wrangler/`, `node_modules/` (except Next docs)
 
 ## Current state
-- Branch `cloudflare-migration`. Phase 0 and 1 built (keys/migration pending, see roadmap "পরে করার কাজ"). Phase 2 built except 2.2 picker + 2.4 bundles; its migration is NOT applied live.
-- Phase 3 (custom jersey) built; its migration is NOT applied live and has never been run against a Postgres, and the seeded prices are placeholders. See the status box under Phase 3 in the roadmap.
+- Branch `cloudflare-migration`. Phase 0 and 1 built (keys pending, see roadmap "পরে করার কাজ"). Phase 2 built except 2.2 picker + 2.4 bundles.
+- Phase 3 (custom jersey) built; the seeded prices are placeholders. See the status box under Phase 3 in the roadmap.
+- Phase 4 (POS, stock, staff, customers) built. Left out: supplier stock in online checkout, shop pickup, gateway QR at POS.
+  See the status box under Phase 4 in the roadmap.
+- All migrations up to `20261114100000` are applied live (2026-11-13). The Phase 4 SQL functions were smoke-tested in a
+  rolled-back transaction; the screens have not been clicked through with real data.
 - Plans: `docs/roadmap.md` (phases), `docs/3d-store-and-app.md` (3D/360°/Flutter), `docs/cloudflare.md` (deploy/R2)

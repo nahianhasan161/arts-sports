@@ -448,7 +448,7 @@ function ColorFormModal({
               <select
                 value={formData.category_id}
                 onChange={(e) => handleChange("category_id", e.target.value)}
-                className="w-full h-9 px-3 border border-border-light rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/20 appearance-none bg-white"
+                className="w-full h-9 px-3 border border-border-light rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/20 appearance-none bg-surface-card"
               >
                 <option value="">Select a category (optional)</option>
                 {categories.map((cat) => (

@@ -16,7 +16,7 @@ import { JerseyPreview, svgToPng } from "./JerseyPreview";
 import { RosterEditor } from "./RosterEditor";
 import { LanguageToggle } from "./LanguageToggle";
 
-const input = "w-full h-10 px-3 rounded-lg border border-border-light bg-white text-sm focus:outline-none focus:ring-1 focus:ring-primary";
+const input = "w-full h-10 px-3 rounded-lg border border-border-light bg-surface-card text-sm focus:outline-none focus:ring-1 focus:ring-primary";
 const card = "bg-surface-card border border-border-light rounded-xl p-4 sm:p-5 flex flex-col gap-3";
 const heading = "font-display uppercase font-bold text-primary text-sm tracking-wider";
 
@@ -26,7 +26,7 @@ function Choice({ active, onClick, children, className = "" }: { active: boolean
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`text-left rounded-lg border px-3 py-2 text-sm transition-colors ${active ? "border-primary bg-primary text-white" : "border-border-light bg-white hover:bg-surface-subtle"} ${className}`}
+      className={`text-left rounded-lg border px-3 py-2 text-sm transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border-light bg-surface-card hover:bg-surface-subtle"} ${className}`}
     >
       {children}
     </button>
@@ -215,6 +215,8 @@ export function CustomJerseyForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // The POS opens this form with ?shop=1 for an order taken at the counter.
+          channel: new URLSearchParams(window.location.search).get("shop") === "1" ? "shop" : undefined,
           source,
           sport,
           files: source === "upload" ? files : [],
@@ -286,7 +288,7 @@ export function CustomJerseyForm() {
           <ol className="hidden sm:flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
             {(["one", "two", "three", "four"] as const).map((k, i) => (
               <li key={k} className="flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
                 {t(`customJersey.steps.${k}`, { percent: config.pricing.advance_percent })}
               </li>
             ))}
@@ -356,7 +358,7 @@ export function CustomJerseyForm() {
               </ul>
             )}
             <label className="text-xs font-semibold" htmlFor="cj-notes">{t("customJersey.upload.notes")}</label>
-            <textarea id="cj-notes" className="w-full rounded-lg border border-border-light bg-white p-3 text-sm" rows={3} maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("customJersey.upload.notesPlaceholder")} />
+            <textarea id="cj-notes" className="w-full rounded-lg border border-border-light bg-surface-card p-3 text-sm" rows={3} maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("customJersey.upload.notesPlaceholder")} />
           </section>
         ) : (
           <section className={card}>
@@ -402,7 +404,7 @@ export function CustomJerseyForm() {
                     <div className="flex flex-wrap gap-3 mt-1">
                       {(["primary", "secondary", "accent"] as const).map((k, i) => (
                         <label key={k} className="flex items-center gap-2 text-xs">
-                          <input type="color" value={colors[i]} onChange={(e) => setColors(colors.map((c, x) => (x === i ? e.target.value : c)))} className="w-9 h-9 rounded border border-border-light bg-white p-0.5 cursor-pointer" />
+                          <input type="color" value={colors[i]} onChange={(e) => setColors(colors.map((c, x) => (x === i ? e.target.value : c)))} className="w-9 h-9 rounded border border-border-light bg-surface-card p-0.5 cursor-pointer" />
                           {t(`customJersey.template.${k}`)}
                         </label>
                       ))}
@@ -423,7 +425,7 @@ export function CustomJerseyForm() {
                     </label>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    <label className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-light bg-white font-semibold cursor-pointer hover:bg-surface-subtle">
+                    <label className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-light bg-surface-card font-semibold cursor-pointer hover:bg-surface-subtle">
                       <Images className="w-4 h-4" /> {t("customJersey.template.logo")}
                       <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { void addLogo(e.target.files?.[0]); e.target.value = ""; }} />
                     </label>
@@ -435,7 +437,7 @@ export function CustomJerseyForm() {
                       <span className="text-text-muted">{t("customJersey.template.logoHint")}</span>
                     )}
                   </div>
-                  <textarea className="w-full rounded-lg border border-border-light bg-white p-3 text-sm" rows={2} maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("customJersey.upload.notesPlaceholder")} aria-label={t("customJersey.upload.notes")} />
+                  <textarea className="w-full rounded-lg border border-border-light bg-surface-card p-3 text-sm" rows={2} maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("customJersey.upload.notesPlaceholder")} aria-label={t("customJersey.upload.notes")} />
                   <p className="text-xs text-text-muted">{t("customJersey.template.previewNote")}</p>
                 </div>
               </div>
@@ -451,7 +453,7 @@ export function CustomJerseyForm() {
               const row = f as unknown as Record<string, unknown>;
               const active = fabricId === f.id;
               return (
-                <button key={f.id} type="button" onClick={() => setFabricId(f.id)} aria-pressed={active} className={`text-left rounded-lg border p-3 flex gap-3 ${active ? "border-primary ring-1 ring-primary bg-surface-subtle" : "border-border-light bg-white hover:bg-surface-subtle"}`}>
+                <button key={f.id} type="button" onClick={() => setFabricId(f.id)} aria-pressed={active} className={`text-left rounded-lg border p-3 flex gap-3 ${active ? "border-primary ring-1 ring-primary bg-surface-subtle" : "border-border-light bg-surface-card hover:bg-surface-subtle"}`}>
                   {f.image_url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={f.image_url} alt="" className="w-14 h-14 rounded-md object-cover border border-border-light shrink-0" />
@@ -551,7 +553,7 @@ export function CustomJerseyForm() {
                 <Choice active={zone === "dhaka"} onClick={() => setZone("dhaka")}>{t("customJersey.contact.dhaka", { fee: money(config.delivery.dhaka) })}</Choice>
                 <Choice active={zone === "outside"} onClick={() => setZone("outside")}>{t("customJersey.contact.outside", { fee: money(config.delivery.outside) })}</Choice>
               </div>
-              <textarea className="w-full rounded-lg border border-border-light bg-white p-3 text-sm" rows={2} maxLength={500} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t("customJersey.contact.address")} aria-label={t("customJersey.contact.address")} autoComplete="street-address" />
+              <textarea className="w-full rounded-lg border border-border-light bg-surface-card p-3 text-sm" rows={2} maxLength={500} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t("customJersey.contact.address")} aria-label={t("customJersey.contact.address")} autoComplete="street-address" />
             </>
           )}
           <Toggle checked={galleryConsent} onChange={setGalleryConsent} label={t("customJersey.contact.galleryConsent")} />
@@ -598,7 +600,7 @@ export function CustomJerseyForm() {
             <AlertCircle className="w-4 h-4 shrink-0" /> {error}
           </p>
         )}
-        <button type="submit" disabled={submitting || uploading} className="h-11 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-60">
+        <button type="submit" disabled={submitting || uploading} className="h-11 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-60">
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />} {submitting ? t("customJersey.submitting") : t("customJersey.submit")}
         </button>
         <Link href="/custom-jersey/gallery" className="text-xs text-center text-primary underline underline-offset-2">

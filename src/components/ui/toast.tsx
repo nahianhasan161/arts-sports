@@ -43,7 +43,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     success: "bg-green-600 border-green-500",
     error: "bg-red-600 border-red-500",
     warning: "bg-orange-600 border-orange-500",
-    info: "bg-primary border-primary/80",
+    info: "bg-primary-container border-primary-container",
   };
 
   const variantIcon: Record<ToastVariant, string> = {

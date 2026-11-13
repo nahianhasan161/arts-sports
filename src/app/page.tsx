@@ -49,7 +49,7 @@ export default async function HomePage() {
       <div className="w-full bg-accent-gold-soft py-2.5 px-space-base border-b border-accent-gold/20">
         <div className="max-w-container-max mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-center md:text-left">
           <div className="flex items-center gap-2.5 flex-wrap justify-center md:justify-start">
-            <span className="px-2 py-0.5 bg-primary text-white font-display text-[10px] uppercase tracking-wider rounded font-bold">
+            <span className="px-2 py-0.5 bg-primary text-primary-foreground font-display text-[10px] uppercase tracking-wider rounded font-bold">
               B2B & Custom
             </span>
             <span className="font-display uppercase text-xs sm:text-sm text-primary font-bold tracking-wide">
@@ -99,13 +99,13 @@ export default async function HomePage() {
                   </Link>
                   <Link
                     href="/shop?category=women"
-                    className="px-5 py-2.5 bg-white text-primary font-display text-xs uppercase font-bold rounded hover:bg-surface-subtle transition-colors shadow-sm"
+                    className="px-5 py-2.5 bg-surface-card text-primary font-display text-xs uppercase font-bold rounded hover:bg-surface-subtle transition-colors shadow-sm"
                   >
                     Shop Women
                   </Link>
                   <Link
                     href="/shop?category=kids"
-                    className="px-5 py-2.5 bg-white text-primary font-display text-xs uppercase font-bold rounded hover:bg-surface-subtle transition-colors shadow-sm"
+                    className="px-5 py-2.5 bg-surface-card text-primary font-display text-xs uppercase font-bold rounded hover:bg-surface-subtle transition-colors shadow-sm"
                   >
                     Shop Kids
                   </Link>
@@ -135,7 +135,7 @@ export default async function HomePage() {
               <Link
                 key={tag.label}
                 href={tag.href}
-                className="px-3.5 py-1.5 bg-surface-subtle hover:bg-primary hover:text-white text-on-surface-variant rounded-lg font-display text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap border border-border-light hover:border-primary shrink-0"
+                className="px-3.5 py-1.5 bg-surface-subtle hover:bg-primary hover:text-primary-foreground text-on-surface-variant rounded-lg font-display text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap border border-border-light hover:border-primary shrink-0"
               >
                 {tag.label}
               </Link>
@@ -208,7 +208,7 @@ export default async function HomePage() {
               <div className="pt-2">
                 <Link
                   href="/shop?category=sports"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-primary font-display text-xs uppercase font-bold rounded hover:bg-accent-gold hover:text-white transition-all shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface-card text-primary font-display text-xs uppercase font-bold rounded hover:bg-accent-gold hover:text-white transition-all shadow-sm"
                 >
                   <span>Shop Player Jerseys</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -235,7 +235,7 @@ export default async function HomePage() {
               <div className="pt-2">
                 <Link
                   href="/shop?category=sports"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-primary font-display text-xs uppercase font-bold rounded hover:bg-accent-gold hover:text-white transition-all shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-surface-card text-primary font-display text-xs uppercase font-bold rounded hover:bg-accent-gold hover:text-white transition-all shadow-sm"
                 >
                   <span>Explore Fan Editions</span>
                   <ArrowRight className="w-3.5 h-3.5" />

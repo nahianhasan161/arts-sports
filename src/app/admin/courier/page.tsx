@@ -121,7 +121,7 @@ export default function CourierPage() {
               setLoading(true);
               void load(v);
             }}
-            className={`h-8 px-3 rounded-full text-[11px] font-bold uppercase border ${view === v ? "bg-primary text-white border-primary" : "border-border-light"}`}
+            className={`h-8 px-3 rounded-full text-[11px] font-bold uppercase border ${view === v ? "bg-primary text-primary-foreground border-primary" : "border-border-light"}`}
           >
             {v === "unsettled" ? "Not settled" : "All"}
           </button>
@@ -130,7 +130,7 @@ export default function CourierPage() {
           type="button"
           disabled={selected.size === 0}
           onClick={() => void settle()}
-          className="ml-auto h-8 px-3 rounded-lg bg-primary text-white text-[11px] font-bold uppercase disabled:opacity-40"
+          className="ml-auto h-8 px-3 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold uppercase disabled:opacity-40"
         >
           Mark {selected.size || ""} as cash received
         </button>

@@ -256,7 +256,7 @@ Phase 1-এর code সব তৈরি। নিচেরগুলো করত
 
 ## Phase 3 — Custom Jersey (মূল আকর্ষণ)
 
-> **অবস্থা (2026-11-13):** 3.1–3.4 তৈরি। Migration `20261113100000_custom_jersey.sql` লেখা আছে কিন্তু **live DB-তে apply করা হয়নি** (আর কোনো Postgres-এ চালিয়ে দেখাও হয়নি); apply না হলে `/custom-jersey` পাতায় "phone/WhatsApp-এ order দিন" লেখা দেখায়, site ভাঙে না।
+> **অবস্থা (2026-11-13):** 3.1–3.4 তৈরি। Migration `20261113100000_custom_jersey.sql` **live DB-তে apply করা হয়েছে (2026-11-13)**; পাতাগুলো আসল data দিয়ে এখনো চালিয়ে দেখা হয়নি।
 >
 > | কোথায় | কী |
 > | --- | --- |
@@ -267,13 +267,11 @@ Phase 1-এর code সব তৈরি। নিচেরগুলো করত
 > | `/admin/custom-jersey` | কাপড়, দামের table, design template, gallery। |
 >
 > **চালুর আগে আপনার যা করতে হবে:**
-> - Migration apply-এর অনুমতি: `node scripts/apply-sql.mjs --only 20261113100000`।
 > - **আসল দাম বসানো।** Migration-এ কাপড়ের দাম (৳৪৫০–৭৫০), ছাড়ের ধাপ, নাম/নম্বর/logo/ফুল হাতা/শর্টস আর জরুরি চার্জ **আনুমানিক ধরে দেওয়া**; `/admin/custom-jersey` থেকে ঠিক করুন।
 > - Online অগ্রিমের জন্য UnivaPayment key (না থাকলে পাতায় "দোকানে বা WhatsApp-এ দিন" দেখায়, staff হাতে payment লেখে)। SMS/email provider না থাকলে message শুধু `notifications` table-এ জমা হয়।
 >
 > **যা এখনো হয়নি:**
 > - Design template এখন code-এ আঁকা ৮টা pattern (plain, stripes, hoops…) × ৩ রং। আসল ছবির layer দিয়ে template ([3d-store-and-app.md](3d-store-and-app.md) ধাপ W4) পরে; `jersey_templates.layers` কলাম তার জন্য রাখা।
-> - Dokan/POS থেকে custom order বানানো (4.3)। এখন staff customer-এর হয়ে website-এর form পূরণ করতে পারে।
 > - AI দিয়ে design (`custom_orders.source = 'ai'` রাখা আছে)।
 > - Admin-এ নতুন order এলে আলাদা notification নেই; board-এর "New" কলামে দেখা যায়।
 
@@ -337,6 +335,31 @@ Phase 1-এর code সব তৈরি। নিচেরগুলো করত
 ---
 
 ## Phase 4 — Dokan (POS), stock, staff আর customer
+
+> **অবস্থা (2026-11-13):** 4.1–4.6-এর মূল অংশ তৈরি। Migration `20261114100000_pos_stock_crm.sql` **live DB-তে apply করা হয়েছে (2026-11-13)**। Database-এর function-গুলো (মাল আসা, বিক্রি, ফেরত, গোনা, দিন শেষ) একটা rollback করা transaction-এ চালিয়ে দেখা হয়েছে, হিসাব মিলেছে। Typecheck, lint আর build পাস করেছে, কিন্তু পাতাগুলো browser-এ আসল data দিয়ে চালিয়ে দেখা হয়নি।
+>
+> | কোথায় | কী |
+> | --- | --- |
+> | `/admin/pos` | কাউন্টার: বারকোড scan বা নাম/SKU দিয়ে খোঁজা, পরিমাণ, লাইনে আর বিলে ছাড়, কুপন, phone দিয়ে customer (না থাকলে নতুন), message-এর অনুমতির tick, নগদ/card/bKash/Nagad আর ভাগ করে payment, ফেরতের টাকা, বিল রেখে দেওয়া (hold)। Tab: বিক্রির তালিকা ও ফেরত, কাস্টম জার্সি, ক্যাশ ড্রয়ার (দিন শুরু, নগদ ঢোকানো/বের করা, দিন শেষে গোনা)। বাংলা/English switch আছে। Permission: `pos.use`; ফেরত আর সীমার বেশি ছাড়: `pos.manage`। |
+> | `/admin/pos/receipt/<id>` | A4-এ দুই কপি (customer + দোকান, মাঝে কাটার দাগ), `?size=thermal` দিলে ছোট রিসিট। QR scan করলে POS-এ ওই বিক্রি খোলে, সেখান থেকে ফেরত। |
+> | `/admin/pos/custom-receipt/<id>` | কাস্টম order-এর রিসিট: order নম্বর, সম্ভাব্য তারিখ, দেওয়া/বাকি টাকা, QR (customer-এর নিজের order পাতা)। POS-এর কাস্টম tab-এ scan বা phone দিয়ে order খুঁজে অগ্রিম/বাকি নেওয়া আর জিনিস দিয়ে দেওয়া যায়। নতুন order: tab থেকে `/custom-jersey?shop=1` খোলে, order `channel = shop` হিসেবে সেভ হয়। |
+> | `/admin/inventory` | Variant অনুযায়ী stock (দোকানে, order-এর জন্য রাখা, supplier-এর কাছে), কম stock-এর alert (সীমা variant অনুযায়ী বদলানো যায়), মাল আসা (supplier, কেনা দাম), গোনা/ঠিক করা (কারণসহ), transfer (একাধিক showroom থাকলে), Code128 বারকোড লেবেল (A4, ৩×৮), supplier আর তাদের stock (Excel/CSV/paste), ইতিহাস। Permission: `inventory.manage`। |
+> | `/admin/customers` | Online + দোকান + কাস্টম সব customer এক তালিকায়: মোট খরচ, শেষ কেনা, tag, segment (৩ মাস কেনেনি, দোকান/online, দলের order, VIP…), "কিনেছে…" দিয়ে খোঁজা, call/WhatsApp, note, message-এর অনুমতি, CSV export, segment-এ SMS। Permission: `customers.view` / `customers.manage` / `marketing.manage`। |
+> | Staff | `staff` account এখন admin-এ ঢুকতে পারে; menu-তে শুধু সেই পাতা দেখা যায় যার permission তার role-এ আছে। Role বানানো আগের মতোই `/admin/roles`-এ। |
+>
+> **চালুর আগে আপনার যা করতে হবে:**
+> - Cashier-এর account-এ `/admin/roles` থেকে Cashier role দেওয়া। ছাড়ের সীমা `app_settings.pos_max_discount_percent` (এখন ১০%), কম stock-এর সীমা `low_stock_threshold` (এখন ৩)।
+> - Receipt-এ দোকানের phone `src/lib/config.ts`-এর `business.phone` থেকে আসে (এখন নমুনা নম্বর)।
+>
+> **যা এখনো হয়নি:**
+> - **Online order-এ supplier-এর stock:** site এখনো শুধু নিজেদের stock দেখে। Primary-তে না থাকলে secondary থেকে নেওয়া আর "Supplier থেকে আনতে হবে" তালিকা হয়নি, কারণ তার জন্য checkout-এর order function বদলাতে হয়; সেটা database-এ চালিয়ে দেখার সুযোগ ছাড়া করা হয়নি।
+> - Product page-এ "Dokan-এ আছে" আর checkout-এ "dokan থেকে নিয়ে যান" (একই কারণে)।
+> - POS-এ UnivaPayment-এর QR/link। এখন bKash/Nagad হাতে লেখা হয় (Trx ID সহ); টাকা দোকানের নম্বরেই আসে।
+> - Digital receipt SMS/WhatsApp-এ।
+> - Option ছাড়া product (যার variant নেই) POS-এ বিক্রি হয়, কিন্তু stock-এর পাতায় আর ইতিহাসে আসে না।
+> - দ্বিতীয় দোকান যোগের আগে: product editor সেভ করলে একই stock সংখ্যা সব showroom-এ লিখে দেয় (পুরনো আচরণ); transfer ঠিকভাবে চালাতে এটা আগে ঠিক করতে হবে।
+> - পুরনো admin পাতা (products, orders, payments, returns…) এখনো শুধু admin-এর জন্য; staff permission দিয়ে শুধু নতুন পাতাগুলো পায়।
+> - দোকানে ব্যবহার করা কুপন গোনা হয়, কিন্তু "প্রতি customer-এ কয়বার" সীমা দোকানে খাটে না।
 
 ### 4.1 POS (dokan-এ বিক্রি)
 
@@ -442,11 +465,13 @@ Role কোড-এ বাঁধা থাকবে না। Owner নতুন 
 
 ## কাজের ক্রম (প্রস্তাব)
 
-1. **Phase 0:** payment layer (UnivaPayment), phone দিয়ে customer, role, option system।
-2. **Phase 1:** checkout, lead, risk score, courier, tracking, catalog feed।
-3. **Phase 3:** custom jersey (আগে পথ A আর admin workflow, তারপর পথ B-এর preview)।
-4. **Phase 2:** category, filter, social proof, review।
-5. **Phase 4:** POS, receipt, stock, CRM। Offline product site-এ তোলার সময় থেকেই।
-6. **Phase 5 আর Phase 6:** ধাপে ধাপে।
+1. **Phase 0:** payment layer (UnivaPayment), phone দিয়ে customer, role, option system। — ✅ তৈরি
+2. **Phase 1:** checkout, lead, risk score, courier, tracking, catalog feed। — ✅ code তৈরি; key আর migration বাকি ("পরে করার কাজ" দেখুন)
+3. **Phase 3:** custom jersey (আগে পথ A আর admin workflow, তারপর পথ B-এর preview)। — ✅ তৈরি (2026-11-13); migration apply আর আসল দাম বসানো বাকি
+4. **Phase 2:** category, filter, social proof, review। — ✅ তৈরি; 2.2 picker আর 2.4 bundle বাকি, migration apply বাকি
+5. **Phase 4:** POS, receipt, stock, CRM। Offline product site-এ তোলার সময় থেকেই। — ⏳ এরপর
+6. **Phase 5 আর Phase 6:** ধাপে ধাপে। — বাকি
+
+> **অবস্থা (2026-11-13):** Phase 0–3 তৈরি। পরের কাজ Phase 4, অথবা তার আগে Phase 2b (2.2 + 2.4)। Live-এ চালুর আগে তিনটা migration apply বাকি, এই ক্রমে: `20261108200000` → `20261111100000` → `20261113100000`।
 
 Phase 2-এর category আর filter-এর কাঠামো Phase 1-এর catalog feed-এর সাথে মিলিয়ে আগে ঠিক করে নেওয়া ভালো, কারণ feed-এ category যায়।

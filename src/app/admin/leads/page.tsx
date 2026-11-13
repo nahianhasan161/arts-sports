@@ -113,7 +113,7 @@ export default function LeadsPage() {
               setLoading(true);
               void load(value);
             }}
-            className={`h-8 px-3 rounded-full text-[11px] font-bold uppercase border ${filter === value ? "bg-primary text-white border-primary" : "border-border-light"}`}
+            className={`h-8 px-3 rounded-full text-[11px] font-bold uppercase border ${filter === value ? "bg-primary text-primary-foreground border-primary" : "border-border-light"}`}
           >
             {label}
           </button>

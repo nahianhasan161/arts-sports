@@ -157,22 +157,31 @@ export async function POST(request: NextRequest) {
   const locale = resolveLocale(b.locale ?? cookieStore.get(LOCALE_COOKIE)?.value);
 
   const db = getServiceSupabase();
+  // Filled in at the shop counter by staff (roadmap 4.3): the order belongs
+  // to the customer's phone number, not to the cashier's account.
+  let channel: "online" | "shop" = "online";
+  if (b.channel === "shop" && user) {
+    const { data: allowed } = await db.rpc("has_permission", { p_code: "pos.use", p_user_id: user.id });
+    if (allowed === true) channel = "shop";
+  }
+  const owner = channel === "shop" ? null : user;
   const { data: customerId } = await db.rpc("upsert_customer", {
     p_phone: phone,
     p_name: name,
     p_email: email,
-    p_user_id: user?.id ?? null,
-    p_channel: "online",
+    p_user_id: owner?.id ?? null,
+    p_channel: channel,
   });
 
   const { data: created, error } = await db
     .from("custom_orders")
     .insert({
-      user_id: user?.id ?? null,
+      user_id: owner?.id ?? null,
+      channel,
       customer_id: typeof customerId === "string" ? customerId : null,
       customer_name: name,
       customer_phone: phone,
-      customer_email: email ?? user?.email ?? null,
+      customer_email: email ?? owner?.email ?? null,
       locale,
       source,
       sport,

@@ -116,7 +116,7 @@ export default function SettingsPage() {
           </label>
 
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => void save()} disabled={saving} className="h-9 px-4 bg-primary text-white text-[11px] font-bold uppercase rounded-lg inline-flex items-center gap-2 disabled:opacity-60">
+            <button type="button" onClick={() => void save()} disabled={saving} className="h-9 px-4 bg-primary text-primary-foreground text-[11px] font-bold uppercase rounded-lg inline-flex items-center gap-2 disabled:opacity-60">
               {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Save
             </button>
             {saved && (

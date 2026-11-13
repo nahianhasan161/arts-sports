@@ -40,7 +40,7 @@ export default async function CustomGalleryPage() {
           <h1 className="font-display text-3xl sm:text-4xl uppercase font-bold text-primary mb-2">{t("customJersey.gallery.title")}</h1>
           <p className="text-sm text-text-muted">{t("customJersey.gallery.subtitle")}</p>
         </div>
-        <Link href="/custom-jersey" className="h-10 px-5 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center">
+        <Link href="/custom-jersey" className="h-10 px-5 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center">
           {t("customJersey.gallery.cta")}
         </Link>
       </div>

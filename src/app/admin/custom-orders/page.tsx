@@ -128,7 +128,7 @@ export default function CustomOrdersAdminPage() {
         </select>
         <div className="inline-flex rounded border border-border-light overflow-hidden">
           {(["board", "list"] as const).map((v) => (
-            <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 text-xs font-bold uppercase ${view === v ? "bg-primary text-white" : "bg-surface-card"}`}>{v}</button>
+            <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 text-xs font-bold uppercase ${view === v ? "bg-primary text-primary-foreground" : "bg-surface-card"}`}>{v}</button>
           ))}
         </div>
         <Link href="/admin/custom-jersey" className="inline-flex items-center gap-1.5 text-xs font-bold uppercase px-3 py-2 rounded border border-border-light bg-surface-card">

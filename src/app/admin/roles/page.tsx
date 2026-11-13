@@ -245,7 +245,7 @@ export default function AdminRolesPage() {
                 <button
                   type="button"
                   onClick={addStaff}
-                  className="inline-flex items-center justify-center gap-2 h-9 px-4 bg-primary text-white text-[11px] font-bold uppercase rounded-lg"
+                  className="inline-flex items-center justify-center gap-2 h-9 px-4 bg-primary text-primary-foreground text-[11px] font-bold uppercase rounded-lg"
                 >
                   <UserPlus className="w-3.5 h-3.5" /> Add
                 </button>
@@ -375,7 +375,7 @@ export default function AdminRolesPage() {
                   type="button"
                   disabled={saving}
                   onClick={saveRole}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-lg disabled:opacity-60"
                 >
                   <Save className="w-3.5 h-3.5" /> {saving ? "Saving…" : "Save role"}
                 </button>

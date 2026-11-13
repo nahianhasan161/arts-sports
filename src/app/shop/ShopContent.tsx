@@ -214,7 +214,7 @@ export function ShopContent({
                   onClick={() => setSubCategory(chip === subCategory ? "" : chip)}
                   className={`px-3 py-1.5 rounded text-xs font-display uppercase tracking-wider font-semibold whitespace-nowrap transition-colors border ${
                     subCategory === chip
-                      ? "bg-primary text-white border-primary shadow-sm"
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
                       : "bg-surface-subtle hover:bg-surface-container text-on-surface border-border-light"
                   }`}
                 >
@@ -243,7 +243,7 @@ export function ShopContent({
                       aria-pressed={active}
                       className={`px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors border ${
                         active
-                          ? "bg-primary text-white border-primary shadow-sm"
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
                           : "bg-surface-subtle hover:bg-surface-container text-on-surface border-border-light"
                       }`}
                     >
@@ -288,7 +288,7 @@ export function ShopContent({
               </span>
             </div>
           </div>
-          <div className="w-full md:w-1/2 relative min-h-[160px] md:min-h-[200px] bg-primary">
+          <div className="w-full md:w-1/2 relative min-h-[160px] md:min-h-[200px] bg-primary-container">
             <Image
               src="https://lh3.googleusercontent.com/aida/AEtjO1XtRs88VSBzdbMWQYRQuAY8CMk93-FpKuVlyb4a4idBDt95ROa-QuuKBaeOYjyhts6byy9S6RakXa0MkP45VJRbQ2P5ixraZTP7wBi2v4OfPwjYGUGEM0LLf24iv1Tpqz9ttMJnPF8M7Ka-yBomlyibQgY5rAYEVXaEn_pW9_nDIrkpdg5QXdDvVKNk968t2nuHE0zqs7YctPeS0kASeelv_7Pw3pI9gAFWPOAfM88aUoQ_7RVNdLPX6cs"
               alt="Official Match Edition Jersey"
@@ -368,7 +368,7 @@ export function ShopContent({
                 </p>
                 <button
                   onClick={resetFilters}
-                  className="px-5 py-2 bg-primary text-white font-display text-xs uppercase font-bold rounded-md"
+                  className="px-5 py-2 bg-primary text-primary-foreground font-display text-xs uppercase font-bold rounded-md"
                 >
                   Reset All Filters
                 </button>
@@ -412,7 +412,7 @@ export function ShopContent({
                             aria-current={p === page ? "page" : undefined}
                             className={`w-9 h-9 text-xs font-bold rounded-md border transition-colors ${
                               p === page
-                                ? "bg-primary text-white border-primary"
+                                ? "bg-primary text-primary-foreground border-primary"
                                 : "bg-surface-card border-border-light hover:bg-surface-subtle"
                             }`}
                           >

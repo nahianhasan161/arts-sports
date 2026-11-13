@@ -121,7 +121,7 @@ export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardPr
                 key={s.size}
                 disabled={s.stock === 0}
                 onClick={(e) => handleQuickAdd(e, s.size)}
-                className="w-7 h-7 rounded text-[11px] font-bold text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-primary flex items-center justify-center border border-border-light hover:border-primary"
+                className="w-7 h-7 rounded text-[11px] font-bold text-primary hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-primary flex items-center justify-center border border-border-light hover:border-primary"
                 title={`${s.size} - Chest ${s.chest}" (${s.stock} in stock)`}
               >
                 {s.size}

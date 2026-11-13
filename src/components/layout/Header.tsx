@@ -22,21 +22,28 @@ import { useCartStore } from "@/lib/store/cart-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { UserAvatar } from "@/components/auth/UserAvatar";
+import { useT } from "@/i18n/client";
+import type { MessageKey } from "@/i18n";
+import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
 
-const DEFAULT_NAV = [
-  { name: "Shop All", href: "/shop" },
-  { name: "Custom Jersey", href: "/custom-jersey" },
-  { name: "Men", href: "/shop?category=men" },
-  { name: "Women", href: "/shop?category=women" },
-  { name: "Kids", href: "/shop?category=kids" },
-  { name: "Sports", href: "/shop?category=sports" },
-  { name: "New Arrivals", href: "/shop?sort=newest" },
-  { name: "Top Selling", href: "/shop?sort=popular" },
-  { name: "Mega Deals", href: "/shop?deals=true" },
+/** `key` is translated; names that come from the database are shown as saved. */
+type NavItem = { name: string; key?: MessageKey; href: string };
+
+const DEFAULT_NAV: NavItem[] = [
+  { name: "Shop All", key: "site.nav.shopAll", href: "/shop" },
+  { name: "Custom Jersey", key: "site.nav.customJersey", href: "/custom-jersey" },
+  { name: "Men", key: "site.nav.men", href: "/shop?category=men" },
+  { name: "Women", key: "site.nav.women", href: "/shop?category=women" },
+  { name: "Kids", key: "site.nav.kids", href: "/shop?category=kids" },
+  { name: "Sports", key: "site.nav.sports", href: "/shop?category=sports" },
+  { name: "New Arrivals", key: "site.nav.newArrivals", href: "/shop?sort=newest" },
+  { name: "Top Selling", key: "site.nav.topSelling", href: "/shop?sort=popular" },
+  { name: "Mega Deals", key: "site.nav.megaDeals", href: "/shop?deals=true" },
 ];
 
 export function Header() {
   const router = useRouter();
+  const { t } = useT();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -82,7 +89,7 @@ export function Header() {
   // Menu: Shop All, then the sports the admin created, then collections
   // marked "show in menu", then deals. Starts as the static list so the bar
   // is never empty while /api/catalog/nav loads or if it fails.
-  const [navCategories, setNavCategories] = useState<{ name: string; href: string }[]>(DEFAULT_NAV);
+  const [navCategories, setNavCategories] = useState<NavItem[]>(DEFAULT_NAV);
   useEffect(() => {
     let alive = true;
     fetch("/api/catalog/nav")
@@ -90,11 +97,11 @@ export function Header() {
       .then((nav: { sports: { name: string; href: string }[]; collections: { name: string; href: string }[] } | null) => {
         if (!alive || !nav || (nav.sports.length === 0 && nav.collections.length === 0)) return;
         setNavCategories([
-          { name: "Shop All", href: "/shop" },
-          { name: "Custom Jersey", href: "/custom-jersey" },
+          { name: "Shop All", key: "site.nav.shopAll", href: "/shop" },
+          { name: "Custom Jersey", key: "site.nav.customJersey", href: "/custom-jersey" },
           ...nav.sports.map(({ name, href }) => ({ name, href })),
           ...nav.collections,
-          { name: "Mega Deals", href: "/shop?deals=true" },
+          { name: "Mega Deals", key: "site.nav.megaDeals", href: "/shop?deals=true" },
         ]);
       })
       .catch(() => {});
@@ -120,21 +127,21 @@ export function Header() {
               className="inline-flex items-center gap-1.5 font-bold text-secondary-container hover:text-white transition-colors"
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>CALL NOW</span>
+              <span>{t("site.header.callNow")}</span>
             </a>
             <span className="hidden sm:inline-block h-3 w-px bg-on-primary-container/40"></span>
             <div className="hidden md:flex items-center gap-space-md text-on-primary-container">
               <Link href="/shop" className="hover:text-white transition-colors">
-                All Products
+                {t("site.header.allProducts")}
               </Link>
               <Link href="/account" className="hover:text-white transition-colors">
-                Track Order
+                {t("site.header.trackOrder")}
               </Link>
               <Link href="/returns" className="hover:text-white transition-colors">
-                Returns
+                {t("site.header.returns")}
               </Link>
               <a href="mailto:corporate@artssports.com" className="hover:text-white transition-colors">
-                Corporate Sales
+                {t("site.header.corporate")}
               </a>
             </div>
           </div>
@@ -148,6 +155,8 @@ export function Header() {
               <span>+8809677666888</span>
             </a>
             <span className="hidden sm:inline-block h-3 w-px bg-on-primary-container/40"></span>
+            <LanguageToggle tone="dark" />
+            <ThemeToggle tone="dark" />
           </div>
         </div>
       </div>
@@ -159,7 +168,7 @@ export function Header() {
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="lg:hidden p-1.5 text-primary hover:bg-surface-subtle rounded-md"
-            aria-label="Toggle menu"
+            aria-label={t("site.header.menu")}
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -170,7 +179,7 @@ export function Header() {
               alt="arts sports"
               width={220}
               height={36}
-              className="h-7 sm:h-8 md:h-9 w-auto object-contain"
+              className="h-7 sm:h-8 md:h-9 w-auto object-contain dark:brightness-0 dark:invert"
               priority
             />
           </Link>
@@ -183,12 +192,12 @@ export function Header() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search for products, categories or fabrics..."
-              className="w-full h-10 pl-space-base pr-10 bg-surface-subtle text-on-surface placeholder:text-text-muted rounded-lg text-sm font-body focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent-gold transition-all border border-border-light"
+              placeholder={t("site.header.searchPlaceholder")}
+              className="w-full h-10 pl-space-base pr-10 bg-surface-subtle text-on-surface placeholder:text-text-muted rounded-lg text-sm font-body focus:outline-none focus:bg-surface-card focus:ring-1 focus:ring-accent-gold transition-all border border-border-light"
             />
             <button
               type="submit"
-              aria-label="Search"
+              aria-label={t("site.header.search")}
               className="absolute right-1 w-8 h-8 flex items-center justify-center text-text-muted hover:text-primary transition-colors"
             >
               <Search className="w-4 h-4" />
@@ -198,7 +207,7 @@ export function Header() {
           {/* Quick Keywords */}
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-text-muted text-[10px] uppercase font-bold tracking-wider">
-              Popular:
+              {t("site.header.popular")}
             </span>
             <div className="flex items-center gap-1 flex-wrap">
               {["T-Shirt", "Polo", "Hoodie", "Joggers", "Kurti"].map((tag) => (
@@ -221,7 +230,7 @@ export function Header() {
             <Link
               href="/sign-in"
               className="p-2 rounded-lg hover:bg-surface-subtle text-on-surface-variant hover:text-primary transition-colors"
-              aria-label="Sign in"
+              aria-label={t("site.header.signIn")}
             >
               <User className="w-6 h-6" />
             </Link>
@@ -246,13 +255,13 @@ export function Header() {
                 </span>
               </button>
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-border-light">
+                <div className="absolute right-0 mt-2 w-48 bg-surface-card rounded-md shadow-lg py-1 z-50 border border-border-light">
                   <Link
                     href="/account"
                     className="block px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
                     onClick={() => setUserMenuOpen(false)}
                   >
-                    My Account
+                    {t("site.header.myAccount")}
                   </Link>
                   {isAdmin && (
                     <Link
@@ -262,7 +271,7 @@ export function Header() {
                     >
                       <span className="flex items-center gap-2">
                         <Shield className="w-4 h-4 text-accent-gold" />
-                        Admin Panel
+                        {t("site.header.adminPanel")}
                       </span>
                     </Link>
                   )}
@@ -273,7 +282,7 @@ export function Header() {
                     }}
                     className="block w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
                   >
-                    Sign Out
+                    {t("site.header.signOut")}
                   </button>
                 </div>
               )}
@@ -283,7 +292,7 @@ export function Header() {
           {/* Wishlist - Second */}
           <button
             onClick={toggleWishlistDrawer}
-            aria-label="Wishlist"
+            aria-label={t("site.header.wishlist")}
             className="relative p-2 rounded-lg hover:bg-surface-subtle text-on-surface-variant hover:text-primary transition-colors"
           >
             <Heart className="w-6 h-6" />
@@ -307,7 +316,7 @@ export function Header() {
             </div>
             <div className="hidden sm:flex flex-col text-left leading-tight">
               <span className="text-[10px] text-text-muted uppercase font-bold tracking-wider">
-                Total
+                {t("site.header.total")}
               </span>
               <span className="text-sm text-primary font-bold">
                 ৳ {subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
@@ -323,11 +332,11 @@ export function Header() {
           <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar">
             {navCategories.map((cat) => (
               <Link
-                key={cat.name}
+                key={cat.key ? t(cat.key) : cat.name}
                 href={cat.href}
                 className="px-3.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-subtle rounded-md font-display uppercase tracking-wider text-xs font-semibold transition-colors whitespace-nowrap"
               >
-                {cat.name}
+                {cat.key ? t(cat.key) : cat.name}
               </Link>
             ))}
           </nav>
@@ -342,7 +351,7 @@ export function Header() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products..."
+              placeholder={t("site.header.searchShort")}
               className="w-full h-9 pl-3 pr-9 bg-surface-subtle text-sm rounded-lg border border-border-light"
             />
             <button type="submit" className="absolute right-2 text-text-muted">
@@ -352,12 +361,12 @@ export function Header() {
           <div className="grid grid-cols-2 gap-2">
             {navCategories.map((cat) => (
               <Link
-                key={cat.name}
+                key={cat.key ? t(cat.key) : cat.name}
                 href={cat.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className="px-3 py-2 text-sm text-on-surface hover:bg-surface-subtle rounded font-semibold"
               >
-                {cat.name}
+                {cat.key ? t(cat.key) : cat.name}
               </Link>
             ))}
           </div>
@@ -384,21 +393,21 @@ export function Header() {
             href="/"
             onClick={() => setMobileMenuOpen(false)}
             className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
-            aria-label="Home"
+            aria-label={t("site.header.home")}
           >
             <Home className="w-5 h-5 mb-0.5" />
-            Home
+            {t("site.header.home")}
           </Link>
 
           {/* Categories — opens the drawer, which is where the tree lives */}
           <button
             onClick={() => setMobileMenuOpen((open) => !open)}
             className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
-            aria-label="Categories"
+            aria-label={t("site.header.categories")}
             aria-expanded={mobileMenuOpen}
           >
             <LayoutGrid className="w-5 h-5 mb-0.5" />
-            Categories
+            {t("site.header.categories")}
           </button>
 
           {/* Chat — the only support channel that actually answers */}
@@ -406,10 +415,10 @@ export function Header() {
             href="tel:+8809677666888"
             onClick={() => setMobileMenuOpen(false)}
             className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
-            aria-label="Call support"
+            aria-label={t("site.header.support")}
           >
             <MessageCircle className="w-5 h-5 mb-0.5" />
-            Support
+            {t("site.header.support")}
           </a>
 
           {/* Cart — a real count, and it opens the drawer */}
@@ -419,10 +428,10 @@ export function Header() {
               openCart();
             }}
             className="relative flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
-            aria-label={`Cart, ${totalCartCount} item${totalCartCount === 1 ? "" : "s"}`}
+            aria-label={`${t("site.header.cart")} (${totalCartCount})`}
           >
             <ShoppingBag className="w-5 h-5 mb-0.5" />
-            Cart
+            {t("site.header.cart")}
             {totalCartCount > 0 && (
               <span className="absolute top-0 right-1/4 min-w-[16px] h-4 px-1 rounded-full bg-secondary text-white text-[9px] font-bold flex items-center justify-center">
                 {totalCartCount}
@@ -436,20 +445,20 @@ export function Header() {
               href="/sign-in"
               onClick={() => setMobileMenuOpen(false)}
               className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
-              aria-label="Sign in"
+              aria-label={t("site.header.signIn")}
             >
               <User className="w-5 h-5 mb-0.5" />
-              Sign in
+              {t("site.header.signIn")}
             </Link>
           ) : (
             <Link
               href={isAdmin ? "/admin" : "/account"}
               onClick={() => setMobileMenuOpen(false)}
               className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
-              aria-label={isAdmin ? "Admin panel" : "My account"}
+              aria-label={isAdmin ? t("site.header.adminPanel") : t("site.header.myAccount")}
             >
               <User className="w-5 h-5 mb-0.5" />
-              {isAdmin ? "Admin" : "Account"}
+              {isAdmin ? t("site.header.admin") : t("site.header.account")}
             </Link>
           )}
         </div>

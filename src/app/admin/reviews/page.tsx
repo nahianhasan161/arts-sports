@@ -89,7 +89,7 @@ export default function ReviewsAdminPage() {
         )}
         <div className="flex gap-2 flex-wrap mb-3">
           {(["reviews", "questions"] as const).map((k) => (
-            <button key={k} onClick={() => setKind(k)} className={`px-3 py-1.5 text-xs font-display uppercase font-bold rounded border ${kind === k ? "bg-primary text-white border-primary" : "bg-surface-card border-border-light"}`}>{k}</button>
+            <button key={k} onClick={() => setKind(k)} className={`px-3 py-1.5 text-xs font-display uppercase font-bold rounded border ${kind === k ? "bg-primary text-primary-foreground border-primary" : "bg-surface-card border-border-light"}`}>{k}</button>
           ))}
           <select value={status} onChange={(e) => setStatus(e.target.value as Status | "all")} className={`${field} ml-auto`} aria-label="Status">
             <option value="pending">Waiting</option>
@@ -129,7 +129,7 @@ export default function ReviewsAdminPage() {
                 <>
                   <p className="font-semibold text-sm mt-1">Q: {i.question}</p>
                   <textarea className={`${field} w-full mt-2`} rows={2} placeholder="Your answer (publishes the question)" value={replies[i.id] ?? i.answer ?? ""} onChange={(e) => setReplies({ ...replies, [i.id]: e.target.value })} />
-                  <button onClick={() => patch(i, { answer: replies[i.id] ?? i.answer ?? "" })} className="mt-2 text-xs font-bold uppercase px-3 py-1.5 bg-primary text-white rounded">Answer and publish</button>
+                  <button onClick={() => patch(i, { answer: replies[i.id] ?? i.answer ?? "" })} className="mt-2 text-xs font-bold uppercase px-3 py-1.5 bg-primary text-primary-foreground rounded">Answer and publish</button>
                 </>
               )}
               <div className="flex gap-2 mt-3">
@@ -164,7 +164,7 @@ export default function ReviewsAdminPage() {
             </div>
           ))}
         </div>
-        <button onClick={saveSettings} className="mt-3 px-5 py-2 bg-primary text-white text-xs font-bold uppercase rounded-lg">{saved ? "Saved" : "Save settings"}</button>
+        <button onClick={saveSettings} className="mt-3 px-5 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase rounded-lg">{saved ? "Saved" : "Save settings"}</button>
       </div>
     </div>
   );

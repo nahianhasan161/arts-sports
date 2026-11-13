@@ -107,7 +107,7 @@ export default function SizeGuideModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-surface-card rounded-xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-border-light shrink-0">
           <h3 className="font-display uppercase text-base font-bold text-primary">
             Size Measurement Guide
@@ -138,7 +138,7 @@ export default function SizeGuideModal({
                 onClick={() => selectRegion(code)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                   region === code
-                    ? "bg-primary text-white"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-surface-subtle text-text-muted hover:text-primary"
                 }`}
               >

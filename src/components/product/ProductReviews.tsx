@@ -213,7 +213,7 @@ export function ProductReviews({
               )}
             </div>
             {reviewMsg && <p className={`text-xs ${reviewMsg.ok ? "text-emerald-700" : "text-badge-discount"}`}>{reviewMsg.text}</p>}
-            <button type="submit" disabled={sending} className="px-5 py-2 bg-primary text-white font-display text-xs uppercase font-bold rounded-lg disabled:opacity-50">
+            <button type="submit" disabled={sending} className="px-5 py-2 bg-primary text-primary-foreground font-display text-xs uppercase font-bold rounded-lg disabled:opacity-50">
               {sending ? "Sending…" : "Submit review"}
             </button>
           </form>
@@ -239,7 +239,7 @@ export function ProductReviews({
           <form onSubmit={submitQuestion} className="space-y-2">
             <textarea className={input} rows={3} required minLength={3} maxLength={1000} placeholder="Ask a question about this product" value={question} onChange={(e) => setQuestion(e.target.value)} />
             {qMsg && <p className={`text-xs ${qMsg.ok ? "text-emerald-700" : "text-badge-discount"}`}>{qMsg.text}</p>}
-            <button type="submit" className="px-5 py-2 bg-primary text-white font-display text-xs uppercase font-bold rounded-lg">Ask</button>
+            <button type="submit" className="px-5 py-2 bg-primary text-primary-foreground font-display text-xs uppercase font-bold rounded-lg">Ask</button>
           </form>
         ) : (
           <p className="text-sm text-text-muted">

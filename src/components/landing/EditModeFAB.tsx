@@ -379,7 +379,7 @@ export function EditableImage({
       {mode === "edit" && (
         <button
           onClick={handleEditClick}
-          className="absolute top-2 right-2 z-10 w-7 h-7 bg-primary/90 text-white rounded-full flex items-center justify-center cursor-pointer hover:bg-primary transition-colors shadow-md"
+          className="absolute top-2 right-2 z-10 w-7 h-7 bg-primary/90 text-primary-foreground rounded-full flex items-center justify-center cursor-pointer hover:bg-primary transition-colors shadow-md"
         >
           <ImageIcon className="w-4 h-4" />
         </button>
@@ -398,7 +398,7 @@ export function EditableImage({
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4"
+            className="bg-surface-card rounded-lg shadow-xl w-full max-w-2xl mx-4"
             onClick={e => e.stopPropagation()}
           >
             <div className="p-4 border-b flex items-center justify-between">
@@ -450,7 +450,7 @@ export function EditableImage({
                   <p className="text-sm text-gray-600 mb-3">
                     Drag & drop an image here, or
                   </p>
-                  <label className="cursor-pointer inline-block px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors">
+                  <label className="cursor-pointer inline-block px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors">
                     Choose File
                     <input
                       type="file"
@@ -520,7 +520,7 @@ export function EditableImage({
                         <button
                           onClick={handleSelectMedia}
                           disabled={!selectedMedia}
-                          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
                         >
                           Select Image
                         </button>

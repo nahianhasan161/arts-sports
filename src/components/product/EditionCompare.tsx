@@ -26,7 +26,7 @@ export function EditionCompare({ editions, current }: { editions: CatalogTerm[];
                 <th key={e.id} className="p-3 font-display uppercase text-xs tracking-wider text-primary">
                   {e.name_en}
                   {current.includes(e.id) && (
-                    <span className="ml-2 text-[10px] bg-primary text-white rounded px-1.5 py-0.5 align-middle">This one</span>
+                    <span className="ml-2 text-[10px] bg-primary text-primary-foreground rounded px-1.5 py-0.5 align-middle">This one</span>
                   )}
                 </th>
               ))}

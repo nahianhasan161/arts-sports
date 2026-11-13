@@ -201,7 +201,7 @@ export default function AdminSizes() {
               >
                 <div className="p-4 flex items-start justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-lg bg-primary text-white flex items-center justify-center font-display text-lg font-bold shrink-0">
+                    <div className="w-14 h-14 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-display text-lg font-bold shrink-0">
                       {size.display_name}
                     </div>
                     <div>

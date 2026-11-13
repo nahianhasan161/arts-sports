@@ -12,7 +12,7 @@ export interface AddressValue {
 export const EMPTY_ADDRESS: AddressValue = { division: "", district: "", thana: "", line: "" };
 
 const selectCls =
-  "w-full h-10 px-3 rounded-lg border border-border-light bg-white focus:outline-none focus:ring-1 focus:ring-primary text-sm disabled:bg-surface-subtle disabled:text-text-muted";
+  "w-full h-10 px-3 rounded-lg border border-border-light bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary text-sm disabled:bg-surface-subtle disabled:text-text-muted";
 
 /** Division -> district -> thana dropdowns plus house/road, in English with Bangla beside. */
 export function AddressPicker({

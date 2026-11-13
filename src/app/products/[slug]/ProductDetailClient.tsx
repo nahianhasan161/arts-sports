@@ -202,7 +202,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                       {liveBadgeLabel}
                     </span>
                   )}
-                  <span className="bg-primary text-white font-display text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm font-bold flex items-center gap-1">
+                  <span className="bg-primary text-primary-foreground font-display text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm font-bold flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> IN STOCK
                   </span>
                 </div>
@@ -404,7 +404,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                         onClick={() => setSelectedSize(s.size)}
                         className={`py-3 px-2 rounded-lg text-center transition-all border ${
                           isSelected
-                            ? "bg-primary text-white border-primary shadow-sm"
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
                             : "bg-surface-card border-border-light hover:border-primary text-on-surface"
                         } disabled:opacity-30 disabled:cursor-not-allowed`}
                       >

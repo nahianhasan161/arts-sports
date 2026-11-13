@@ -150,7 +150,7 @@ export default function AdminPromotions() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as "" | PromotionStatus)}
-          className="h-9 px-3 text-sm border border-border-light rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-primary/20"
+          className="h-9 px-3 text-sm border border-border-light rounded-lg bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary/20"
         >
           <option value="">All statuses</option>
           <option value="draft">Draft</option>

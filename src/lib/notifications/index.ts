@@ -33,7 +33,9 @@ export type Template =
   | "custom_payment_received"
   | "custom_stage"
   | "custom_ready"
-  | "custom_delivered";
+  | "custom_delivered"
+  // A message staff wrote for a customer segment (Phase 4). {text} is the whole message.
+  | "promo";
 
 export interface NotifyInput {
   template: Template;

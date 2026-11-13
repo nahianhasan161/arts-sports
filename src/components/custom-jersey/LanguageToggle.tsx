@@ -13,7 +13,7 @@ export function LanguageToggle() {
           type="button"
           onClick={() => setLocale(l)}
           aria-pressed={locale === l}
-          className={`px-3 py-1.5 font-semibold ${locale === l ? "bg-primary text-white" : "bg-white text-text-muted hover:bg-surface-subtle"}`}
+          className={`px-3 py-1.5 font-semibold ${locale === l ? "bg-primary text-primary-foreground" : "bg-surface-card text-text-muted hover:bg-surface-subtle"}`}
         >
           {t(l === "bn" ? "common.bangla" : "common.english")}
         </button>

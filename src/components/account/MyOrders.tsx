@@ -111,7 +111,7 @@ export function MyOrders() {
                 type="button"
                 disabled={busy === o.id}
                 onClick={() => void reorder(o)}
-                className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-primary text-white font-bold uppercase text-[11px] disabled:opacity-60"
+                className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-bold uppercase text-[11px] disabled:opacity-60"
               >
                 {busy === o.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Order again
               </button>

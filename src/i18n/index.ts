@@ -15,8 +15,8 @@ import { en, type Messages } from "./messages/en";
 export const LOCALES = ["bn", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
 
-/** The site is English today; flip this when the Bangla pages are ready. */
-export const DEFAULT_LOCALE: Locale = "en";
+/** Bangla is the main language; English is the switch. */
+export const DEFAULT_LOCALE: Locale = "bn";
 
 /** Cookie the language switch will set. */
 export const LOCALE_COOKIE = "lang";

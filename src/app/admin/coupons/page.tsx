@@ -243,7 +243,7 @@ export default function AdminCoupons() {
         <div className="flex gap-2">
           <Link
             href="/admin/user-groups"
-            className="inline-flex items-center gap-2 px-4 py-2.5 border border-primary text-primary font-display text-[11px] uppercase tracking-wider font-bold rounded-lg hover:bg-primary hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 border border-primary text-primary font-display text-[11px] uppercase tracking-wider font-bold rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
           >
             <Users className="w-3.5 h-3.5" /> User Groups
           </Link>

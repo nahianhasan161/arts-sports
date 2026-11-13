@@ -85,7 +85,7 @@ export function CartDrawer() {
                 </span>
               )}
             </div>
-            <div className="w-full bg-white h-2 rounded-full overflow-hidden border border-accent-gold/20">
+            <div className="w-full bg-surface-card h-2 rounded-full overflow-hidden border border-accent-gold/20">
               <div
                 className="bg-accent-gold h-full rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}

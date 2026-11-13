@@ -344,7 +344,7 @@ export default function ProductMediaManager({
                 </div>
 
                 {image.is_primary && (
-                  <span className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold uppercase px-1.5 py-0.5 rounded">
+                  <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-[9px] font-bold uppercase px-1.5 py-0.5 rounded">
                     Primary
                   </span>
                 )}
@@ -358,7 +358,7 @@ export default function ProductMediaManager({
                       onClick={() => patch({ set_primary: image.id })}
                       aria-label="Set as primary"
                       title="Set as primary"
-                      className="p-1 rounded bg-black/60 text-white hover:bg-primary"
+                      className="p-1 rounded bg-black/60 text-primary-foreground hover:bg-primary"
                     >
                       <Star className="w-3 h-3" />
                     </button>

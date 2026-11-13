@@ -24,8 +24,8 @@ interface Setup {
 
 const field = "px-2.5 py-1.5 text-sm bg-surface-subtle rounded border border-border-light";
 const btn = "inline-flex items-center justify-center gap-1.5 text-xs font-bold uppercase px-3 py-2 rounded disabled:opacity-50";
-const primary = `${btn} bg-primary text-white`;
-const outline = `${btn} border border-border-light bg-white`;
+const primary = `${btn} bg-primary text-primary-foreground`;
+const outline = `${btn} border border-border-light bg-surface-card`;
 const h2 = "font-display text-lg uppercase font-bold text-primary mb-1";
 const EXTRAS: { key: keyof PricingConfig["extras"]; label: string }[] = [
   { key: "name", label: "Name print" },
@@ -303,7 +303,7 @@ export default function CustomJerseySetupPage() {
                 {PATTERNS.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
               {(templateDraft.default_colors ?? []).map((c, i) => (
-                <input key={i} type="color" value={c} aria-label={`Colour ${i + 1}`} className="w-9 h-9 rounded border border-border-light bg-white p-0.5" onChange={(e) => setTemplateDraft({ ...templateDraft, default_colors: (templateDraft.default_colors ?? []).map((x, n) => (n === i ? e.target.value : x)) })} />
+                <input key={i} type="color" value={c} aria-label={`Colour ${i + 1}`} className="w-9 h-9 rounded border border-border-light bg-surface-card p-0.5" onChange={(e) => setTemplateDraft({ ...templateDraft, default_colors: (templateDraft.default_colors ?? []).map((x, n) => (n === i ? e.target.value : x)) })} />
               ))}
             </div>
             <div className="flex gap-2">

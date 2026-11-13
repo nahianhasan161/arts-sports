@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.next/**)",
+      "Read(./.open-next/**)",
+      "Read(./.wrangler/**)",
+      "Read(./package-lock.json)",
+      "Read(./tsconfig.tsbuildinfo)",
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.production.local)"
+    ]
+  }
+}

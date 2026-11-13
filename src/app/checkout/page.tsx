@@ -42,7 +42,7 @@ const normalisePhone = (raw: string) => raw.replace(/[\s-]/g, "");
 type ManualMethod = "cod" | "bkash" | "nagad";
 
 const inputCls =
-  "w-full h-10 px-3 rounded-lg border border-border-light bg-white focus:outline-none focus:ring-1 focus:ring-primary text-sm";
+  "w-full h-10 px-3 rounded-lg border border-border-light bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary text-sm";
 
 function newSessionId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now());
@@ -345,7 +345,7 @@ function CheckoutInner() {
     return (
       <div className="max-w-container-max mx-auto px-space-base py-space-3xl text-center">
         <h1 className="font-display text-2xl font-bold text-primary uppercase">Your bag is empty</h1>
-        <Link href="/shop" className="inline-block mt-4 px-5 py-3 bg-primary text-white rounded-lg text-xs font-bold uppercase">
+        <Link href="/shop" className="inline-block mt-4 px-5 py-3 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase">
           Continue shopping
         </Link>
       </div>
@@ -633,7 +633,7 @@ function CheckoutInner() {
             <button
               type="submit"
               disabled={placing || !mounted}
-              className="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-primary text-white rounded-lg text-sm font-bold font-display uppercase tracking-wider disabled:opacity-60"
+              className="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold font-display uppercase tracking-wider disabled:opacity-60"
             >
               {placing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
               {payNowLabel}

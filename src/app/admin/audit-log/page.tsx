@@ -158,7 +158,7 @@ export default function AuditLogPage() {
           placeholder="Staff email"
           className="h-9 px-3 rounded-lg border border-border-light text-xs flex-1"
         />
-        <button type="submit" className="h-9 px-4 bg-primary text-white text-[11px] font-bold uppercase rounded-lg">
+        <button type="submit" className="h-9 px-4 bg-primary text-primary-foreground text-[11px] font-bold uppercase rounded-lg">
           Filter
         </button>
       </form>

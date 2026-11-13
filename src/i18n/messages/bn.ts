@@ -1,4 +1,7 @@
 import type { Messages } from "./en";
+import { shopBn } from "./shop.bn";
+import { siteBn } from "./site.bn";
+import { adminBn } from "./admin.bn";
 
 /** বাংলা লেখা। en.ts-এর সব key এখানে থাকতে হবে। */
 export const bn: Messages = {
@@ -8,6 +11,8 @@ export const bn: Messages = {
     language: "ভাষা",
     bangla: "বাংলা",
     english: "English",
+    darkMode: "ডার্ক মোড",
+    lightMode: "লাইট মোড",
   },
   payment: {
     received: "{amount} পেমেন্ট পাওয়া গেছে",
@@ -310,5 +315,12 @@ export const bn: Messages = {
       subject: "কাস্টম জার্সি {id} পৌঁছেছে",
       body: "{name}, আপনার কাস্টম জার্সি {id} পৌঁছে গেছে। Arts Sports বেছে নেওয়ার জন্য ধন্যবাদ!",
     },
+    promo: {
+      subject: "Arts Sports",
+      body: "{text}",
+    },
   },
+  shop: shopBn,
+  site: siteBn,
+  admin: adminBn,
 };

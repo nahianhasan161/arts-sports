@@ -429,7 +429,7 @@ export interface ProductFormModalProps extends ProductFormOptions {
 const inputClass =
   "w-full h-9 px-3 border border-border-light rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/20";
 const labelClass = "block text-xs font-semibold text-on-surface mb-1.5";
-const fieldClass = "w-full h-9 px-3 border border-border-light rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/20 appearance-none bg-white";
+const fieldClass = "w-full h-9 px-3 border border-border-light rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/20 appearance-none bg-surface-card";
 const chipClass =
   "inline-flex items-center gap-1.5 rounded-full border border-border-light px-2.5 py-1 text-xs cursor-pointer transition-colors";
 

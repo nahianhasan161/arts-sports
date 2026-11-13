@@ -235,7 +235,7 @@ export default function AdminUserGroups() {
         <div className="flex gap-2">
           <Link
             href="/admin/coupons"
-            className="inline-flex items-center gap-2 px-4 py-2.5 border border-primary text-primary font-display text-[11px] uppercase tracking-wider font-bold rounded-lg hover:bg-primary hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 border border-primary text-primary font-display text-[11px] uppercase tracking-wider font-bold rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors"
           >
             <Ticket className="w-3.5 h-3.5" /> Coupons
           </Link>
@@ -473,7 +473,7 @@ export default function AdminUserGroups() {
                     type="button"
                     onClick={() => void addMembers()}
                     disabled={memberBusy || memberInput.trim() === ""}
-                    className="h-10 px-4 rounded-lg bg-primary text-white font-display text-[11px] uppercase tracking-wider font-bold disabled:opacity-50"
+                    className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-display text-[11px] uppercase tracking-wider font-bold disabled:opacity-50"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                   </button>
@@ -531,7 +531,7 @@ export default function AdminUserGroups() {
               <button
                 type="button"
                 onClick={() => setMemberGroup(null)}
-                className="px-4 py-2.5 bg-primary text-white rounded-lg font-display text-[11px] uppercase tracking-wider font-bold"
+                className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-display text-[11px] uppercase tracking-wider font-bold"
               >
                 Done
               </button>

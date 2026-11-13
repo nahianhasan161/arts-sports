@@ -221,7 +221,7 @@ export default async function OrderConfirmedPage(
                 <FinishPaymentButton
                   checkoutUrl={payment.checkout_url}
                   label={`Pay ${formatTaka(amountDue)} now`}
-                  className="inline-block mt-4 px-6 py-3 rounded-lg bg-primary text-white text-sm font-bold font-display uppercase tracking-wider"
+                  className="inline-block mt-4 px-6 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold font-display uppercase tracking-wider"
                 />
               )}
               <p className="text-xs text-text-muted mt-3">
@@ -337,7 +337,7 @@ export default async function OrderConfirmedPage(
             {payment.checkout_url && payment.gateway_status !== "review" && (
               <FinishPaymentButton
                 checkoutUrl={payment.checkout_url}
-                className="inline-block mt-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold"
+                className="inline-block mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
               />
             )}
           </div>

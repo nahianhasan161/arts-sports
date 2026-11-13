@@ -36,7 +36,7 @@ function stepIndex(o: Tracked): number {
   return 0;
 }
 
-const inputCls = "w-full h-10 px-3 rounded-lg border border-border-light bg-white text-sm focus:outline-none focus:ring-1 focus:ring-primary";
+const inputCls = "w-full h-10 px-3 rounded-lg border border-border-light bg-surface-card text-sm focus:outline-none focus:ring-1 focus:ring-primary";
 
 export function TrackOrder() {
   const params = useSearchParams();
@@ -82,7 +82,7 @@ export function TrackOrder() {
           <label htmlFor="tr-phone" className="block text-xs font-semibold mb-1">Phone number</label>
           <input id="tr-phone" className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="01XXXXXXXXX" required />
         </div>
-        <button type="submit" disabled={loading} className="h-10 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-60">
+        <button type="submit" disabled={loading} className="h-10 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-60">
           {loading && <Loader2 className="w-4 h-4 animate-spin" />} Track
         </button>
         {error && (

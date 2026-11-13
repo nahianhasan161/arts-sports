@@ -315,7 +315,7 @@ export default function AdminProducts() {
   const to = Math.min(page * PAGE_SIZE, total);
 
   const filterControl =
-    "h-9 px-3 text-sm border border-border-light rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-primary/20";
+    "h-9 px-3 text-sm border border-border-light rounded-lg bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary/20";
 
   return (
     <div className="space-y-4">
@@ -357,7 +357,7 @@ export default function AdminProducts() {
           <Filter className="w-4 h-4" />
           Filters
           {activeFilterCount > 0 && (
-            <span className="px-1.5 rounded-full bg-primary text-white text-[11px] leading-4">
+            <span className="px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] leading-4">
               {activeFilterCount}
             </span>
           )}

@@ -10,6 +10,8 @@ import { OrganizationSchema } from "@/components/seo/OrganizationSchema";
 import { AnalyticsTracker } from "@/components/seo/AnalyticsTracker";
 import { Pixels } from "@/components/seo/Pixels";
 import { getServerUrl } from "@/lib/config";
+import { SiteChrome } from "@/components/layout/SiteChrome";
+import { PREFERENCES_SCRIPT } from "@/lib/theme";
 
 const fontSans = "font-sans";
 
@@ -52,7 +54,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    locale: "en_BD",
+    locale: "bn_BD",
     url: getServerUrl(),
     siteName: "Arts Sports",
     title: "Arts Sports | Premium Everyday Apparel",
@@ -119,8 +121,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={fontSans}>
+    // Bangla is the main language. The script below switches to the saved
+    // language and theme before the first paint, which is why the html tag
+    // may differ from what the server sent (suppressHydrationWarning).
+    <html lang="bn" className={fontSans} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: PREFERENCES_SCRIPT }} />
         <OrganizationSchema />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -133,13 +139,18 @@ export default function RootLayout({
           <ClientProviders>
             <AnalyticsTracker />
             <Pixels />
-            <Header />
-            <CartDrawer />
-            <WishlistDrawer />
-      {/* pb-16 clears the always-present mobile bottom navigation bar; on
-          lg and up that bar is hidden, so the padding comes off. */}
-      <main className="flex-1 pt-[120px] lg:pt-[164px] pb-16 lg:pb-0">{children}</main>
-            <Footer />
+            <SiteChrome
+              header={<Header />}
+              footer={<Footer />}
+              overlays={
+                <>
+                  <CartDrawer />
+                  <WishlistDrawer />
+                </>
+              }
+            >
+              {children}
+            </SiteChrome>
           </ClientProviders>
         </AuthProvider>
       </body>

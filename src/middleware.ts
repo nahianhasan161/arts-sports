@@ -44,8 +44,10 @@ export async function middleware(request: NextRequest) {
       request.nextUrl.pathname.startsWith("/admin/");
 
     if (user && isAdminRoute) {
+      // Staff accounts (cashier, inventory...) get in too; each page and API
+      // then checks the permission it needs. is_staff() covers admins as well.
       const { data: isAdminResult, error: adminCheckError } =
-        await supabase.rpc("is_admin");
+        await supabase.rpc("is_staff");
 
       if (adminCheckError || !isAdminResult) {
         const url = request.nextUrl.clone();

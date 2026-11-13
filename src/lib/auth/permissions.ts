@@ -26,6 +26,7 @@ export const PERMISSIONS = [
   "promotions.manage",
   "inventory.manage",
   "pos.use",
+  "pos.manage",
   "custom_orders.manage",
   "customers.view",
   "customers.manage",

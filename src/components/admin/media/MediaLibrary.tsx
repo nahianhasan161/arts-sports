@@ -424,7 +424,7 @@ export default function MediaLibrary() {
             type="button"
             onClick={() => setView("grid")}
             aria-label="Grid view"
-            className={`px-2 py-1.5 ${view === "grid" ? "bg-primary text-white" : "text-text-muted"}`}
+            className={`px-2 py-1.5 ${view === "grid" ? "bg-primary text-primary-foreground" : "text-text-muted"}`}
           >
             <Grid3x3 className="w-3.5 h-3.5" />
           </button>
@@ -432,7 +432,7 @@ export default function MediaLibrary() {
             type="button"
             onClick={() => setView("list")}
             aria-label="List view"
-            className={`px-2 py-1.5 ${view === "list" ? "bg-primary text-white" : "text-text-muted"}`}
+            className={`px-2 py-1.5 ${view === "list" ? "bg-primary text-primary-foreground" : "text-text-muted"}`}
           >
             <List className="w-3.5 h-3.5" />
           </button>
@@ -448,7 +448,7 @@ export default function MediaLibrary() {
           type="button"
           onClick={() => setFilter({ folder: "" })}
           className={`px-2 py-0.5 rounded text-[10px] ${
-            filters.folder === "" ? "bg-primary text-white" : "bg-surface-subtle text-text-muted"
+            filters.folder === "" ? "bg-primary text-primary-foreground" : "bg-surface-subtle text-text-muted"
           }`}
         >
           All
@@ -460,7 +460,7 @@ export default function MediaLibrary() {
             onClick={() => setFilter({ folder: filters.folder === f.id ? "" : f.id })}
             className={`px-2 py-0.5 rounded text-[10px] ${
               filters.folder === f.id
-                ? "bg-primary text-white"
+                ? "bg-primary text-primary-foreground"
                 : "bg-surface-subtle text-text-muted hover:text-on-surface"
             }`}
           >
@@ -673,7 +673,7 @@ function MediaCard({
           unoptimized
         />
         {item.is_primary && (
-          <span className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold uppercase px-1.5 py-0.5 rounded">
+          <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-[9px] font-bold uppercase px-1.5 py-0.5 rounded">
             Primary
           </span>
         )}

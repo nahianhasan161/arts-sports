@@ -219,7 +219,7 @@ export default function MediaDetailPanel({
                   setAttachTo("");
                 });
               }}
-              className="mt-1.5 w-full px-3 py-2 bg-primary text-white rounded-lg text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
+              className="mt-1.5 w-full px-3 py-2 bg-primary text-primary-foreground rounded-lg text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
             >
               Attach
             </button>

@@ -7,8 +7,8 @@ import { importRosterFile, parseDelimited, rowsToRoster, MAX_ROSTER, ROSTER_SAMP
 import { sizeSummary } from "@/lib/custom-jersey/pricing";
 import { SIZES, type RosterRow, type Sleeve } from "@/lib/custom-jersey/types";
 
-const cell = "w-full h-9 px-2 rounded-md border border-border-light bg-white text-sm focus:outline-none focus:ring-1 focus:ring-primary";
-const tool = "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-light bg-white text-xs font-semibold hover:bg-surface-subtle";
+const cell = "w-full h-9 px-2 rounded-md border border-border-light bg-surface-card text-sm focus:outline-none focus:ring-1 focus:ring-primary";
+const tool = "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-light bg-surface-card text-xs font-semibold hover:bg-surface-subtle";
 
 /** The team list: one row per jersey, typed in, pasted from Excel or imported from a file. */
 export function RosterEditor({
@@ -89,7 +89,7 @@ export function RosterEditor({
       {pasteOpen && (
         <div className="flex flex-col gap-2">
           <textarea
-            className="w-full rounded-lg border border-border-light bg-white p-2 text-sm font-mono"
+            className="w-full rounded-lg border border-border-light bg-surface-card p-2 text-sm font-mono"
             rows={4}
             value={pasted}
             onChange={(e) => setPasted(e.target.value)}
@@ -97,7 +97,7 @@ export function RosterEditor({
           />
           <button
             type="button"
-            className="self-start h-9 px-4 rounded-lg bg-primary text-white text-xs font-bold uppercase"
+            className="self-start h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase"
             onClick={() => {
               append(rowsToRoster(parseDelimited(pasted), defaultSleeve));
               setPasted("");
@@ -181,7 +181,7 @@ export function SizeSummary({ summary, total, label }: { summary: [string, numbe
           <strong>{size}</strong>: {count}
         </span>
       ))}
-      <span className="px-2 py-1 rounded-md bg-primary text-white font-semibold tabular-nums">
+      <span className="px-2 py-1 rounded-md bg-primary text-primary-foreground font-semibold tabular-nums">
         {label}: {total}
       </span>
     </div>

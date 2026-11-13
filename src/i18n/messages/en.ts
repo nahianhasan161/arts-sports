@@ -1,3 +1,7 @@
+import { shopEn } from "./shop.en";
+import { siteEn } from "./site.en";
+import { adminEn } from "./admin.en";
+
 /**
  * English text. bn.ts must have exactly the same keys (it is typed against
  * this file), so a missing translation is a build error, not a blank label.
@@ -11,6 +15,8 @@ export const en = {
     language: "Language",
     bangla: "বাংলা",
     english: "English",
+    darkMode: "Dark mode",
+    lightMode: "Light mode",
   },
   payment: {
     received: "Payment of {amount} received",
@@ -313,7 +319,14 @@ export const en = {
       subject: "Custom jersey {id} delivered",
       body: "Hi {name}, your custom jersey {id} was delivered. Thank you for choosing Arts Sports!",
     },
+    promo: {
+      subject: "Arts Sports",
+      body: "{text}",
+    },
   },
+  shop: shopEn,
+  site: siteEn,
+  admin: adminEn,
 };
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };

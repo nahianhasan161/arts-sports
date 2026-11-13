@@ -306,7 +306,7 @@ export function FilterSidebar({
                   aria-pressed={active}
                   className={`py-2 rounded text-xs font-bold transition-all text-center border ${
                     active
-                      ? "bg-primary text-white border-primary shadow-sm"
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
                       : "bg-surface-subtle hover:bg-surface-container text-on-surface border-border-light"
                   }`}
                 >
@@ -333,7 +333,7 @@ export function FilterSidebar({
           }`}
         >
           <div
-            className={`w-4 h-4 rounded-full bg-white transition-transform ${
+            className={`w-4 h-4 rounded-full bg-surface-card transition-transform ${
               inStockOnly ? "translate-x-5" : "translate-x-0"
             }`}
           />
@@ -343,7 +343,7 @@ export function FilterSidebar({
       {onCloseMobile && (
         <button
           onClick={onCloseMobile}
-          className="lg:hidden w-full py-3 bg-primary text-white font-display uppercase tracking-wider text-xs font-bold rounded-lg mt-2"
+          className="lg:hidden w-full py-3 bg-primary text-primary-foreground font-display uppercase tracking-wider text-xs font-bold rounded-lg mt-2"
         >
           Show Results
         </button>

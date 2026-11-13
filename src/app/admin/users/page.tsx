@@ -367,7 +367,7 @@ export default function AdminUsers() {
             setCreateError(null);
             setShowCreateModal(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           Create User
@@ -720,7 +720,7 @@ export default function AdminUsers() {
                         disabled={p === page || loading}
                         className={`min-w-[2rem] px-2 py-1.5 text-xs rounded-lg border transition-colors ${
                           p === page
-                            ? "bg-primary text-white border-primary"
+                            ? "bg-primary text-primary-foreground border-primary"
                             : "border-border-light hover:bg-surface-subtle disabled:opacity-40"
                         }`}
                       >
@@ -991,7 +991,7 @@ export default function AdminUsers() {
                 <button
                   type="submit"
                   disabled={creating || !createEmail || !createPassword}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
                   {creating ? (
                     <>

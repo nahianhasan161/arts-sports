@@ -29,8 +29,8 @@ interface Payload {
 
 const card = "bg-surface-card border border-border-light rounded-xl p-4 sm:p-5 flex flex-col gap-3";
 const heading = "font-display uppercase font-bold text-primary text-sm tracking-wider";
-const primaryBtn = "h-11 px-5 bg-primary text-white rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-50";
-const ghostBtn = "h-10 px-4 border border-border-light bg-white rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-50";
+const primaryBtn = "h-11 px-5 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-50";
+const ghostBtn = "h-10 px-4 border border-border-light bg-surface-card rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-50";
 const WHATSAPP = process.env.NEXT_PUBLIC_STORE_WHATSAPP?.replace(/[^\d]/g, "");
 
 export function CustomOrderView({ token }: { token: string }) {
@@ -245,7 +245,7 @@ export function CustomOrderView({ token }: { token: string }) {
               <FileText className="w-3.5 h-3.5" /> {f.name}
             </span>
           ))}
-          <textarea className="w-full rounded-lg border border-border-light bg-white p-3 text-sm" rows={2} value={resubmitNote} onChange={(e) => setResubmitNote(e.target.value)} placeholder={t("customJersey.order.messagePlaceholder")} />
+          <textarea className="w-full rounded-lg border border-border-light bg-surface-card p-3 text-sm" rows={2} value={resubmitNote} onChange={(e) => setResubmitNote(e.target.value)} placeholder={t("customJersey.order.messagePlaceholder")} />
           <button
             type="button"
             className={`${primaryBtn} self-start`}
@@ -327,7 +327,7 @@ export function CustomOrderView({ token }: { token: string }) {
                   <p className="text-xs text-text-muted">
                     {revisionsLeft > 0 ? t("customJersey.order.revisionsFree", { left: revisionsLeft, total: data.free_revisions }) : t("customJersey.order.revisionsUsed", { total: data.free_revisions })}
                   </p>
-                  <textarea className="w-full rounded-lg border border-border-light bg-white p-3 text-sm" rows={3} value={change} onChange={(e) => setChange(e.target.value)} placeholder={t("customJersey.order.changePlaceholder")} />
+                  <textarea className="w-full rounded-lg border border-border-light bg-surface-card p-3 text-sm" rows={3} value={change} onChange={(e) => setChange(e.target.value)} placeholder={t("customJersey.order.changePlaceholder")} />
                   <button
                     type="button"
                     className={`${primaryBtn} self-start`}
@@ -421,7 +421,7 @@ export function CustomOrderView({ token }: { token: string }) {
         ) : (
           <ul className="flex flex-col gap-2">
             {o.messages.map((m) => (
-              <li key={m.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.author === "customer" ? "self-end bg-primary text-white" : "self-start bg-surface-subtle"}`}>
+              <li key={m.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.author === "customer" ? "self-end bg-primary text-primary-foreground" : "self-start bg-surface-subtle"}`}>
                 <span className="block text-[10px] uppercase font-bold opacity-70">
                   {m.author === "customer" ? t("customJersey.order.you") : t("customJersey.order.staff")} · {dateText(m.created_at)}
                 </span>
@@ -437,7 +437,7 @@ export function CustomOrderView({ token }: { token: string }) {
             if (message.trim() && (await act("comment", { body: message }))) setMessage("");
           }}
         >
-          <input className="flex-1 h-10 px-3 rounded-lg border border-border-light bg-white text-sm" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t("customJersey.order.messagePlaceholder")} maxLength={2000} aria-label={t("customJersey.order.messagePlaceholder")} />
+          <input className="flex-1 h-10 px-3 rounded-lg border border-border-light bg-surface-card text-sm" value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t("customJersey.order.messagePlaceholder")} maxLength={2000} aria-label={t("customJersey.order.messagePlaceholder")} />
           <button type="submit" className={ghostBtn} disabled={!message.trim() || busy !== null}>
             {t("customJersey.order.send")}
           </button>

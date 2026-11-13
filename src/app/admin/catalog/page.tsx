@@ -109,7 +109,7 @@ export default function CatalogAdminPage() {
       <div className="flex gap-1 flex-wrap mb-4">
         {[...TYPES, "collections" as const].map((t) => (
           <button key={t} onClick={() => { setTab(t); setTerm(null); setCollection(null); }}
-            className={`px-3 py-1.5 text-xs font-display uppercase font-bold rounded border ${tab === t ? "bg-primary text-white border-primary" : "bg-surface-card border-border-light"}`}>
+            className={`px-3 py-1.5 text-xs font-display uppercase font-bold rounded border ${tab === t ? "bg-primary text-primary-foreground border-primary" : "bg-surface-card border-border-light"}`}>
             {t === "collections" ? "Collections" : TYPE_LABEL[t]}
           </button>
         ))}
@@ -117,7 +117,7 @@ export default function CatalogAdminPage() {
 
       {tab !== "collections" && !term && (
         <div>
-          <button onClick={() => setTerm(emptyTerm(tab))} className="mb-3 inline-flex items-center gap-1 px-3 py-2 bg-primary text-white text-xs font-bold uppercase rounded-lg">
+          <button onClick={() => setTerm(emptyTerm(tab))} className="mb-3 inline-flex items-center gap-1 px-3 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase rounded-lg">
             <Plus className="w-4 h-4" /> Add {tab}
           </button>
           <ul className="divide-y divide-border-light bg-surface-card rounded-xl border border-border-light">
@@ -167,7 +167,7 @@ export default function CatalogAdminPage() {
           <div><label className={label}>Products</label>
             <ProductPicker value={term.product_ids} onChange={(ids) => setTerm({ ...term, product_ids: ids })} /></div>
           <div className="flex gap-2">
-            <button disabled={busy} className="px-5 py-2 bg-primary text-white text-xs font-bold uppercase rounded-lg disabled:opacity-50">{busy ? "Saving…" : "Save"}</button>
+            <button disabled={busy} className="px-5 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase rounded-lg disabled:opacity-50">{busy ? "Saving…" : "Save"}</button>
             <button type="button" onClick={() => setTerm(null)} className="px-5 py-2 text-xs font-bold uppercase rounded-lg border border-border-light">Cancel</button>
           </div>
         </form>
@@ -175,7 +175,7 @@ export default function CatalogAdminPage() {
 
       {tab === "collections" && !collection && (
         <div>
-          <button onClick={() => setCollection(emptyCollection())} className="mb-3 inline-flex items-center gap-1 px-3 py-2 bg-primary text-white text-xs font-bold uppercase rounded-lg">
+          <button onClick={() => setCollection(emptyCollection())} className="mb-3 inline-flex items-center gap-1 px-3 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase rounded-lg">
             <Plus className="w-4 h-4" /> Add collection
           </button>
           <ul className="divide-y divide-border-light bg-surface-card rounded-xl border border-border-light">
@@ -229,7 +229,7 @@ export default function CatalogAdminPage() {
               <ProductPicker value={collection.product_ids} onChange={(ids) => setCollection({ ...collection, product_ids: ids })} /></div>
           )}
           <div className="flex gap-2">
-            <button disabled={busy} className="px-5 py-2 bg-primary text-white text-xs font-bold uppercase rounded-lg disabled:opacity-50">{busy ? "Saving…" : "Save"}</button>
+            <button disabled={busy} className="px-5 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase rounded-lg disabled:opacity-50">{busy ? "Saving…" : "Save"}</button>
             <button type="button" onClick={() => setCollection(null)} className="px-5 py-2 text-xs font-bold uppercase rounded-lg border border-border-light">Cancel</button>
           </div>
         </form>

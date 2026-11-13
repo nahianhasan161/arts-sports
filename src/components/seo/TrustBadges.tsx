@@ -9,7 +9,7 @@ interface TrustBadgeProps {
 function TrustBadge({ icon, label, detail }: TrustBadgeProps) {
   return (
     <div className="flex items-start gap-3 group">
-      <div className="w-9 h-9 rounded-lg bg-surface-subtle flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-200 shrink-0">
+      <div className="w-9 h-9 rounded-lg bg-surface-subtle flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-200 shrink-0">
         {icon}
       </div>
       <div>
@@ -67,7 +67,7 @@ export function TrustBadges() {
 export function StickyMobileCTA() {
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 md:hidden bg-primary text-white z-[90] shadow-lg border-t border-primary-container"
+      className="fixed bottom-0 left-0 right-0 md:hidden bg-primary text-primary-foreground z-[90] shadow-lg border-t border-primary-container"
       role="status"
       aria-label="Mobile call to action"
     >

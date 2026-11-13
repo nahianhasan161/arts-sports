@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -7,8 +9,10 @@ import {
   RotateCcw, 
   Headphones 
 } from "lucide-react";
+import { useT } from "@/i18n/client";
 
 export function Footer() {
+  const { t } = useT();
   return (
     <footer className="w-full bg-[#111923] text-[#a0aec0] pt-space-2xl border-t border-border-light/10">
       {/* 1. Value Proposition Strip */}
@@ -20,10 +24,10 @@ export function Footer() {
             </div>
             <div>
               <h4 className="text-white font-display uppercase tracking-wider text-sm font-semibold">
-                Fast Nationwide Delivery
+                {t("site.footer.deliveryTitle")}
               </h4>
               <p className="text-xs text-[#718096] mt-1">
-                Dhaka metro in 24-48 hrs, all 64 districts within 3-5 days.
+                {t("site.footer.deliveryText")}
               </p>
             </div>
           </div>
@@ -34,10 +38,10 @@ export function Footer() {
             </div>
             <div>
               <h4 className="text-white font-display uppercase tracking-wider text-sm font-semibold">
-                100% Organic Fabric
+                {t("site.footer.fabricTitle")}
               </h4>
               <p className="text-xs text-[#718096] mt-1">
-                Certified combed compact cotton with zero harsh chemicals.
+                {t("site.footer.fabricText")}
               </p>
             </div>
           </div>
@@ -48,7 +52,7 @@ export function Footer() {
             </div>
             <div>
               <h4 className="text-white font-display uppercase tracking-wider text-sm font-semibold">
-                7 Days Easy Return
+                {t("site.footer.returnTitle")}
               </h4>
               {/* Was "Hassle-free doorstep size exchange & return policy".
                   The promise now names the window and points at the page
@@ -58,9 +62,9 @@ export function Footer() {
                   and this link is the one number that governs. */}
               <p className="text-xs text-[#718096] mt-1">
                 <Link href="/returns" className="hover:text-white underline">
-                  7 days
+                  {t("site.footer.returnDays")}
                 </Link>{" "}
-                from delivery for size exchange or return.
+                {t("site.footer.returnText")}
               </p>
             </div>
           </div>
@@ -71,10 +75,10 @@ export function Footer() {
             </div>
             <div>
               <h4 className="text-white font-display uppercase tracking-wider text-sm font-semibold">
-                Dedicated Support
+                {t("site.footer.supportTitle")}
               </h4>
               <p className="text-xs text-[#718096] mt-1">
-                Call +8809677666888 or chat with us every day 9 AM - 10 PM.
+                {t("site.footer.supportText")}
               </p>
             </div>
           </div>
@@ -87,7 +91,7 @@ export function Footer() {
           {/* Brand Info */}
           <div className="lg:col-span-2 flex flex-col gap-space-sm">
             <Link href="/" className="inline-flex items-center">
-              <div className="bg-white px-3 py-1.5 rounded-md inline-flex items-center shadow-sm">
+              <div className="bg-surface-card px-3 py-1.5 rounded-md inline-flex items-center shadow-sm">
                  <Image
                    src="/main-logo-arts-sports.webp"
                    alt="arts sports"
@@ -98,7 +102,7 @@ export function Footer() {
               </div>
             </Link>
             <p className="text-xs leading-relaxed max-w-sm text-[#718096]">
-              Arts Sports is engineered with high fabric standards, bespoke craftsmanship, and contemporary everyday apparel. Designed with passion, loved worldwide.
+              {t("site.footer.about")}
             </p>
             <div className="flex items-center gap-3 pt-2">
               <a
@@ -134,84 +138,84 @@ export function Footer() {
           {/* Quick Links */}
           <div className="flex flex-col gap-2">
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
-              Shop Collections
+              {t("site.footer.shopCollections")}
             </h5>
             <Link href="/shop?category=men" className="text-xs hover:text-white transition-colors">
-              Men&apos;s Half Sleeve T-Shirts
+              {t("site.footer.menTees")}
             </Link>
             <Link href="/shop?category=men" className="text-xs hover:text-white transition-colors">
-              Designer Double PK Polos
+              {t("site.footer.polos")}
             </Link>
             <Link href="/shop?category=women" className="text-xs hover:text-white transition-colors">
-              Women&apos;s Kurti & Tops
+              {t("site.footer.womenTops")}
             </Link>
             <Link href="/shop?category=men" className="text-xs hover:text-white transition-colors">
-              Comfy & Active Trousers
+              {t("site.footer.trousers")}
             </Link>
             <Link href="/shop?category=sports" className="text-xs hover:text-white transition-colors">
-              World Cup Sports Editions
+              {t("site.footer.sportsEditions")}
             </Link>
           </div>
 
           {/* Customer Care */}
           <div className="flex flex-col gap-2">
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
-              Customer Care
+              {t("site.footer.customerCare")}
             </h5>
             <Link href="/custom-jersey" className="text-xs hover:text-white transition-colors">
-              Custom Jersey
+              {t("site.footer.customJersey")}
             </Link>
             <Link href="/returns" className="text-xs hover:text-white transition-colors">
-              Return &amp; Exchange Policy
+              {t("site.footer.returnPolicy")}
             </Link>
             <Link href="/refund-policy" className="text-xs hover:text-white transition-colors">
-              Refund Policy
+              {t("site.footer.refundPolicy")}
             </Link>
             <Link href="/shipping-policy" className="text-xs hover:text-white transition-colors">
-              Shipping Policy
+              {t("site.footer.shippingPolicy")}
             </Link>
             <Link href="/account" className="text-xs hover:text-white transition-colors">
-              Track Your Order
+              {t("site.footer.trackOrder")}
             </Link>
             <Link href="mailto:support@artssports.com" className="text-xs hover:text-white transition-colors">
-              Contact Support
+              {t("site.footer.contact")}
             </Link>
           </div>
 
           {/* Company */}
           <div className="flex flex-col gap-2">
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
-              Company
+              {t("site.footer.company")}
             </h5>
             <Link href="/privacy-policy" className="text-xs hover:text-white transition-colors">
-              Privacy Policy
+              {t("site.footer.privacy")}
             </Link>
             <Link href="/terms" className="text-xs hover:text-white transition-colors">
-              Terms of Service
+              {t("site.footer.terms")}
             </Link>
             <Link href="mailto:corporate@artssports.com" className="text-xs hover:text-white transition-colors">
-              Corporate &amp; Bulk Orders
+              {t("site.footer.bulk")}
             </Link>
             <a href="tel:+8809677666888" className="text-xs hover:text-white transition-colors">
               +880 9677 666 888
             </a>
-            <span className="text-xs text-[#718096]">9 AM – 10 PM, every day</span>
+            <span className="text-xs text-[#718096]">{t("site.footer.hours")}</span>
           </div>
 
           {/* Payment & Security */}
           <div className="flex flex-col gap-3">
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold">
-              We Accept
+              {t("site.footer.weAccept")}
             </h5>
             <div className="flex flex-wrap gap-2">
               <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded text-[11px] font-bold text-white">
-                Cash on Delivery
+                {t("site.footer.cod")}
               </span>
               <span className="px-2.5 py-1 bg-[#E2136E]/20 text-[#E2136E] border border-[#E2136E]/30 rounded text-[11px] font-bold">
-                bKash
+                {t("site.footer.bkash")}
               </span>
               <span className="px-2.5 py-1 bg-[#F7941D]/20 text-[#F7941D] border border-[#F7941D]/30 rounded text-[11px] font-bold">
-                Nagad
+                {t("site.footer.nagad")}
               </span>
             </div>
             {/* Only what the checkout actually accepts. This strip used to
@@ -234,19 +238,19 @@ export function Footer() {
           </span>
           <div className="flex items-center gap-4">
             <Link href="/privacy-policy" className="hover:text-white transition-colors">
-              Privacy Policy
+              {t("site.footer.privacy")}
             </Link>
             <span>•</span>
             <Link href="/terms" className="hover:text-white transition-colors">
-              Terms of Service
+              {t("site.footer.terms")}
             </Link>
             <span>•</span>
             <Link href="/returns" className="hover:text-white transition-colors">
-              Returns
+              {t("site.footer.returns")}
             </Link>
             <span>•</span>
             <Link href="/shipping-policy" className="hover:text-white transition-colors">
-              Shipping
+              {t("site.footer.shipping")}
             </Link>
           </div>
         </div>
