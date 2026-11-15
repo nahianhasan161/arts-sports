@@ -1273,7 +1273,7 @@ export function ProductFormModal({
                 ) : promotions.length === 0 ? (
                   <p className="text-[11px] text-text-muted">
                     No promotions exist yet. Create one under{" "}
-                    <a href="/admin/promotions" className="text-primary font-medium">
+                    <a href="/admin/online/promotions" className="text-primary font-medium">
                       Promotions
                     </a>
                     , or switch to a custom discount to price this product directly.
@@ -1395,7 +1395,7 @@ export function ProductFormModal({
                 ) : colors.length === 0 ? (
                   <p className="text-[11px] text-text-muted">
                     No colours yet. Create them under{" "}
-                    <a href="/admin/colors" className="text-primary font-medium">
+                    <a href="/admin/online/colors" className="text-primary font-medium">
                       Color Palette
                     </a>
                     .
@@ -1436,7 +1436,7 @@ export function ProductFormModal({
                 ) : sizes.length === 0 ? (
                   <p className="text-[11px] text-text-muted">
                     No sizes yet. Create them under{" "}
-                    <a href="/admin/sizes" className="text-primary font-medium">
+                    <a href="/admin/online/sizes" className="text-primary font-medium">
                       Sizes
                     </a>
                     .

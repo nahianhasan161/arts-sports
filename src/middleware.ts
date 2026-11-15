@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
+import { legacyAdminPath } from "@/lib/admin/paths";
 
 export async function middleware(request: NextRequest) {
+  // The admin is two apps now: /admin/online and /admin/offline.
+  const moved = legacyAdminPath(request.nextUrl.pathname);
+  if (moved) {
+    const url = request.nextUrl.clone();
+    url.pathname = moved;
+    return NextResponse.redirect(url);
+  }
+
   const response = NextResponse.next({
     request: {
       headers: request.headers,

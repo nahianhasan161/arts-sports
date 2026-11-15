@@ -152,7 +152,7 @@ export default function MediaDetailPanel({
               <dt className="text-text-muted">Product</dt>
               <dd className="truncate">
                 <Link
-                  href={`/admin/products?edit=${item.product_id}`}
+                  href={`/admin/online/products?edit=${item.product_id}`}
                   className="text-primary hover:underline truncate inline-flex items-center gap-1"
                 >
                   <Package className="w-3 h-3 shrink-0" />

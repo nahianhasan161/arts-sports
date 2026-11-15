@@ -7,6 +7,10 @@ import { effectivePrices, explainPosError, listShowrooms, loadVariants, shelfSto
 
 /**
  * GET /api/admin/pos/products?q=<barcode, SKU or name>&showroom_id=
+ * GET /api/admin/pos/products?category_id=&showroom_id=&categories=1
+ *
+ * Without `q` it lists products for the register's grid (one category, or
+ * the first ones by name); `categories=1` adds the top-level categories.
  *
  * A scanner types the barcode and presses Enter, so an exact barcode or SKU
  * match comes back as `scanned` and the POS adds it without another click.
@@ -16,18 +20,31 @@ export async function GET(request: Request) {
     await requirePermission("pos.use");
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
-    if (!q) return NextResponse.json({ products: [], scanned: null });
     const db = getServiceSupabase();
+    const categoryId = (url.searchParams.get("category_id") ?? "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+
+    let categories: { id: string; name: string }[] | undefined;
+    if (url.searchParams.get("categories") === "1") {
+      const { data } = await db.from("categories").select("id, name, parent_id").is("parent_id", null).order("name").limit(40);
+      categories = (data ?? []).map((c) => ({ id: c.id as string, name: c.name as string }));
+    }
 
     const showrooms = await listShowrooms(db);
     const showroomId = showrooms.find((s) => s.id === url.searchParams.get("showroom_id"))?.id ?? showrooms[0]?.id;
     if (!showroomId) return NextResponse.json({ error: "No shop is set up. Add a showroom first." }, { status: 400 });
 
-    const exact = await loadVariants(db, { code: q });
+    const exact = q ? await loadVariants(db, { code: q }) : [];
     let productIds = [...new Set(exact.map((v) => v.product_id))];
     const scanned = exact.length === 1 ? exact[0].variant_id : null;
 
-    if (!productIds.length) {
+    if (!q) {
+      // The grid: one category (or a sub-category of it), else the first products by name.
+      let browse = db.from("products").select("id").is("deleted_at", null).order("title").limit(60);
+      if (categoryId) browse = browse.or(`category_id.eq.${categoryId},sub_category_id.eq.${categoryId}`);
+      const { data, error } = await browse;
+      if (error) return NextResponse.json({ error: explainPosError(error.message) }, { status: 500 });
+      productIds = (data ?? []).map((p) => p.id);
+    } else if (!productIds.length) {
       const safe = q.replace(/[%,()]/g, " ").trim();
       const { data, error } = await db
         .from("products")
@@ -45,7 +62,7 @@ export async function GET(request: Request) {
         productIds = (data ?? []).map((p) => p.id);
       }
     }
-    if (!productIds.length) return NextResponse.json({ products: [], scanned: null });
+    if (!productIds.length) return NextResponse.json({ products: [], scanned: null, categories });
 
     const [variants, prices, plain] = await Promise.all([
       loadVariants(db, { productIds }),
@@ -75,7 +92,7 @@ export async function GET(request: Request) {
       });
     }
     products.sort((a, b) => a.title.localeCompare(b.title));
-    return NextResponse.json({ products, scanned });
+    return NextResponse.json({ products, scanned, categories });
   } catch (error) {
     return failed(error);
   }

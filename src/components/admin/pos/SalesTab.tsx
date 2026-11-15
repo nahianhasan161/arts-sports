@@ -124,7 +124,7 @@ export function SalesTab({ canManage, initialQuery }: { canManage: boolean; init
                 {dateTime(open.sale.created_at)} · {open.sale.staff} · {open.sale.customer_name || open.sale.customer_phone || t("shop.sales.walkIn")}
               </p>
             </div>
-            <a className={btnGhost} href={`/admin/pos/receipt/${open.sale.id}`} target="_blank" rel="noreferrer">
+            <a className={btnGhost} href={`/admin/offline/pos/receipt/${open.sale.id}`} target="_blank" rel="noreferrer">
               <Printer className="w-4 h-4" /> {t("shop.sales.reprint")}
             </a>
           </div>

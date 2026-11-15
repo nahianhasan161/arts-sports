@@ -396,7 +396,7 @@ export function AdminReturnsClient() {
                       </td>
                       <td className="px-4 py-3 text-sm font-mono text-on-surface">
                         <button
-                          onClick={() => router.push(`/admin/orders?order_id=${encodeURIComponent(r.order_id)}`)}
+                          onClick={() => router.push(`/admin/online/orders?order_id=${encodeURIComponent(r.order_id)}`)}
                           className="hover:text-primary"
                         >
                           {r.order_id.slice(0, 8)}…

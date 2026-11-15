@@ -12,7 +12,7 @@ export type PosMethod = (typeof POS_METHODS)[number];
 
 const MESSAGES: Record<string, string> = {
   empty_sale: "Add at least one item",
-  session_not_open: "Open the cash drawer first (Day tab)",
+  session_not_open: "Open the register first (count the cash drawer)",
   invalid_phone: "That mobile number is not valid (01XXXXXXXXX)",
   invalid_quantity: "A quantity is not valid",
   invalid_cost: "A buying price is not valid",

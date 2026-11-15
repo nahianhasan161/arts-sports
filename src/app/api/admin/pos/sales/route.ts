@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     }
 
     const { data: session } = await db.from("pos_sessions").select("id").eq("opened_by", user.id).eq("status", "open").maybeSingle();
-    if (!session) return bad("Open the cash drawer first (Day tab)");
+    if (!session) return bad("Open the register first (count the cash drawer)");
 
     const payments = (Array.isArray(b.payments) ? b.payments.slice(0, 6) : [])
       .map((raw) => {

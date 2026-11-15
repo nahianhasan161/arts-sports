@@ -30,26 +30,31 @@ Bangladesh sports e-commerce + (planned) offline POS. Custom jersey is the key p
 - i18n: `src/i18n/` + `messages/{en,bn}.ts`; new UI text goes through `t()`. DB has `*_bn` columns.
 - Types: `src/types/index.ts` (large — grep for the type you need)
 - Catalogue (Phase 2): `lib/services/catalog.ts` (terms, collections, reviews reads), pages `/team/[slug]`, `/collection/[slug]`,
-  admin `/admin/catalog` + `/admin/reviews`; SQL `20261111100000_catalog_phase2.sql` (needs `20261108200000` first)
+  admin `/admin/online/catalog` + `/admin/online/reviews`; SQL `20261111100000_catalog_phase2.sql` (needs `20261108200000` first)
 - Custom jersey (Phase 3): `lib/custom-jersey/` (`pricing.ts` shared estimate, `server.ts` status moves/payments/notify,
   `roster.ts` CSV/xlsx import), `components/custom-jersey/`, pages `/custom-jersey`, `/custom-jersey/order/[token]`,
-  admin `/admin/custom-orders` (board) + `/admin/custom-jersey` (prices); SQL `20261113100000_custom_jersey.sql`.
+  admin `/admin/online/custom-orders` (board) + `/admin/online/custom-jersey` (prices); SQL `20261113100000_custom_jersey.sql`.
   Its payments are in `custom_order_payments`, not `payments`. Customer access = `access_token` in the URL, no login.
 - Shop (Phase 4): `lib/pos/` (`server.ts` helpers + error text, `codes.ts` Code128/QR, `types.ts`), `components/admin/pos/` +
-  `components/admin/inventory/`, pages `/admin/pos` (+ `receipt/[id]`, `custom-receipt/[id]`), `/admin/inventory`, `/admin/customers`;
+  `components/admin/inventory/`, pages under `/admin/offline` (see below), `/admin/online/inventory`, `/admin/online/customers`;
   APIs `api/admin/{pos,inventory,customers}`; SQL `20261114100000_pos_stock_crm.sql` (needs `20261113100000` first).
   Shop sales are in `pos_sales`/`pos_sale_items`/`pos_payments`, not `orders`. Stock changes go through `stock_apply()`.
-  Text for these screens: `i18n/messages/shop.{en,bn}.ts`. Staff accounts enter `/admin`; the sidebar filters by permission.
+  Text for these screens: `i18n/messages/shop.{en,bn}.ts`. Staff accounts enter `/admin`; the menus filter by permission.
 - Client i18n: `useT()` from `src/i18n/client.ts` (reads the `lang` cookie). **Bangla is the default locale**; English is the switch.
   Header/footer text: `i18n/messages/site.{en,bn}.ts`. Admin menu, dashboards, branches: `admin.{en,bn}.ts`.
 - Theme: light/dark via the `dark` class on `<html>` (`lib/theme.ts`, toggles in `components/layout/Preferences.tsx`).
   Brand colours are CSS variables in `globals.css` (`--c-*`), mapped in `tailwind.config.ts`. Use the token classes
   (`bg-surface-card`, `text-on-surface`, `border-border-light`...), not `bg-white`/hex, or dark mode breaks.
-- Admin shell: `app/admin/layout.tsx` (full-height sidebar, top bar) + menu in `components/admin/nav.ts`. Two workspaces:
-  **online** and **store** (POS); stock/customers/products are shared. A new admin page needs a `nav.ts` entry and
-  `admin.nav.<id>.{name,desc}` text. The site header/footer are hidden under `/admin` (`components/layout/SiteChrome.tsx`).
-- Dashboards: `/admin` (website, `api/admin/overview`), `/admin/store` (shop, `api/admin/store/overview`),
-  `/admin/store/branches` (shops = `showrooms` table), `/admin/help` (guide text in `components/admin/help/guide.ts`).
+- Admin = two apps under one gate (`app/admin/layout.tsx`: auth + permissions, context in `components/admin/access.tsx`):
+  **`/admin/online`** (website; sidebar shell `online/layout.tsx`, menu `NAV` in `components/admin/nav.ts`) and
+  **`/admin/offline`** (shop; top-menu shell `offline/layout.tsx`, menu `OFFLINE_NAV`). `/admin` is the app chooser.
+  Products, stock, customers are shared: the offline pages re-export the online ones. Old `/admin/<page>` URLs are
+  redirected in `middleware.ts` via `lib/admin/paths.ts`. A new page needs a nav entry and `admin.nav.<id>.{name,desc}` text.
+  The site header/footer are hidden under `/admin` (`components/layout/SiteChrome.tsx`).
+- Offline app: `/admin/offline` (shop cards, `api/admin/store/overview`), `/admin/offline/pos` = full-screen register
+  (`components/admin/pos/register/`: bill + numpad, product grid, payment screen; text `shop.register.*`), `orders` (bills/returns),
+  `custom-jersey`, `cash` (drawer), `branches` (= `showrooms` table); receipts at `/admin/offline/pos/{receipt,custom-receipt}/[id]`.
+  Online dashboard: `/admin/online` (`api/admin/overview`); guide text in `components/admin/help/guide.ts`.
 - Demo data: `supabase/demo/{seed,remove}.sql`, run with `node --env-file=.env.local scripts/demo-data.mjs seed|remove [--dry-run]`.
   All demo ids start with `demo-`. Ask before running it on the live DB.
 - Stores: `lib/store/` (cart, wishlist)
@@ -58,7 +63,7 @@ Bangladesh sports e-commerce + (planned) offline POS. Custom jersey is the key p
 
 ## Big files — grep/read ranges, don't read whole
 `components/admin/products/ProductFormModal.tsx` (1.5k lines), `types/index.ts` (1.1k),
-`app/admin/users/page.tsx` (1k), `app/admin/products/page.tsx`, `app/admin/sizes/page.tsx`,
+`app/admin/online/users/page.tsx` (1k), `app/admin/online/products/page.tsx`, `app/admin/online/sizes/page.tsx`,
 `app/checkout/page.tsx`, `docs/roadmap.md` (Bangla, 400 lines), `docs/3d-store-and-app.md`.
 For docs, `grep -n '^#'` first and read just the relevant section.
 

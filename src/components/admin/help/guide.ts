@@ -1,4 +1,5 @@
 import type { Locale } from "@/i18n";
+import { POS_GUIDE } from "./pos-guide";
 
 /**
  * The "How to use" guide in the admin panel, written for someone who has
@@ -32,14 +33,15 @@ export const GUIDE: Topic[] = [
     id: "panel",
     area: "start",
     title: { bn: "প্যানেলটি কীভাবে সাজানো", en: "How this panel is organised" },
-    summary: { bn: "বাম পাশের মেনু দুই ভাগে: অনলাইন স্টোর এবং দোকান (POS)।", en: "The menu on the left has two halves: Online store and Shop (POS)." },
+    summary: { bn: "প্যানেলটি দুটি আলাদা অ্যাপ: অনলাইন স্টোর এবং দোকান (POS)।", en: "The panel is two separate apps: Online store and Shop (POS)." },
     steps: [
-      { bn: "বাম পাশে উপরে দুটি বোতাম আছে: “অনলাইন স্টোর” ও “দোকান (POS)”। যেটিতে কাজ করবেন সেটিতে চাপুন — নিচের মেনু বদলে যাবে।", en: "At the top of the left menu there are two buttons: “Online store” and “Shop (POS)”. Press the one you are working in and the menu below changes." },
-      { bn: "অনলাইন স্টোর = ওয়েবসাইটের অর্ডার, পণ্য, অফার, কাস্টম জার্সি।", en: "Online store = website orders, products, offers and custom jerseys." },
-      { bn: "দোকান (POS) = কাউন্টারে বিক্রি, ক্যাশ ড্রয়ার, দোকানের শাখা।", en: "Shop (POS) = counter sales, the cash drawer and your shop branches." },
-      { bn: "স্টক, গ্রাহক ও পণ্য দুই জায়গাতেই একই — তাই এগুলো দুই মেনুতেই দেখা যায়।", en: "Stock, customers and products are the same in both, so they appear in both menus." },
-      { bn: "প্রতিটি পেজের উপরে নামের নিচে এক লাইনে লেখা থাকে পেজটি কী কাজের।", en: "Under the name at the top of every page, one line says what the page is for." },
-      { bn: "উপরে ডানে ভাষা (বাংলা/English) ও লাইট/ডার্ক মোড বদলানো যায়।", en: "At the top right you can switch the language (বাংলা/English) and light/dark mode." },
+      { bn: "লগইন করে /admin খুললে দুটি বড় কার্ড দেখাবে: “অনলাইন স্টোর” ও “দোকান (POS)”। যেখানে কাজ করবেন সেটিতে চাপুন।", en: "After signing in, /admin shows two large cards: “Online store” and “Shop (POS)”. Press the one you want to work in." },
+      { bn: "অনলাইন স্টোর = ওয়েবসাইটের অর্ডার, পণ্য, অফার, কাস্টম জার্সি, স্টাফ ও সেটিংস। মেনু বাম পাশে।", en: "Online store = website orders, products, offers, custom jerseys, staff and settings. Its menu is on the left." },
+      { bn: "দোকান (POS) = কাউন্টারে বিক্রি, বিল ও ফেরত, ক্যাশ ড্রয়ার, দোকানের শাখা। মেনু উপরের কালো বারে।", en: "Shop (POS) = counter sales, bills and returns, the cash drawer and your branches. Its menu is in the dark bar on top." },
+      { bn: "এক অ্যাপ থেকে অন্যটিতে যেতে: অনলাইনে বাম মেনুর উপরে “দোকান (POS)” বোতাম, দোকানে উপরের বারের ডানে “অনলাইন স্টোর” বোতাম।", en: "To switch: in Online, the “Shop (POS)” button at the top of the left menu; in the Shop, the “Online store” button on the right of the top bar." },
+      { bn: "পণ্য, স্টক ও কাস্টমার দুই জায়গাতেই একই — তাই এগুলো দুই মেনুতেই দেখা যায়।", en: "Products, stock and customers are the same in both, so they appear in both menus." },
+      { bn: "প্রতিটি পেজের নামের নিচে এক লাইনে লেখা থাকে পেজটি কী কাজের।", en: "Under the name of every page, one line says what the page is for." },
+      { bn: "ভাষা (বাংলা/English) ও লাইট/ডার্ক মোড উপরের ডান দিক থেকে বদলানো যায়।", en: "The language (বাংলা/English) and light/dark mode are switched at the top right." },
     ],
   },
   {
@@ -53,7 +55,7 @@ export const GUIDE: Topic[] = [
       { bn: "স্টক → “মাল আসা”: পণ্যটি টিক দিন, কত পিস এসেছে লিখে সেভ করুন। স্টক না থাকলে পণ্য বিক্রি হবে না।", en: "Stock → “Stock in”: tick the product, write how many pieces arrived and save. A product with no stock cannot be sold." },
       { bn: "এখন পণ্যটি ওয়েবসাইটে দেখা যাবে এবং দোকানের কাউন্টারেও বিক্রি করা যাবে।", en: "The product is now visible on the website and can also be sold at the shop counter." },
     ],
-    href: "/admin/products",
+    href: "/admin/online/products",
     action: { bn: "পণ্য পেজ খুলুন", en: "Open Products" },
   },
   {
@@ -68,39 +70,10 @@ export const GUIDE: Topic[] = [
       { bn: "প্যাক করে কুরিয়ারে দিন। কুরিয়ার ও COD পেজ থেকে পার্সেল ও ক্যাশ অন ডেলিভারির টাকার হিসাব রাখা যায়।", en: "Pack it and hand it to the courier. The Courier & COD page follows parcels and cash-on-delivery money." },
       { bn: "পাঠানো হলে “shipped”, গ্রাহক পেলে “delivered” করুন।", en: "Mark it “shipped” when sent and “delivered” when the customer has it." },
     ],
-    href: "/admin/orders",
+    href: "/admin/online/orders",
     action: { bn: "অর্ডার খুলুন", en: "Open Orders" },
   },
-  {
-    id: "pos-sell",
-    area: "store",
-    title: { bn: "দোকানের কাউন্টারে বিক্রি", en: "Sell at the shop counter" },
-    summary: { bn: "দিনের শুরুতে ক্যাশ ড্রয়ার খুলুন, বিক্রি করুন, দিন শেষে বন্ধ করুন।", en: "Open the cash drawer in the morning, sell, and close it at night." },
-    steps: [
-      { bn: "দোকান (POS) → বিক্রি (POS) খুলুন।", en: "Go to Shop (POS) → Sell (POS)." },
-      { bn: "“ক্যাশ ড্রয়ার” ট্যাবে যান। আপনার দোকান বেছে নিন, ড্রয়ারে শুরুতে কত টাকা আছে লিখে ড্রয়ার খুলুন।", en: "Open the “Cash drawer” tab. Choose your shop, write how much cash you start with and open the drawer." },
-      { bn: "“বিক্রি” ট্যাবে বারকোড স্ক্যান করুন, অথবা পণ্যের নাম লিখে খুঁজুন। পণ্য বিলে যোগ হবে।", en: "In the “Sell” tab, scan the barcode or type the product name. The item is added to the bill." },
-      { bn: "গ্রাহকের মোবাইল নম্বর দিন (ঐচ্ছিক) — তাহলে তার কেনাকাটার ইতিহাস জমা থাকবে।", en: "Enter the customer's mobile number (optional) so the purchase is kept in their history." },
-      { bn: "কীভাবে টাকা দিলেন বেছে নিন (ক্যাশ, কার্ড, বিকাশ, নগদ), বিল শেষ করুন এবং রসিদ প্রিন্ট করুন।", en: "Choose how they paid (cash, card, bKash, Nagad), finish the bill and print the receipt." },
-      { bn: "দিন শেষে “ক্যাশ ড্রয়ার” ট্যাবে টাকা গুনে লিখুন এবং ড্রয়ার বন্ধ করুন। কম-বেশি হলে সিস্টেম দেখাবে।", en: "At the end of the day, count the cash in the “Cash drawer” tab and close the drawer. The system shows any difference." },
-    ],
-    href: "/admin/pos",
-    action: { bn: "POS খুলুন", en: "Open the POS" },
-  },
-  {
-    id: "pos-return",
-    area: "store",
-    title: { bn: "দোকানে পণ্য ফেরত নেওয়া", en: "Take a return in the shop" },
-    summary: { bn: "রসিদ দিয়ে বিক্রিটি খুঁজে ফেরত নিন।", en: "Find the sale from its receipt and take the return." },
-    steps: [
-      { bn: "বিক্রি (POS) → “বিক্রির তালিকা ও ফেরত” ট্যাব খুলুন।", en: "Sell (POS) → open the “Sales & returns” tab." },
-      { bn: "রসিদ নম্বর লিখে বিক্রিটি খুঁজুন (রসিদের QR স্ক্যান করলেও খুলবে)।", en: "Type the receipt number to find the sale (scanning the receipt QR also opens it)." },
-      { bn: "কোন পণ্য কত পিস ফেরত আসছে বেছে নিন এবং টাকা ফেরত দিন। পণ্য আবার স্টকে যোগ হবে।", en: "Choose which items and how many are coming back, and give the refund. The pieces go back into stock." },
-      { bn: "ফেরত নেওয়ার অনুমতি ম্যানেজার ও মালিকের থাকে।", en: "Managers and the owner are allowed to take returns." },
-    ],
-    href: "/admin/pos",
-    action: { bn: "POS খুলুন", en: "Open the POS" },
-  },
+  ...POS_GUIDE,
   {
     id: "stock",
     area: "both",
@@ -114,7 +87,7 @@ export const GUIDE: Topic[] = [
       { bn: "“বারকোড লেবেল” থেকে লেবেল প্রিন্ট করে পণ্যে লাগান — কাউন্টারে স্ক্যান করা সহজ হবে।", en: "Print labels from “Barcode labels” and stick them on the products so they can be scanned at the counter." },
       { bn: "“কম স্টক” বোতামে চাপলে শুধু যেগুলো শেষ হয়ে আসছে সেগুলো দেখায়।", en: "The “Low stock” button shows only the items that are running out." },
     ],
-    href: "/admin/inventory",
+    href: "/admin/online/inventory",
     action: { bn: "স্টক খুলুন", en: "Open Stock" },
   },
   {
@@ -129,7 +102,7 @@ export const GUIDE: Topic[] = [
       { bn: "“দোকানের সারাংশ” পেজে সব দোকানের আজকের বিক্রি পাশাপাশি দেখা যায়।", en: "The “Shop overview” page shows today's sales for every shop side by side." },
       { bn: "কোনো দোকান বন্ধ করলে তা মুছে যায় না — পুরনো বিক্রির হিসাব থেকে যায়।", en: "Closing a shop does not delete it; its old sales stay on record." },
     ],
-    href: "/admin/store/branches",
+    href: "/admin/offline/branches",
     action: { bn: "দোকান / শাখা খুলুন", en: "Open Shops / branches" },
   },
   {
@@ -141,7 +114,7 @@ export const GUIDE: Topic[] = [
       { bn: "গ্রাহক পেজ খুলে নাম বা মোবাইল নম্বর (01XXXXXXXXX) লিখে খুঁজুন।", en: "Open Customers and search by name or mobile number (01XXXXXXXXX)." },
       { bn: "গ্রাহকে চাপ দিলে তার ওয়েবসাইট অর্ডার, দোকানের বিল ও কাস্টম জার্সি অর্ডার দেখা যায়।", en: "Press a customer to see their website orders, shop bills and custom jersey orders." },
     ],
-    href: "/admin/customers",
+    href: "/admin/online/customers",
     action: { bn: "গ্রাহক খুলুন", en: "Open Customers" },
   },
   {
@@ -156,7 +129,7 @@ export const GUIDE: Topic[] = [
       { bn: "কাজ এগোলে অর্ডারের অবস্থা বদলান — গ্রাহক নিজের লিংকে তা দেখতে পায়।", en: "Change the status as work moves on; the customer sees it on their link." },
       { bn: "ফর্মে দেখানো দাম বদলাতে “জার্সির দাম” পেজে যান।", en: "To change the prices shown on the form, go to “Jersey prices”." },
     ],
-    href: "/admin/custom-orders",
+    href: "/admin/online/custom-orders",
     action: { bn: "কাস্টম অর্ডার খুলুন", en: "Open Custom orders" },
   },
   {
@@ -169,7 +142,7 @@ export const GUIDE: Topic[] = [
       { bn: "কুপন কোড পেজ: একটি কোড (যেমন EID10), ছাড়ের পরিমাণ ও মেয়াদ দিন।", en: "Coupon codes: give a code (for example EID10), the amount off and the end date." },
       { bn: "কাউন্টারে কুপন ব্যবহার করতে বিলে কোডটি লিখুন।", en: "To use a coupon at the counter, type the code on the bill." },
     ],
-    href: "/admin/promotions",
+    href: "/admin/online/promotions",
     action: { bn: "ডিসকাউন্ট খুলুন", en: "Open Discounts" },
   },
   {
@@ -183,7 +156,7 @@ export const GUIDE: Topic[] = [
       { bn: "স্টাফ লগইন করলে বাম মেনুতে শুধু অনুমতি পাওয়া পেজগুলো দেখাবে।", en: "When they sign in, the left menu shows only the pages they are allowed." },
       { bn: "কে কী পরিবর্তন করেছে তা “কাজের রেকর্ড” পেজে দেখা যায়।", en: "The “Activity log” page shows who changed what." },
     ],
-    href: "/admin/roles",
+    href: "/admin/online/roles",
     action: { bn: "স্টাফ ও দায়িত্ব খুলুন", en: "Open Staff & roles" },
   },
 ];

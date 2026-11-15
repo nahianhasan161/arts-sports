@@ -99,7 +99,7 @@ export function CustomTab() {
               </div>
               <div className="text-right">
                 <span className="inline-block text-xs font-bold uppercase rounded px-2 py-1 bg-primary text-primary-foreground">{STATUS_LABEL[o.status]}</span>
-                <a className={`${btnGhost} !py-1 text-xs mt-2 flex`} href={`/admin/pos/custom-receipt/${o.id}`} target="_blank" rel="noreferrer">
+                <a className={`${btnGhost} !py-1 text-xs mt-2 flex`} href={`/admin/offline/pos/custom-receipt/${o.id}`} target="_blank" rel="noreferrer">
                   <Printer className="w-3.5 h-3.5" /> {t("shop.custom.printReceipt")}
                 </a>
               </div>
