@@ -33,10 +33,23 @@ const MESSAGES: Record<string, string> = {
   invalid_reason: "Choose a reason",
   invalid_transfer: "Choose two different places and a quantity",
   invalid_amount: "Enter the amount",
+  supplier_not_found: "Choose a supplier",
+  purchase_not_found: "That purchase is not from this supplier",
+  drawer_cash_only: "Only cash can come out of the cash drawer",
+  discount_over_total: "The discount is more than the purchase total",
+  reason_required: "Write why you are changing it",
+  payment_not_found: "Payment not found",
+  payment_already_void: "That payment was already undone",
 };
 
 /** Turns a database error into a line a cashier can act on. */
 export function explainPosError(message: string): string {
+  if (/does not exist|schema cache|Could not find/i.test(message) && /supplier_purchase_edit|supplier_payment_void|stock_receipt_edits|voided_at|void_reason|audit_log.*reason/.test(message)) {
+    return "Corrections are not set up yet: the migration 20261117130000_audit_actor_and_corrections.sql has not been applied.";
+  }
+  if (/does not exist|schema cache|Could not find/i.test(message) && /supplier_(purchase|pay|payments|balances)|receipt_no|opening_due|contact_person|payment_info|alt_phone|extra_cost|invoice_date/.test(message)) {
+    return "Supplier purchases are not set up yet: the migration 20261117120000_supplier_purchases.sql has not been applied.";
+  }
   if (/does not exist|schema cache|Could not find/i.test(message) && /pos_|supplier|stock_apply|stock_receipt|inventory_(receive|adjust|transfer)|customer_stats|low_stock|cost_price|marketing_opt_out/.test(message)) {
     return "The shop system is not set up yet: the Phase 4 migration (20261114100000_pos_stock_crm.sql) has not been applied.";
   }

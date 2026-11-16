@@ -17,7 +17,8 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("audit_log")
-      .select("id, occurred_at, actor_id, actor_email, actor_kind, action, entity_type, entity_id, changes")
+      // "*" so `reason` (migration 20261117130000) comes along once it exists.
+      .select("*")
       .order("id", { ascending: false })
       .limit(PAGE);
 

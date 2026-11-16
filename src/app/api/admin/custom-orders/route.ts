@@ -12,11 +12,11 @@ import { normalizeBdPhone } from "@/lib/phone";
  */
 export async function GET(request: Request) {
   try {
-    await requirePermission("custom_orders.manage");
+    const { user: actor } = await requirePermission("custom_orders.manage");
     const url = new URL(request.url);
     const scope = url.searchParams.get("scope") ?? "open";
     const q = (url.searchParams.get("q") ?? "").trim().slice(0, 60);
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
 
     let query = db
       .from("custom_orders")

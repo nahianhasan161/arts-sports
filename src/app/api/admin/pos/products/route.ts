@@ -20,10 +20,10 @@ import { effectivePrices, explainPosError, listShowrooms, loadVariants, shelfSto
  */
 export async function GET(request: Request) {
   try {
-    await requirePermission("pos.use");
+    const { user: actor } = await requirePermission("pos.use");
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
     const categoryId = (url.searchParams.get("category_id") ?? "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
 
     const idList = (url.searchParams.get("ids") ?? "")

@@ -11,9 +11,9 @@ import { bad, failed } from "@/lib/pos/http";
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("pos.use");
+    const { user: actor } = await requirePermission("pos.use");
     const { id } = await params;
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
     const query = db.from("pos_sales").select("*");
     const { data: sale, error } = await (/^R-\d+$/i.test(id) ? query.eq("receipt_no", id.toUpperCase()) : query.eq("id", id)).maybeSingle();
     if (error) return bad(explainPosError(error.message), 500);
@@ -42,7 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const { user } = await requirePermission("pos.manage");
     const { id } = await params;
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(user);
     const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
     const method = String(b.refund_method ?? "cash");

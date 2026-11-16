@@ -13,8 +13,8 @@ const KINDS = ["manual", "new", "bestseller"];
 
 export async function GET() {
   try {
-    await requirePermission("products.manage");
-    const db = getServiceSupabase();
+    const { user: actor } = await requirePermission("products.manage");
+    const db = getServiceSupabase(actor);
     const [{ data: cols, error }, { data: links }] = await Promise.all([
       db.from("collections").select("*").order("display_order"),
       db.from("collection_products").select("collection_id, product_id, position").order("position"),
@@ -30,7 +30,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requirePermission("products.manage");
+    const { user: actor } = await requirePermission("products.manage");
     const b = (await request.json()) as Record<string, unknown>;
     const slug = String(b.slug ?? "").trim().toLowerCase();
     const title = String(b.title_en ?? "").trim();
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       display_order: Number(b.display_order) || 0,
       is_active: b.is_active !== false,
     };
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
     const { data, error } = b.id
       ? await db.from("collections").update(row).eq("id", String(b.id)).select("id").single()
       : await db.from("collections").insert(row).select("id").single();
@@ -86,10 +86,10 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    await requirePermission("products.manage");
+    const { user: actor } = await requirePermission("products.manage");
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
-    const { error } = await getServiceSupabase().from("collections").delete().eq("id", id);
+    const { error } = await getServiceSupabase(actor).from("collections").delete().eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   } catch (error) {

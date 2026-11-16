@@ -14,11 +14,11 @@ const table = (kind: string | null) => (kind === "questions" ? "product_question
 
 export async function GET(request: Request) {
   try {
-    await requirePermission("products.manage");
+    const { user: actor } = await requirePermission("products.manage");
     const url = new URL(request.url);
     const kind = url.searchParams.get("kind");
     const status = url.searchParams.get("status") ?? "pending";
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
     let query = db.from(table(kind)).select("*, products(title, slug)").order("created_at", { ascending: false }).limit(200);
     if (STATUSES.includes(status)) query = query.eq("status", status);
     const { data, error } = await query;
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    await requirePermission("products.manage");
+    const { user: actor } = await requirePermission("products.manage");
     const b = (await request.json()) as { kind?: string; id?: string; status?: string; staff_reply?: string; answer?: string };
     if (!b.id) return NextResponse.json({ error: "id is required" }, { status: 400 });
     const patch: Record<string, unknown> = {};
@@ -49,7 +49,7 @@ export async function PATCH(request: Request) {
     }
     if (b.kind !== "questions" && typeof b.staff_reply === "string") patch.staff_reply = b.staff_reply.trim().slice(0, 1000) || null;
     if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
-    const { error } = await getServiceSupabase().from(table(b.kind ?? null)).update(patch).eq("id", b.id);
+    const { error } = await getServiceSupabase(actor).from(table(b.kind ?? null)).update(patch).eq("id", b.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -59,11 +59,11 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    await requirePermission("products.manage");
+    const { user: actor } = await requirePermission("products.manage");
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
-    const { error } = await getServiceSupabase().from(table(url.searchParams.get("kind"))).delete().eq("id", id);
+    const { error } = await getServiceSupabase(actor).from(table(url.searchParams.get("kind"))).delete().eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   } catch (error) {

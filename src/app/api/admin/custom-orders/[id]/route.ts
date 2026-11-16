@@ -64,7 +64,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const order = await findOrder({ id });
     if (!order) return bad("Not found", 404);
 
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(user);
     const staff = { kind: "staff" as const, id: user.id };
     const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
     const stale = () => bad("Someone else changed this order. Reload it.", 409);

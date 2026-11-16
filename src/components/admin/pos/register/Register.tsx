@@ -34,6 +34,14 @@ interface KnownCustomer {
   stats: { total_spent: number; last_purchase_at: string | null } | null;
 }
 
+interface CustomerSuggestion {
+  id: string;
+  phone: string;
+  name: string | null;
+  is_blacklisted: boolean;
+  last_purchase_at: string | null;
+}
+
 interface Done {
   sale_id: string;
   receipt_no: string;
@@ -126,6 +134,10 @@ export function Register() {
   // The customer found for a number, kept with that number so a changed number never shows the old match.
   const [lookup, setLookup] = useState<{ phone: string; customer: KnownCustomer | null } | null>(null);
   const known = lookup?.phone === phone ? lookup.customer : null;
+  // Customer picker: recent buyers when the box is empty, matches as you type.
+  // The list filters by what is typed in the phone box (or the name box when phone is empty).
+  const custQuery = phone.trim() || name.trim();
+  const [suggestions, setSuggestions] = useState<{ q: string; list: CustomerSuggestion[] } | null>(null);
   const [consent, setConsent] = useState(false);
   const [coupon, setCoupon] = useState("");
   const [couponOff, setCouponOff] = useState<{ code: string; amount: number } | null>(null);
@@ -392,6 +404,21 @@ export function Register() {
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
+
+  useEffect(() => {
+    if (popup !== "customer") return;
+    const q = custQuery.trim();
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void api<{ customers: CustomerSuggestion[] }>(`/api/admin/pos/customer?q=${encodeURIComponent(q)}`).then((res) => {
+        if (!cancelled && res.ok) setSuggestions({ q, list: res.data.customers ?? [] });
+      });
+    }, q ? 250 : 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [popup, custQuery]);
 
   // Phone number -> the customer we already know (website and shop share one list).
   useEffect(() => {
@@ -715,6 +742,34 @@ export function Register() {
       <div className="flex flex-col gap-3">
         <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("shop.pos.customerPhone")} className={`${field} py-3 text-base`} inputMode="tel" autoFocus />
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("shop.pos.customerName")} className={`${field} py-3 text-base`} />
+        <div className="flex flex-col max-h-56 overflow-y-auto rounded-md border border-border-light divide-y divide-border-light">
+          {!custQuery.trim() && <div className="px-3 py-1.5 text-xs font-semibold text-text-muted bg-surface-subtle">{t("shop.register.recentCustomers")}</div>}
+          {suggestions?.q === custQuery.trim() ? (
+            suggestions.list.length ? (
+              suggestions.list.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setPhone(c.phone);
+                    setName(c.name ?? "");
+                  }}
+                  className={`flex items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-surface-container ${c.phone === phone ? "bg-primary/10" : ""}`}
+                >
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-on-surface truncate">{c.name || c.phone}</span>
+                    <span className="block text-xs text-text-muted">{c.phone}</span>
+                  </span>
+                  {c.is_blacklisted && <span className="text-xs text-badge-discount font-semibold shrink-0">{t("shop.pos.blacklisted")}</span>}
+                </button>
+              ))
+            ) : (
+              <div className="px-3 py-3 text-sm text-text-muted">{t("shop.register.noCustomerFound")}</div>
+            )
+          ) : (
+            <div className="px-3 py-3 text-sm text-text-muted">{t("shop.common.loading")}</div>
+          )}
+        </div>
         {phone.replace(/\D/g, "").length >= 11 && (
           <div className="text-sm flex flex-col gap-2">
             {known ? (

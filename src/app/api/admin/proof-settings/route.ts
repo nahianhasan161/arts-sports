@@ -12,8 +12,8 @@ const SWITCH = ["proof_enabled", "proof_recent_popup"];
 
 export async function GET() {
   try {
-    await requirePermission("products.manage");
-    const { data, error } = await getServiceSupabase().from("app_settings").select("key, value").like("key", "proof\\_%");
+    const { user: actor } = await requirePermission("products.manage");
+    const { data, error } = await getServiceSupabase(actor).from("app_settings").select("key, value").like("key", "proof\\_%");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ settings: Object.fromEntries((data ?? []).map((r) => [r.key, r.value])) });
   } catch (error) {
@@ -23,7 +23,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    await requirePermission("products.manage");
+    const { user: actor } = await requirePermission("products.manage");
     const body = (await request.json()) as Record<string, unknown>;
     const rows: { key: string; value: string; updated_at: string }[] = [];
     for (const [key, raw] of Object.entries(body)) {
@@ -38,7 +38,7 @@ export async function PUT(request: Request) {
       rows.push({ key, value, updated_at: new Date().toISOString() });
     }
     if (rows.length === 0) return NextResponse.json({ error: "Nothing to save" }, { status: 400 });
-    const { error } = await getServiceSupabase().from("app_settings").upsert(rows, { onConflict: "key" });
+    const { error } = await getServiceSupabase(actor).from("app_settings").upsert(rows, { onConflict: "key" });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   } catch (error) {

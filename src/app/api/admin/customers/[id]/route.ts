@@ -10,9 +10,9 @@ import { bad, failed } from "@/lib/pos/http";
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("customers.view");
+    const { user: actor } = await requirePermission("customers.view");
     const { id } = await params;
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
     const { data: customer, error } = await db.from("customers").select("*").eq("id", id).maybeSingle();
     if (error) return bad(explainPosError(error.message), 500);
     if (!customer) return bad("Customer not found", 404);
@@ -40,7 +40,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requirePermission("customers.manage");
+    const { user: actor } = await requirePermission("customers.manage");
     const { id } = await params;
     const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
@@ -61,7 +61,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (typeof b.marketing_opt_out === "boolean") patch.marketing_opt_out = b.marketing_opt_out;
     if (!Object.keys(patch).length) return bad("Nothing to change");
 
-    const { error } = await getServiceSupabase().from("customers").update(patch).eq("id", id);
+    const { error } = await getServiceSupabase(actor).from("customers").update(patch).eq("id", id);
     if (error) return bad(explainPosError(error.message), 500);
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -10,8 +10,8 @@ import { bad, failed } from "@/lib/pos/http";
  */
 export async function GET() {
   try {
-    await requirePermission("pos.use");
-    const { data, error } = await getServiceSupabase().from("pos_held_bills").select("id, label, payload, created_at").order("created_at", { ascending: false }).limit(30);
+    const { user: actor } = await requirePermission("pos.use");
+    const { data, error } = await getServiceSupabase(actor).from("pos_held_bills").select("id, label, payload, created_at").order("created_at", { ascending: false }).limit(30);
     if (error) return bad(explainPosError(error.message), 500);
     return NextResponse.json({ held: data ?? [] });
   } catch (error) {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     const payload = b.payload;
     if (!payload || typeof payload !== "object" || JSON.stringify(payload).length > 60000) return bad("Nothing to hold");
     const label = (typeof b.label === "string" && b.label.trim().slice(0, 60)) || new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dhaka" });
-    const { error } = await getServiceSupabase().from("pos_held_bills").insert({ label, payload, created_by: user.id });
+    const { error } = await getServiceSupabase(user).from("pos_held_bills").insert({ label, payload, created_by: user.id });
     if (error) return bad(explainPosError(error.message), 500);
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -36,10 +36,10 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    await requirePermission("pos.use");
+    const { user: actor } = await requirePermission("pos.use");
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return bad("Missing id");
-    const { error } = await getServiceSupabase().from("pos_held_bills").delete().eq("id", id);
+    const { error } = await getServiceSupabase(actor).from("pos_held_bills").delete().eq("id", id);
     if (error) return bad(explainPosError(error.message), 500);
     return NextResponse.json({ ok: true });
   } catch (error) {

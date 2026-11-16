@@ -13,6 +13,8 @@ interface Entry {
   entity_type: string;
   entity_id: string | null;
   changes: Record<string, unknown>;
+  /** Why it was changed, when the change asked for a reason. */
+  reason?: string | null;
 }
 
 const ENTITY_TYPES = [
@@ -22,6 +24,11 @@ const ENTITY_TYPES = [
   "products",
   "product_variants",
   "product_stock",
+  "suppliers",
+  "stock_receipts",
+  "stock_receipt_items",
+  "supplier_payments",
+  "pos_cash_moves",
   "coupons",
   "promotions",
   "refunds",
@@ -197,6 +204,7 @@ export default function AuditLogPage() {
                   {entry.actor_email ?? (entry.actor_kind === "anon" ? "Guest customer" : "System")}
                 </span>
               </button>
+              {entry.reason && <p className="pl-5 text-xs text-amber-700 dark:text-amber-400">Why: {entry.reason}</p>}
               {isOpen && (
                 <div className="mt-2 pl-5">
                   <ChangeList entry={entry} />

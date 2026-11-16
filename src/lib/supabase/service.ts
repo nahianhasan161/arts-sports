@@ -11,19 +11,36 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * and `.env.local` locally; it must never get a NEXT_PUBLIC_ prefix.
  */
 let cached: SupabaseClient | null = null;
+const byActor = new Map<string, SupabaseClient>();
 
-export function getServiceSupabase(): SupabaseClient {
-  if (cached) return cached;
+/**
+ * Pass the signed-in staff member (`requirePermission`'s `user`) on any
+ * route that changes data. The id goes out as the `x-actor-id` header and
+ * the audit trigger (`audit_row_change`) records that person instead of
+ * "system". The trigger trusts the header only on service-role requests.
+ */
+export function getServiceSupabase(actor?: { id: string } | null): SupabaseClient {
+  if (!actor?.id && cached) return cached;
   // Read at call time: on Cloudflare the secrets are attached per request.
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set, so server-side jobs cannot reach the database.");
   }
-  cached = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return cached;
+  if (!actor?.id) {
+    cached = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    return cached;
+  }
+  let client = byActor.get(actor.id);
+  if (!client) {
+    client = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { "x-actor-id": actor.id } },
+    });
+    if (byActor.size >= 50) byActor.clear();
+    byActor.set(actor.id, client);
+  }
+  return client;
 }
 
 export function isServiceSupabaseConfigured(): boolean {

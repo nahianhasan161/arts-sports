@@ -17,12 +17,12 @@ const NOT_PAYABLE = ["submitted", "in_review", "changes_needed", "mockup_sent", 
  */
 export async function GET(request: Request) {
   try {
-    await requirePermission("pos.use");
+    const { user: actor } = await requirePermission("pos.use");
     const params = new URL(request.url).searchParams;
     const id = params.get("id");
     const q = (params.get("q") ?? "").trim().slice(0, 200);
     if (!q && !id) return NextResponse.json({ orders: [] });
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
 
     const columns = "id, order_number, access_token, customer_name, customer_phone, quantity, fabric_name, sport, final_price, estimated_price, advance_amount, delivery_charge, status, due_date, needed_by, created_at";
     let query = db.from("custom_orders").select(columns).order("created_at", { ascending: false }).limit(10);

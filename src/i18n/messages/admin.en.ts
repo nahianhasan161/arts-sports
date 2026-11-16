@@ -62,6 +62,8 @@ export const adminEn = {
     cash: { name: "Cash drawer", desc: "Open the drawer, note cash put in or taken out, and count it when the day ends." },
     shopHelp: { name: "How to use", desc: "The register step by step: open it, sell, take payment, returns, and close at night." },
     inventory: { name: "Stock", desc: "How many pieces each shop holds. Stock in, count, move between shops, print barcodes." },
+    purchases: { name: "Buy from supplier", desc: "Goods came from a supplier: scan them in like a bill, with buying price and what you paid." },
+    suppliers: { name: "Suppliers", desc: "Every supplier's details, what you bought from them, what you paid and what you still owe." },
     customers: { name: "Customers", desc: "One list for website and shop customers, found by mobile number." },
     users: { name: "Website users", desc: "People who have an account on the website." },
     userGroups: { name: "Customer groups", desc: "Groups of customers for special prices or coupons." },

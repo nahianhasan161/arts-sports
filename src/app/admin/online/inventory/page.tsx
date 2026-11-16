@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, History, Search } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka } from "@/lib/pos/types";
 import { api, btnGhost, btnPrimary, card, dateTime, field } from "@/components/admin/pos/api";
 import { Worksheet } from "@/components/admin/inventory/Worksheet";
 import { Suppliers } from "@/components/admin/inventory/Suppliers";
 import { Labels } from "@/components/admin/inventory/Labels";
+import { ItemHistory } from "@/components/admin/inventory/ItemHistory";
 import type { Showroom, StockRow, Supplier } from "@/components/admin/inventory/types";
 
 const TABS = ["stock", "receive", "count", "transfer", "labels", "suppliers", "history"] as const;
@@ -25,7 +26,7 @@ interface Movement {
   created_at: string;
 }
 
-const KNOWN_REASONS = ["pos_sale", "pos_return", "stock_in", "adjust_count", "adjust_damaged", "adjust_lost", "adjust_found", "adjust_other", "transfer_in", "transfer_out"] as const;
+const KNOWN_REASONS = ["pos_sale", "pos_return", "stock_in", "stock_in_fix", "adjust_count", "adjust_damaged", "adjust_lost", "adjust_found", "adjust_other", "transfer_in", "transfer_out"] as const;
 
 /** Stock (roadmap 4.4). Needs the `inventory.manage` permission. */
 export default function InventoryPage() {
@@ -42,6 +43,7 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [historyOf, setHistoryOf] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await api<{ rows: StockRow[]; showrooms: Showroom[]; showroom_id: string }>(`/api/admin/inventory?q=${encodeURIComponent(q)}&low=${lowOnly ? 1 : 0}&showroom_id=${encodeURIComponent(showroomId)}`);
@@ -159,19 +161,20 @@ export default function InventoryPage() {
                   <th className="p-2">{t("shop.stock.atSupplier")}</th>
                   <th className="p-2 text-right">{t("shop.stock.cost")}</th>
                   <th className="p-2 w-20">{t("shop.stock.alertAt")}</th>
+                  <th className="p-2 w-8" />
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={8} className="p-4 text-text-muted">
+                    <td colSpan={9} className="p-4 text-text-muted">
                       {t("shop.common.loading")}
                     </td>
                   </tr>
                 )}
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="p-4 text-text-muted">
+                    <td colSpan={9} className="p-4 text-text-muted">
                       {t("shop.common.none")}
                     </td>
                   </tr>
@@ -195,6 +198,11 @@ export default function InventoryPage() {
                     <td className="p-2">
                       <input defaultValue={r.low_stock_threshold ?? ""} placeholder={String(r.threshold)} onBlur={(e) => saveThreshold(r, e.target.value.trim())} className="w-16 border border-border-light rounded px-1.5 py-1 bg-surface-subtle text-xs" inputMode="numeric" />
                     </td>
+                    <td className="p-2">
+                      <button className="text-text-muted hover:text-primary" onClick={() => setHistoryOf(r.variant_id)} title={t("shop.history.item")} aria-label={t("shop.history.item")}>
+                        <History className="w-4 h-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -204,6 +212,7 @@ export default function InventoryPage() {
       )}
 
       {(tab === "receive" || tab === "count" || tab === "transfer") && <Worksheet key={tab} mode={tab} rows={chosen} suppliers={suppliers} showrooms={showrooms} showroomId={showroomId} onDone={done} />}
+      {historyOf && <ItemHistory variantId={historyOf} onClose={() => setHistoryOf(null)} />}
       {tab === "labels" && <Labels rows={chosen} onChanged={done} />}
       {tab === "suppliers" && <Suppliers onChanged={() => void Promise.all([load(), loadSuppliers()])} />}
 

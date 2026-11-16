@@ -16,7 +16,7 @@ const bad = (error: string, status = 400) => NextResponse.json({ error }, { stat
 export async function GET() {
   try {
     const { user, supabase } = await requirePermission("pos.use");
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(user);
     const { data: canManage } = await supabase.rpc("has_permission", { p_code: "pos.manage" });
 
     const [showrooms, open, maxDiscount] = await Promise.all([
@@ -59,7 +59,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const { user } = await requirePermission("pos.use");
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(user);
     const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
     const { data: open } = await db.from("pos_sessions").select("id").eq("opened_by", user.id).eq("status", "open").maybeSingle();

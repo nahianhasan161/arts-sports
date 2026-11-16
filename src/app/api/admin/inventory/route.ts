@@ -3,20 +3,44 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { explainPosError, listShowrooms, loadVariants, numericSetting, shelfStock, staffNames, type VariantRow } from "@/lib/pos/server";
 import { bad, failed } from "@/lib/pos/http";
+import { auditFor } from "@/lib/pos/purchases";
 
 /**
  * GET  /api/admin/inventory?q=&low=1&showroom_id=      stock per variant
  * GET  /api/admin/inventory?movements=<variant id|all>  the history of changes
  * GET  /api/admin/inventory?ids=a,b,c                   chosen variants (label sheet)
+ * GET  /api/admin/inventory?history=<variant id>        one item: stock moves + price/cost changes, with who
  * POST /api/admin/inventory   { action: "receive" | "adjust" | "transfer" | "barcodes" | "threshold", ... }
  */
 export async function GET(request: Request) {
   try {
-    await requirePermission("inventory.manage");
+    const { user: actor } = await requirePermission("inventory.manage");
     const url = new URL(request.url);
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
     const showrooms = await listShowrooms(db);
     const showroomId = showrooms.find((s) => s.id === url.searchParams.get("showroom_id"))?.id ?? showrooms[0]?.id ?? "";
+
+    const historyOf = url.searchParams.get("history");
+    if (historyOf) {
+      const [variant] = await loadVariants(db, { variantIds: [historyOf] });
+      if (!variant) return bad("Item not found", 404);
+      const [moves, changes] = await Promise.all([
+        db.from("inventory_movements").select("delta, reason, note, unit_cost, showroom_id, created_by, created_at").eq("variant_id", historyOf).neq("delta", 0).order("created_at", { ascending: false }).limit(200),
+        auditFor(db, [["product_variants", [historyOf]], ["products", [variant.product_id]]], 300),
+      ]);
+      if (moves.error) return bad(explainPosError(moves.error.message), 500);
+      const names = await staffNames(db, (moves.data ?? []).map((m) => m.created_by));
+      const place = new Map(showrooms.map((s) => [s.id, s.name]));
+      // Only what matters for money: selling price, buying price, discounts.
+      const priceKey = /price|cost|discount/i;
+      return NextResponse.json({
+        item: { title: variant.title, label: variant.label, code: variant.barcode ?? variant.sku ?? "" },
+        movements: (moves.data ?? []).map((m) => ({ ...m, place: place.get(m.showroom_id) ?? "", staff: m.created_by ? names.get(m.created_by) ?? "Staff" : "" })),
+        changes: changes
+          .map((c) => ({ ...c, changes: Object.fromEntries(Object.entries(c.changes).filter(([k]) => (c.action === "update" ? priceKey.test(k) : priceKey.test(k) && c.changes[k] !== null))) }))
+          .filter((c) => Object.keys(c.changes).length > 0),
+      });
+    }
 
     const movementsOf = url.searchParams.get("movements");
     if (movementsOf) {
@@ -104,7 +128,7 @@ function makeBarcode(): string {
 export async function POST(request: Request) {
   try {
     const { user } = await requirePermission("inventory.manage");
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(user);
     const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const items = Array.isArray(b.items) ? (b.items.slice(0, 500) as Record<string, unknown>[]) : [];
     const note = typeof b.note === "string" ? b.note.slice(0, 500) : "";

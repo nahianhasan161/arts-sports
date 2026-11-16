@@ -11,8 +11,8 @@ import { dhakaDayStart, lowStockCount, shopSalesSince } from "@/lib/admin/overvi
  */
 export async function GET() {
   try {
-    await requirePermission("pos.use");
-    const db = getServiceSupabase();
+    const { user: actor } = await requirePermission("pos.use");
+    const db = getServiceSupabase(actor);
     const start = dhakaDayStart();
 
     const [showrooms, sales, payments, sessions, lowStock] = await Promise.all([

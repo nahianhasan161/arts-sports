@@ -13,7 +13,7 @@ import { bad, failed } from "@/lib/pos/http";
 export async function GET(request: Request) {
   try {
     const { user, supabase } = await requirePermission("pos.use");
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(user);
     const q = (new URL(request.url).searchParams.get("q") ?? "").trim().slice(0, 40);
     const { data: canManage } = await supabase.rpc("has_permission", { p_code: "pos.manage" });
 
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { user, supabase } = await requirePermission("pos.use");
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(user);
     const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
     const items = (Array.isArray(b.items) ? b.items.slice(0, 200) : []).map((raw) => {

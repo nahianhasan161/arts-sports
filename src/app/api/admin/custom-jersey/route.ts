@@ -23,9 +23,9 @@ const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").repla
 
 export async function GET() {
   try {
-    await requirePermission("custom_orders.manage");
+    const { user: actor } = await requirePermission("custom_orders.manage");
     const config = await loadConfig(true);
-    const { data: gallery } = await getServiceSupabase().from("custom_gallery").select("*").order("display_order").order("created_at", { ascending: false }).limit(200);
+    const { data: gallery } = await getServiceSupabase(actor).from("custom_gallery").select("*").order("display_order").order("created_at", { ascending: false }).limit(200);
     return NextResponse.json({ ...config, gallery: gallery ?? [] });
   } catch (error) {
     if (error instanceof Error && /migration/.test(error.message)) return bad(error.message, 503);
@@ -35,13 +35,13 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    await requirePermission("custom_orders.manage");
+    const { user: actor } = await requirePermission("custom_orders.manage");
     const b = (await request.json()) as { pricing?: unknown };
     if (!b.pricing || typeof b.pricing !== "object") return bad("pricing is required");
     const pricing = normalizePricing(b.pricing);
     if (pricing.tiers[0].min !== 1) return bad("The first quantity step must start at 1");
     if (pricing.rush.min_days > pricing.rush.normal_days) return bad("The fastest time cannot be longer than the normal time");
-    const { error } = await getServiceSupabase()
+    const { error } = await getServiceSupabase(actor)
       .from("app_settings")
       .upsert({ key: "custom_jersey_pricing", value: JSON.stringify(pricing), updated_at: new Date().toISOString() }, { onConflict: "key" });
     if (error) return bad(error.message, 500);
@@ -53,9 +53,9 @@ export async function PUT(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requirePermission("custom_orders.manage");
+    const { user: actor } = await requirePermission("custom_orders.manage");
     const b = (await request.json()) as Record<string, unknown>;
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
     const id = text(b.id, 64) || null;
     let table: string;
     let row: Record<string, unknown>;
@@ -120,14 +120,14 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    await requirePermission("custom_orders.manage");
+    const { user: actor } = await requirePermission("custom_orders.manage");
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     const entity = url.searchParams.get("entity");
     const table = entity === "fabric" ? "custom_fabrics" : entity === "template" ? "jersey_templates" : entity === "gallery" ? "custom_gallery" : null;
     if (!id || !table) return bad("entity and id are required");
     // Orders keep the fabric's name, so removing a fabric does not change old orders.
-    const { error } = await getServiceSupabase().from(table).delete().eq("id", id);
+    const { error } = await getServiceSupabase(actor).from(table).delete().eq("id", id);
     if (error) return bad(error.message, 500);
     return NextResponse.json({ ok: true });
   } catch (error) {

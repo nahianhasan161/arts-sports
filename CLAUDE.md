@@ -40,6 +40,15 @@ Bangladesh sports e-commerce + (planned) offline POS. Custom jersey is the key p
   APIs `api/admin/{pos,inventory,customers}`; SQL `20261114100000_pos_stock_crm.sql` (needs `20261113100000` first).
   Shop sales are in `pos_sales`/`pos_sale_items`/`pos_payments`, not `orders`. Stock changes go through `stock_apply()`.
   Text for these screens: `i18n/messages/shop.{en,bn}.ts`. Staff accounts enter `/admin`; the menus filter by permission.
+- Supplier purchases: pages `/admin/{online,offline}/purchases` (POS-style buy screen) and `/suppliers`, `/suppliers/[id]`
+  (details, bought/paid/due, pay form); `components/admin/purchases/`, `lib/pos/purchases.ts` + `purchase-types.ts`,
+  API `api/admin/purchases` + `api/admin/inventory/suppliers?id=`. SQL `20261117120000_supplier_purchases.sql`
+  (`supplier_purchase()` wraps `inventory_receive`, `supplier_pay()`, `supplier_payments`, view `supplier_balances`).
+  Corrections: `supplier_purchase_edit()` / `supplier_payment_void()` (reason required, kept in `stock_receipt_edits`),
+  SQL `20261117130000_audit_actor_and_corrections.sql`.
+- Audit "who": routes that write must call `getServiceSupabase(user)` (sends `x-actor-id`; `audit_row_change` records
+  that person). A bare `getServiceSupabase()` write is logged as "system". SQL fns can also `set_config('app.actor_id')`
+  and `app.audit_reason`. History UI: `components/admin/purchases/History.tsx`, Stock row history `inventory/ItemHistory.tsx`.
 - Client i18n: `useT()` from `src/i18n/client.ts` (reads the `lang` cookie). **Bangla is the default locale**; English is the switch.
   Header/footer text: `i18n/messages/site.{en,bn}.ts`. Admin menu, dashboards, branches: `admin.{en,bn}.ts`.
 - Theme: light/dark via the `dark` class on `<html>` (`lib/theme.ts`, toggles in `components/layout/Preferences.tsx`).
@@ -85,15 +94,16 @@ For docs, `grep -n '^#'` first and read just the relevant section.
 - Phase 3 (custom jersey) built; the seeded prices are placeholders. See the status box under Phase 3 in the roadmap.
 - Phase 4 (POS, stock, staff, customers) built. Left out: supplier stock in online checkout, shop pickup, gateway QR at POS.
   See the status box under Phase 4 in the roadmap.
-- All migrations up to `20261114100000` are applied live (2026-11-13). The Phase 4 SQL functions were smoke-tested in a
+- All migrations up to `20261117120000` (supplier purchases) are applied live (2026-11-17). The Phase 4 SQL functions were smoke-tested in a
   rolled-back transaction; the screens have not been clicked through with real data.
+  `20261117130000` (audit actor + purchase corrections) applied live 2026-11-17.
 - Plans: `docs/roadmap.md` (phases), `docs/3d-store-and-app.md` (3D/360°/Flutter), `docs/cloudflare.md` (deploy/R2)
 
 ## Alpha → live checklist (do once, at launch; ask the user before each step)
 Alpha data may be thrown away. Before the first real launch:
 1. Remove demo rows: `node --env-file=.env.local scripts/demo-data.mjs remove` (ids `demo-*`).
 2. Clear test orders/payments/POS bills made while testing (ask which; don't guess).
-3. Apply pending migrations (`node scripts/apply-sql.mjs`), incl. `20261117100000` (register grid fn + payments insert guard).
+3. Apply any pending migrations (`node scripts/apply-sql.mjs`); all up to `20261117120000` are already live.
 4. One-time infra: `npx wrangler r2 bucket create artssports-next-cache`; `node scripts/backfill-thumbs.mjs --run`;
    Supabase JWT signing keys on. None of these repeat per deploy.
 Money rule: prices, totals and payment status are always decided server-side (order RPC, `pos_create_sale`,

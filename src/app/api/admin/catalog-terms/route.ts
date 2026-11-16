@@ -14,8 +14,8 @@ const SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
 
 export async function GET() {
   try {
-    await requirePermission("products.manage");
-    const db = getServiceSupabase();
+    const { user: actor } = await requirePermission("products.manage");
+    const db = getServiceSupabase(actor);
     const [{ data: terms, error }, { data: links }] = await Promise.all([
       db.from("catalog_terms").select("*").order("type").order("display_order").order("name_en"),
       db.from("product_terms").select("term_id, product_id"),
@@ -31,7 +31,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requirePermission("products.manage");
+    const { user: actor } = await requirePermission("products.manage");
     const b = (await request.json()) as Record<string, unknown>;
     const type = String(b.type ?? "");
     const slug = String(b.slug ?? "").trim().toLowerCase();
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       display_order: Number(b.display_order) || 0,
       is_active: b.is_active !== false,
     };
-    const db = getServiceSupabase();
+    const db = getServiceSupabase(actor);
     const { data, error } = b.id
       ? await db.from("catalog_terms").update(row).eq("id", String(b.id)).select("id").single()
       : await db.from("catalog_terms").insert(row).select("id").single();
@@ -77,10 +77,10 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    await requirePermission("products.manage");
+    const { user: actor } = await requirePermission("products.manage");
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
-    const { error } = await getServiceSupabase().from("catalog_terms").delete().eq("id", id);
+    const { error } = await getServiceSupabase(actor).from("catalog_terms").delete().eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   } catch (error) {

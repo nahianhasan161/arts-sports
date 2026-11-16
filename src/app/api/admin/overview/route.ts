@@ -10,8 +10,8 @@ import { countRows, dhakaDayKey, dhakaDayStart, emptyWeek, lowStockCount, shopSa
  */
 export async function GET() {
   try {
-    await requireAdmin();
-    const db = getServiceSupabase();
+    const { user: actor } = await requireAdmin();
+    const db = getServiceSupabase(actor);
     const weekStart = dhakaDayStart(6);
     const today = dhakaDayKey(new Date());
 

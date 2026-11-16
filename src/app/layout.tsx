@@ -11,6 +11,7 @@ import { AnalyticsTracker } from "@/components/seo/AnalyticsTracker";
 import { Pixels } from "@/components/seo/Pixels";
 import { getServerUrl } from "@/lib/config";
 import { SiteChrome } from "@/components/layout/SiteChrome";
+import { FileDropBridge } from "@/components/FileDropBridge";
 import { PREFERENCES_SCRIPT } from "@/lib/theme";
 
 const fontSans = "font-sans";
@@ -137,6 +138,7 @@ export default function RootLayout({
       <body className="bg-surface font-body text-on-surface antialiased min-h-screen flex flex-col">
         <AuthProvider>
           <ClientProviders>
+            <FileDropBridge />
             <AnalyticsTracker />
             <Pixels />
             <SiteChrome

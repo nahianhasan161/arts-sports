@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, Tag, Users, Palette, Ruler, Percent, Ticket, Shield, Images,
   CreditCard, RotateCcw, AlertCircle, KeyRound, History, PhoneCall, Settings2, Truck, Trophy,
   MessageSquareText, Shirt, Store, Boxes, Contact, LifeBuoy, Building2, ScanBarcode, SlidersHorizontal,
-  Receipt, Wallet,
+  Receipt, Wallet, PackagePlus, Handshake,
 } from "lucide-react";
 import type { AdminMessages } from "@/i18n/messages/admin.en";
 
@@ -83,6 +83,8 @@ export const NAV: NavGroup[] = [
     id: "shared",
     items: [
       { id: "inventory", href: `${ONLINE}/inventory`, icon: Boxes, perm: "inventory.manage" },
+      { id: "purchases", href: `${ONLINE}/purchases`, icon: PackagePlus, perm: "inventory.manage" },
+      { id: "suppliers", href: `${ONLINE}/suppliers`, icon: Handshake, perm: "inventory.manage" },
       { id: "customers", href: `${ONLINE}/customers`, icon: Contact, perm: "customers.view" },
     ],
   },
@@ -108,6 +110,8 @@ export const OFFLINE_NAV: NavItem[] = [
   { id: "cash", href: `${OFFLINE}/cash`, icon: Wallet, perm: "pos.use" },
   { id: "products", href: `${OFFLINE}/products`, icon: Package },
   { id: "inventory", href: `${OFFLINE}/inventory`, icon: Boxes, perm: "inventory.manage" },
+  { id: "purchases", href: `${OFFLINE}/purchases`, icon: PackagePlus, perm: "inventory.manage" },
+  { id: "suppliers", href: `${OFFLINE}/suppliers`, icon: Handshake, perm: "inventory.manage" },
   { id: "customers", href: `${OFFLINE}/customers`, icon: Contact, perm: "customers.view" },
   { id: "branches", href: `${OFFLINE}/branches`, icon: Building2, perm: "settings.manage" },
   { id: "shopHelp", href: `${OFFLINE}/help`, icon: LifeBuoy, open: true },

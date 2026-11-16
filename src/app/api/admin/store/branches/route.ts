@@ -18,8 +18,8 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slic
 
 export async function GET() {
   try {
-    await requirePermission("settings.manage");
-    const db = getServiceSupabase();
+    const { user: actor } = await requirePermission("settings.manage");
+    const db = getServiceSupabase(actor);
     const [rooms, stock, sales] = await Promise.all([
       db.from("showrooms").select("id, name, address, is_active, fulfillment_priority").order("fulfillment_priority"),
       db.from("product_stock").select("showroom_id, quantity").limit(20000),
@@ -42,8 +42,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requirePermission("settings.manage");
-    const db = getServiceSupabase();
+    const { user: actor } = await requirePermission("settings.manage");
+    const db = getServiceSupabase(actor);
     const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const name = text(b.name, 80);
     if (!name) return bad("Write the shop's name");
@@ -68,8 +68,8 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    await requirePermission("settings.manage");
-    const db = getServiceSupabase();
+    const { user: actor } = await requirePermission("settings.manage");
+    const db = getServiceSupabase(actor);
     const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const id = text(b.id, 120);
     if (!id) return bad("Choose a shop");

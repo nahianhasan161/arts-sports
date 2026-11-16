@@ -6,8 +6,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 /** GET /api/admin/product-list — id, title, slug of every live product, for pickers. */
 export async function GET() {
   try {
-    await requirePermission("products.manage");
-    const { data, error } = await getServiceSupabase()
+    const { user: actor } = await requirePermission("products.manage");
+    const { data, error } = await getServiceSupabase(actor)
       .from("products")
       .select("id, title, slug, status")
       .is("deleted_at", null)
