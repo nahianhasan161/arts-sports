@@ -4,6 +4,7 @@ import { formatTaka } from "@/lib/pricing";
 
 import React from "react";
 import Image from "next/image";
+import { thumbUrl } from "@/lib/media/thumb";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { Product } from "@/types";
@@ -20,6 +21,7 @@ interface ProductCardProps {
 export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardProps) {
   const { addItem } = useCartStore();
   const { toggleWishlist, isInWishlist } = useWishlistStore();
+  const [imgFailed, setImgFailed] = React.useState(false);
 
   // A live promotion wins over the product's static badge, so the label can
   // never outlive the promotion that produced it.
@@ -78,7 +80,9 @@ export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardPr
         } bg-surface-subtle overflow-hidden block`}
       >
         <Image
-          src={product.images[0]}
+          // The small grid version; the original if it has none yet.
+          src={imgFailed ? product.images[0] : thumbUrl(product.images[0])}
+          onError={() => setImgFailed(true)}
           alt={product.title}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"

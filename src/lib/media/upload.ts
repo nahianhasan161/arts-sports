@@ -1,5 +1,6 @@
 import { sniffImage, MAX_MEDIA_BYTES } from "./validate";
 import { putObject, deleteObjects, copyObject, publicUrlFor, isStorageConfigured, BUCKET } from "./storage";
+import { thumbPath } from "./thumb";
 
 /**
  * Shared upload policy for product media.
@@ -28,8 +29,15 @@ export { BUCKET, publicUrlFor };
  */
 export async function moveMediaObject(_supabase: unknown, fromPath: string, toPath: string): Promise<string | null> {
   if (!isStorageConfigured()) return "Object storage is not configured on this server";
-  return copyObject(fromPath, toPath);
+  const error = await copyObject(fromPath, toPath);
+  // The thumbnail follows its image. Best effort: an old image has none, and
+  // a missing thumbnail only means the grid shows the original.
+  if (!error) await copyObject(thumbPath(fromPath), thumbPath(toPath)).catch(() => null);
+  return error;
 }
+
+/** Thumbnails are small; anything bigger than this is not one. */
+const MAX_THUMB_BYTES = 512 * 1024;
 
 export interface UploadedAsset {
   /** Object path inside the bucket, `<prefix>/<uuid>.<ext>`. */
@@ -62,6 +70,8 @@ export async function uploadMediaFile(
   _supabase: unknown,
   file: File,
   prefix: string,
+  /** The browser-made grid thumbnail (see thumb.ts). Optional and best effort. */
+  thumb?: File | null,
 ): Promise<UploadOutcome> {
   const name = file.name || "upload";
 
@@ -95,6 +105,14 @@ export async function uploadMediaFile(
     return { ok: false, name, reason: stored.message };
   }
 
+  if (thumb && thumb.size > 0 && thumb.size <= MAX_THUMB_BYTES) {
+    const thumbBuffer = Buffer.from(await thumb.arrayBuffer());
+    if (sniffImage(thumbBuffer).mime === "image/webp") {
+      // A failed thumbnail never fails the upload; the grid falls back to the original.
+      await putObject(thumbPath(storage_path), thumbBuffer, "image/webp").catch(() => null);
+    }
+  }
+
   return {
     ok: true,
     asset: {
@@ -119,5 +137,7 @@ export async function uploadMediaFile(
 export async function removeMediaObjects(_supabase: unknown, paths: string[]): Promise<string | null> {
   if (paths.length === 0) return null;
   if (!isStorageConfigured()) return "Object storage is not configured on this server";
-  return deleteObjects(paths);
+  // Thumbnails go with their images. Deleting a key that does not exist is
+  // not an error, so images without a thumbnail are fine.
+  return deleteObjects([...paths, ...paths.map(thumbPath)]);
 }

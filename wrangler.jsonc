@@ -16,6 +16,14 @@
       "service": "arts-sports"
     }
   ],
+  // ISR page cache (open-next.config.ts). Separate from the media bucket.
+  // Create once: npx wrangler r2 bucket create artssports-next-cache
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "artssports-next-cache"
+    }
+  ],
   "observability": {
     "enabled": true
   },

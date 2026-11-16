@@ -70,6 +70,11 @@ For docs, `grep -n '^#'` first and read just the relevant section.
 ## Conventions
 - Phone = customer identity, format `01XXXXXXXXX` (`lib/phone.ts`)
 - Currency BDT (৳). Delivery: Dhaka ৳60, outside ৳120
+- Speed: public pages read through `getPublicSupabase()` (`lib/supabase/public.ts`, no cookies) so they stay ISR-cacheable;
+  home/product/team/collection use `revalidate = 60` (R2 cache in `open-next.config.ts`, binding `NEXT_INC_CACHE_R2_BUCKET`).
+  Don't read cookies/headers on those pages. Middleware only does auth for `/admin` and `/account` pages; APIs check auth
+  themselves (`sessionUser()` = `getClaims()`). Product grids show `thumbUrl()` (`lib/media/thumb.ts`, `<uuid>-thumb.webp`,
+  made in the browser via `appendImageFiles`; old images: `node scripts/backfill-thumbs.mjs --run`).
 - Features turn on only when their env keys are set (see `.env.example`); keep that pattern
 - Migrations must be safely re-runnable (drop-if-exists before create)
 - Never read or print `.env*` secrets; use `.env.example` for key names
@@ -83,3 +88,13 @@ For docs, `grep -n '^#'` first and read just the relevant section.
 - All migrations up to `20261114100000` are applied live (2026-11-13). The Phase 4 SQL functions were smoke-tested in a
   rolled-back transaction; the screens have not been clicked through with real data.
 - Plans: `docs/roadmap.md` (phases), `docs/3d-store-and-app.md` (3D/360°/Flutter), `docs/cloudflare.md` (deploy/R2)
+
+## Alpha → live checklist (do once, at launch; ask the user before each step)
+Alpha data may be thrown away. Before the first real launch:
+1. Remove demo rows: `node --env-file=.env.local scripts/demo-data.mjs remove` (ids `demo-*`).
+2. Clear test orders/payments/POS bills made while testing (ask which; don't guess).
+3. Apply pending migrations (`node scripts/apply-sql.mjs`), incl. `20261117100000` (register grid fn + payments insert guard).
+4. One-time infra: `npx wrangler r2 bucket create artssports-next-cache`; `node scripts/backfill-thumbs.mjs --run`;
+   Supabase JWT signing keys on. None of these repeat per deploy.
+Money rule: prices, totals and payment status are always decided server-side (order RPC, `pos_create_sale`,
+custom-jersey `estimate()`, gateway webhooks). The 60 s page cache only affects what is *shown*.

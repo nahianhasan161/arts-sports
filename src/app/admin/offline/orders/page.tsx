@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/client";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { api } from "@/components/admin/pos/api";
 import { SalesTab } from "@/components/admin/pos/SalesTab";
 
@@ -21,7 +22,7 @@ export default function ShopOrdersPage() {
     };
   }, []);
 
-  if (!ready) return <p className="text-sm text-text-muted max-w-7xl mx-auto">{t("shop.common.loading")}</p>;
+  if (!ready) return <PageSkeleton label={t("shop.common.loading")} />;
   return (
     <div className="max-w-7xl mx-auto">
       <SalesTab canManage={ready.canManage} initialQuery={ready.receipt} />

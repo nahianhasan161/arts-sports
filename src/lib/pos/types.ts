@@ -30,6 +30,16 @@ export interface CartLine {
   available: number;
   quantity: number;
   discount: number;
+  /** Register only: a % off the line, or a new unit price (sent as a discount). */
+  pct?: number;
+  unit?: number;
+}
+
+/** The ৳ off one bill line, from a fixed amount, a % or a lowered unit price. */
+export function lineDiscount(l: CartLine): number {
+  const gross = l.price * l.quantity;
+  const off = l.unit != null ? (l.price - l.unit) * l.quantity : l.pct != null ? (gross * l.pct) / 100 : l.discount;
+  return Math.round(Math.min(gross, Math.max(0, off)) * 100) / 100;
 }
 
 export interface SaleDetail {
@@ -53,6 +63,8 @@ export interface SaleDetail {
   };
   items: {
     id: string;
+    product_id: string | null;
+    variant_id: string | null;
     title: string;
     variant_label: string | null;
     sku: string | null;

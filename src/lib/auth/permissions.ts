@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminAuthError } from "@/lib/admin/auth";
+import { AdminAuthError, sessionUser } from "@/lib/admin/auth";
 
 /**
  * Staff permissions. The list lives in the `permissions` table; these
@@ -67,9 +67,7 @@ export interface PermissionContext {
  */
 export async function requirePermission(permission: Permission): Promise<PermissionContext> {
   const supabase = await sessionClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await sessionUser(supabase);
   if (!user) throw new AdminAuthError(401, "Not signed in.");
 
   const { data, error } = await supabase.rpc("has_permission", { p_code: permission });
@@ -77,7 +75,7 @@ export async function requirePermission(permission: Permission): Promise<Permiss
   if (data !== true) {
     throw new AdminAuthError(403, `This needs the "${permission}" permission. Ask the owner to add it to your role.`);
   }
-  return { user: { id: user.id, email: user.email ?? undefined }, supabase };
+  return { user, supabase };
 }
 
 /** The signed-in person's permissions, for showing or hiding UI. Empty when signed out. */

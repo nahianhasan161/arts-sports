@@ -28,14 +28,23 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Served from the ISR cache and rebuilt in the background at most once a
+ * minute, so a product or landing-text edit shows up within about 60 s.
+ */
+export const revalidate = 60;
+
 export default async function HomePage() {
-  const products = await getProducts();
-  const newArrivals = products.slice(0, 6);
-  const poloSeries = products.filter((p) => p.sub_category === "Polo T-Shirts" || p.id === "prod-2" || p.id === "prod-10");
-  const displayPolos = poloSeries.length >= 3 ? poloSeries.slice(0, 3) : products.slice(1, 4);
-  // Whatever the admin last saved in the FAB editor. Falls back to the copy
-  // written here, so an empty table renders exactly the design below.
-  const content = await getLandingContent();
+  // Only what the page shows, in parallel. This used to load the whole
+  // catalogue (every column) to display nine products.
+  const [newArrivals, polos, content] = await Promise.all([
+    getProducts({ limit: 6 }),
+    getProducts({ subCategory: "Polo T-Shirts", limit: 3 }),
+    // Whatever the admin last saved in the FAB editor. Falls back to the copy
+    // written here, so an empty table renders exactly the design below.
+    getLandingContent(),
+  ]);
+  const displayPolos = polos.length >= 3 ? polos : newArrivals.slice(1, 4);
 
   return (
     <EditModeProvider>

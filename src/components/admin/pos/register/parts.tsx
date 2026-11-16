@@ -59,3 +59,34 @@ export function Dialog({ title, onClose, wide, children }: { title: string; onCl
     </div>
   );
 }
+
+export type OrderMode = "qty" | "disc" | "price";
+
+/** The register's 4×4 pad: digits, the three modes on the right, +/-, "." and backspace. */
+export function OrderPad({ onKey, onSign, mode, setMode, disabled, labels }: { onKey: (key: PadKey) => void; onSign: () => void; mode: OrderMode; setMode: (m: OrderMode) => void; disabled?: boolean; labels: { qty: string; price: string; sign: string } }) {
+  const cell = "h-[52px] border-r border-b border-border-light text-lg text-on-surface flex items-center justify-center disabled:opacity-40 transition-colors";
+  const digit = `${cell} bg-surface-subtle hover:bg-surface-container active:bg-surface-container`;
+  const modeBtn = (m: OrderMode, label: string) => (
+    <button type="button" onClick={() => setMode(m)} className={`${cell} ${mode === m ? "bg-primary/10 ring-2 ring-inset ring-primary font-semibold" : "bg-surface-subtle hover:bg-surface-container"}`}>
+      {label}
+    </button>
+  );
+  const d = (k: PadKey) => (
+    <button key={k} type="button" disabled={disabled} onClick={() => onKey(k)} className={digit}>
+      {k}
+    </button>
+  );
+  return (
+    <div className="grid grid-cols-4 border-l border-t border-border-light rounded-md overflow-hidden">
+      {d("1")}{d("2")}{d("3")}{modeBtn("qty", labels.qty)}
+      {d("4")}{d("5")}{d("6")}{modeBtn("disc", "%")}
+      {d("7")}{d("8")}{d("9")}{modeBtn("price", labels.price)}
+      <button type="button" disabled={disabled} onClick={onSign} title={labels.sign} className={`${cell} bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60`}>+/-</button>
+      {d("0")}
+      <button type="button" disabled={disabled} onClick={() => onKey(".")} className={`${cell} bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/30 dark:hover:bg-orange-900/50`}>.</button>
+      <button type="button" disabled={disabled} onClick={() => onKey("back")} aria-label="Backspace" className={`${cell} bg-red-200 hover:bg-red-300 dark:bg-red-900/50 dark:hover:bg-red-900/70`}>
+        <Delete className="w-5 h-5" />
+      </button>
+    </div>
+  );
+}

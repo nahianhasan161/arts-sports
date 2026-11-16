@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Building2, MapPin, Pencil, Plus } from "lucide-react";
 import { useT } from "@/i18n/client";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { formatMoney } from "@/i18n";
 import { api, btnGhost, btnPrimary, field } from "@/components/admin/pos/api";
 import { panel, num } from "@/components/admin/dashboard/parts";
@@ -100,7 +101,7 @@ export default function BranchesPage() {
       {editing === "new" && form}
 
       {branches === null ? (
-        <p className="text-sm text-text-muted">{t("shop.common.loading")}</p>
+        <PageSkeleton label={t("shop.common.loading")} />
       ) : branches.length === 0 ? (
         <p className={`${panel} p-8 text-center text-sm text-text-muted`}>{t("admin.branches.empty")}</p>
       ) : (

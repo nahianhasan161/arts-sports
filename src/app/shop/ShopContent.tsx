@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
+import { CategoryStrip } from "@/components/shop/CategoryStrip";
+import { InfiniteProductGrid } from "@/components/shop/InfiniteProductGrid";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Home, ChevronRight, SlidersHorizontal, ArrowUpDown } from "lucide-react";
-import { ProductCard } from "@/components/product/ProductCard";
 import { FilterSidebar } from "@/components/shop/FilterSidebar";
 import type { Category, Product } from "@/types";
 import type { CatalogTerm, TermType } from "@/lib/services/catalog";
@@ -23,6 +24,8 @@ interface ShopContentProps {
   products: Product[];
   total: number;
   categories: Category[];
+  categoryStrip: { id: string; slug: string; name: string }[];
+  categoryHasMore: boolean;
   terms: CatalogTerm[];
   termSelection: Partial<Record<TermType, string[]>>;
   parentName?: string;
@@ -35,7 +38,6 @@ interface ShopContentProps {
   sizes: string[];
   priceMin?: number;
   priceMax?: number;
-  page: number;
   pageSize: number;
 }
 
@@ -43,6 +45,8 @@ export function ShopContent({
   products,
   total,
   categories,
+  categoryStrip,
+  categoryHasMore,
   terms,
   termSelection,
   parentName,
@@ -55,12 +59,12 @@ export function ShopContent({
   sizes,
   priceMin,
   priceMax,
-  page,
   pageSize,
 }: ShopContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [shown, setShown] = useState(products.length);
 
   /**
    * Filter state lives in the URL, so a shopper can bookmark or share a
@@ -135,31 +139,21 @@ export function ShopContent({
     return Array.from(all).sort((a, b) => a.localeCompare(b));
   }, [categories, category, products]);
 
-  const filteredProducts = useMemo(() => {
-    let list = [...products];
-    if (dealsOnly) {
-      list = list.filter((p) => (p.discount_percent ?? 0) > 0);
-    }
-    if (inStockOnly) {
-      list = list.filter((p) =>
-        p.sizes?.some((s) => (s.stock ?? 0) > 0) || (p.stock ?? 0) > 0
-      );
-    }
-    if (priceMin !== undefined) {
-      list = list.filter((p) => p.price >= priceMin);
-    }
-    if (priceMax !== undefined) {
-      list = list.filter((p) => p.price <= priceMax);
-    }
-    return list;
-  }, [products, dealsOnly, inStockOnly, priceMin, priceMax]);
+  // Price, size and the term filters run in the query; deals and in-stock
+  // are checked here on each loaded batch.
+  const clientFilter = useCallback(
+    (p: Product) =>
+      (!dealsOnly || (p.discount_percent ?? 0) > 0) &&
+      (!inStockOnly || p.sizes?.some((s) => (s.stock ?? 0) > 0) || (p.stock ?? 0) > 0),
+    [dealsOnly, inStockOnly]
+  );
+  const queryString = searchParams?.toString() ?? "";
 
   const heading = parentName
     ? `${parentName.toUpperCase()} COLLECTION`
     : query
       ? `SEARCH RESULTS`
       : "ALL COLLECTIONS";
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="w-full pb-space-3xl">
@@ -199,11 +193,19 @@ export function ShopContent({
             <div className="flex items-center gap-2 text-xs text-text-muted bg-surface-subtle px-3 py-1.5 rounded-lg border border-border-light self-start md:self-auto">
               <span className="w-2 h-2 rounded-full bg-secondary-container" />
               <span>
-                Showing <strong className="text-on-surface font-bold">{filteredProducts.length}</strong> of{" "}
+                Showing <strong className="text-on-surface font-bold">{shown}</strong> of{" "}
                 <strong className="text-on-surface font-bold">{total}</strong> products
               </span>
             </div>
           </div>
+
+          {/* Top-level categories: scroll sideways, more load at the end. */}
+          <CategoryStrip
+            initial={categoryStrip}
+            initialHasMore={categoryHasMore}
+            active={category}
+            onSelect={setCategory}
+          />
 
           {/* Quick Sub-Category Chips */}
           {quickChips.length > 0 && (
@@ -332,10 +334,6 @@ export function ShopContent({
                 <span>Filters &amp; Specs</span>
               </button>
 
-              <div className="text-xs text-text-muted hidden sm:block">
-                Page <strong className="text-primary font-bold">{page}</strong> of{" "}
-                <strong className="text-primary font-bold">{totalPages}</strong>
-              </div>
 
               <div className="flex items-center gap-2 ml-auto">
                 <span className="text-xs text-text-muted font-medium flex items-center gap-1">
@@ -356,7 +354,7 @@ export function ShopContent({
               </div>
             </div>
 
-            {filteredProducts.length === 0 ? (
+            {products.length === 0 || (shown === 0 && products.length >= total) ? (
               <div className="bg-surface-card rounded-xl border border-border-light p-12 text-center flex flex-col items-center justify-center">
                 <h3 className="font-display text-lg uppercase font-bold text-primary mb-1">
                   {total === 0 ? "No products published yet" : "No products found"}
@@ -374,62 +372,15 @@ export function ShopContent({
                 </button>
               </div>
             ) : (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-space-sm sm:gap-space-md">
-                  {filteredProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-
-                {/* Pagination. Rendered from the server's total, so the last
-                    page disappears exactly when the catalogue shrinks. */}
-                {totalPages > 1 && (
-                  <nav
-                    className="flex items-center justify-center gap-2 pt-space-xl"
-                    aria-label="Pagination"
-                  >
-                    <button
-                      onClick={() => applyParams({ page: String(page - 1) }, false)}
-                      disabled={page <= 1}
-                      className="px-3 py-2 text-xs font-bold uppercase rounded-md border border-border-light bg-surface-card hover:bg-surface-subtle disabled:opacity-40 disabled:hover:bg-surface-card"
-                    >
-                      Previous
-                    </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(
-                        (p) =>
-                          p === 1 ||
-                          p === totalPages ||
-                          Math.abs(p - page) <= 1
-                      )
-                      .map((p, i, arr) => (
-                        <React.Fragment key={p}>
-                          {i > 0 && arr[i - 1] !== p - 1 && (
-                            <span className="px-1 text-text-muted">…</span>
-                          )}
-                          <button
-                            onClick={() => applyParams({ page: String(p) }, false)}
-                            aria-current={p === page ? "page" : undefined}
-                            className={`w-9 h-9 text-xs font-bold rounded-md border transition-colors ${
-                              p === page
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-surface-card border-border-light hover:bg-surface-subtle"
-                            }`}
-                          >
-                            {p}
-                          </button>
-                        </React.Fragment>
-                      ))}
-                    <button
-                      onClick={() => applyParams({ page: String(page + 1) }, false)}
-                      disabled={page >= totalPages}
-                      className="px-3 py-2 text-xs font-bold uppercase rounded-md border border-border-light bg-surface-card hover:bg-surface-subtle disabled:opacity-40 disabled:hover:bg-surface-card"
-                    >
-                      Next
-                    </button>
-                  </nav>
-                )}
-              </>
+              <InfiniteProductGrid
+                key={queryString}
+                initial={products}
+                total={total}
+                queryString={queryString}
+                pageSize={pageSize}
+                filter={clientFilter}
+                onCount={setShown}
+              />
             )}
           </div>
         </div>

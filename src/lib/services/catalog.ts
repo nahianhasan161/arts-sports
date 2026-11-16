@@ -1,5 +1,6 @@
 import "server-only";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getPublicSupabase } from "@/lib/supabase/public";
 import type { Product } from "@/types";
 
 /**
@@ -53,14 +54,7 @@ export interface Collection {
   display_order: number;
 }
 
-let client: SupabaseClient | null | undefined;
-function db(): SupabaseClient | null {
-  if (client !== undefined) return client;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
-  client = url && key ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }) : null;
-  return client;
-}
+const db = getPublicSupabase;
 
 const TERM_COLUMNS =
   "id, type, slug, name_en, name_bn, description_en, description_bn, image_url, details, is_featured, display_order";

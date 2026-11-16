@@ -24,8 +24,10 @@
  *     disagree.
  */
 
+import { appendImageFiles } from "@/lib/media/client-optimize";
 import { useCallback, useMemo, useReducer, useState } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, ArrowLeft, ImagePlus } from "lucide-react";
+import StagedImagePicker, { type StagedImage } from "@/components/admin/products/StagedImagePicker";
 import ProductMediaManager from "@/components/admin/ProductMediaManager";
 import { RichTextEditor } from "@/components/admin/products/RichTextEditor";
 import {
@@ -426,6 +428,15 @@ export interface ProductFormModalProps extends ProductFormOptions {
   onSuccess: () => void;
 }
 
+type TabId = "general" | "variants" | "images" | "description" | "specs";
+const TABS: { id: TabId; label: string }[] = [
+  { id: "general", label: "General Information" },
+  { id: "variants", label: "Variants" },
+  { id: "images", label: "Images" },
+  { id: "description", label: "Description" },
+  { id: "specs", label: "Specs" },
+];
+
 const inputClass =
   "w-full h-9 px-3 border border-border-light rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/20";
 const labelClass = "block text-xs font-semibold text-on-surface mb-1.5";
@@ -497,6 +508,9 @@ export function ProductFormModal({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [slugTouched, setSlugTouched] = useState(isEdit);
+  const [tab, setTab] = useState<TabId>("general");
+  // Pictures chosen for a product that does not exist yet; uploaded after the save.
+  const [staged, setStaged] = useState<StagedImage[]>([]);
 
   const [state, dispatch] = useReducer(reducer, product, (p) => {
     if (!p) return blankState();
@@ -827,10 +841,23 @@ export function ProductFormModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPayload()),
       });
-      const data: { error?: string } = await response.json();
+      const data: { error?: string; data?: { id?: string } } = await response.json();
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to save product");
       }
+      // A new product has an id only now, so its staged pictures go up next.
+      // They are already small WebP files. If this step fails the product is
+      // saved, so say so rather than losing the work.
+      if (!isEdit && staged.length > 0 && data.data?.id) {
+        const form = new FormData();
+        await appendImageFiles(form, staged.map((img) => img.file));
+        const up = await fetch(`/api/admin/products/${data.data.id}/media`, { method: "POST", body: form });
+        if (!up.ok) {
+          const body: { error?: string } = await up.json().catch(() => ({}));
+          alert(`The product was saved, but its images were not uploaded (${body.error ?? "upload failed"}). Open the product and add them under Images.`);
+        }
+      }
+      for (const img of staged) URL.revokeObjectURL(img.preview);
       onSuccess();
     } catch (err) {
       // The message comes from the server's own wording, which already names
@@ -842,41 +869,128 @@ export function ProductFormModal({
   };
 
   return (
-    // role="dialog" and aria-modal, so a screen reader announces this as a
-    // dialog and the content behind it is treated as inert. Without them the
-    // modal is just a div, and there is no way to close it from the keyboard
-    // at all: Escape did nothing and the backdrop was not clickable.
+    // Full-screen form in the style of an ERP record: a top bar with the
+    // breadcrumb and Save/Discard, one card with the big name field, and tabs
+    // for the rest. Escape discards.
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onMouseDown={(e) => {
-        // mousedown, not click, so a drag that starts inside the panel and
-        // ends on the backdrop does not discard the form. The check is on the
-        // backdrop itself: React's onMouseDown on the wrapper would also fire
-        // for clicks on children, which is why e.target is compared.
-        if (e.target === e.currentTarget) onClose();
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pf-title-heading"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
       }}
+      className="fixed inset-0 z-50 bg-surface-subtle overflow-y-auto"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pf-title-heading"
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-        }}
-        className="bg-surface-card rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
-      >
-        <div className="p-6 border-b border-border-light flex items-center justify-between">
-          <h2 id="pf-title-heading" className="font-display text-xl font-bold text-primary">
-            {isEdit ? "Edit Product" : "Add New Product"}
-          </h2>
+      <div className="sticky top-0 z-10 bg-surface-card border-b border-border-light">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-text-muted hover:text-primary rounded transition-colors"
-            aria-label="Close"
+            className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" /> Products
           </button>
+          <span className="text-text-muted">/</span>
+          <h2 id="pf-title-heading" className="font-display text-base font-bold text-primary truncate">
+            {state.title.trim() || (isEdit ? "Edit product" : "New product")}
+          </h2>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden sm:flex rounded-lg border border-border-light overflow-hidden" role="group" aria-label="Status">
+              {statusOptions.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  aria-pressed={state.status === o.value}
+                  onClick={() => set("status", o.value as ProductStatus)}
+                  className={`px-3 h-8 text-xs font-semibold ${
+                    state.status === o.value ? "bg-primary text-white" : "text-text-muted hover:bg-surface-subtle"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 h-8 border border-border-light rounded-lg text-sm font-semibold text-text-muted hover:bg-surface-subtle"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="inline-flex items-center gap-2 px-4 h-8 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary-container disabled:opacity-50"
+            >
+              {submitting ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto p-4">
+        <div className="bg-surface-card rounded-xl border border-border-light shadow-sm">
+          <div className="p-6 flex items-start gap-6">
+            <div className="flex-1 min-w-0 space-y-3">
+              <input
+                id="pf-title"
+                type="text"
+                value={state.title}
+                onChange={(e) => onTitleChange(e.target.value)}
+                placeholder="e.g. Kookaburra Kahuna Cricket Bat"
+                aria-label="Product name"
+                className="w-full text-2xl font-display font-bold bg-transparent border-0 border-b border-border-light focus:border-primary focus:outline-none py-1 placeholder:text-text-muted/50"
+              />
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-on-surface">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="pf-featured"
+                    checked={state.is_featured}
+                    onChange={(e) => set("is_featured", e.target.checked)}
+                  />
+                  Featured
+                </label>
+                <span className="text-[11px] text-text-muted">
+                  Bat, ball, kit, accessories — anything. Add colours and sizes/options under Variants only if the
+                  product comes in more than one version.
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTab("images")}
+              aria-label="Product images"
+              className="shrink-0 w-24 h-24 rounded-lg border border-border-light bg-surface-subtle overflow-hidden flex items-center justify-center text-text-muted hover:border-primary"
+            >
+              {staged[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={staged[0].preview} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <ImagePlus className="w-8 h-8" />
+              )}
+            </button>
+          </div>
+
+          <div className="px-6 border-b border-border-light flex gap-1 overflow-x-auto" role="tablist">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                onClick={() => setTab(t.id)}
+                className={`px-4 h-10 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px ${
+                  tab === t.id
+                    ? "border-primary text-primary"
+                    : "border-transparent text-text-muted hover:text-on-surface"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
 
         <div className="p-6 space-y-4">
           {formError && (
@@ -885,19 +999,8 @@ export function ProductFormModal({
             </div>
           )}
 
+          <div hidden={tab !== "general"} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="pf-title" className={labelClass}>
-                Title *
-              </label>
-              <input
-                id="pf-title"
-                type="text"
-                value={state.title}
-                onChange={(e) => onTitleChange(e.target.value)}
-                className={inputClass}
-              />
-            </div>
             <div>
               <label htmlFor="pf-slug" className={labelClass}>
                 Slug *
@@ -1358,7 +1461,9 @@ export function ProductFormModal({
               )}
             </div>
           </div>
+          </div>
 
+          <div hidden={tab !== "description"} className="space-y-4">
           <div>
             <label htmlFor="pf-description" className={labelClass}>
               Description
@@ -1371,22 +1476,25 @@ export function ProductFormModal({
               }
             />
           </div>
+          </div>
 
+          <div hidden={tab !== "images"} className="space-y-4">
           {isEdit && product?.id ? (
             <ProductMediaManager productId={product.id} />
           ) : (
-            <div>
-              <p className={labelClass}>Product images</p>
-              <p className="text-[11px] text-text-muted bg-surface-subtle rounded-lg px-3 py-2.5">
-                Save the product first, then reopen it to upload images. Media is stored under this
-                product&rsquo;s own folder, so it needs an id to attach to.
-              </p>
-            </div>
+            <StagedImagePicker images={staged} onChange={setStaged} disabled={submitting} />
           )}
+          </div>
 
           {/* Colours and sizes: two multi-selects, then the matrix they define. */}
+          <div hidden={tab !== "variants"} className="space-y-4">
           <div className="space-y-2">
             <p className={labelClass}>Options</p>
+            <p className="text-[11px] text-text-muted">
+              Skip this for a single-version product. For a bat use sizes like SH / Harrow / 2lb 8oz; for a ball
+              use Size 4 / Size 5; for kit use S / M / L. Every colour × size pair becomes a variant with its own
+              stock, SKU and optional price.
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <fieldset>
                 <legend className="text-xs text-text-muted mb-1.5">Colours</legend>
@@ -1481,7 +1589,9 @@ export function ProductFormModal({
               disabled={submitting}
             />
           </div>
+          </div>
 
+          <div hidden={tab !== "specs"} className="space-y-4">
           <div>
             <p className={labelClass}>Specs</p>
             <div className="space-y-2">
@@ -1527,36 +1637,11 @@ export function ProductFormModal({
               </button>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="pf-featured"
-              checked={state.is_featured}
-              onChange={(e) => set("is_featured", e.target.checked)}
-            />
-            <label htmlFor="pf-featured" className="text-sm text-on-surface">
-              Featured product
-            </label>
           </div>
-        </div>
 
-        <div className="p-6 border-t border-border-light flex items-center justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-border-light rounded-lg text-sm font-semibold text-text-muted hover:bg-surface-subtle transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary-container transition-colors disabled:opacity-50"
-          >
-            {submitting ? "Saving..." : isEdit ? "Update" : "Create"}
-          </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }

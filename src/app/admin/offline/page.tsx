@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Banknote, Receipt, Wallet, Boxes, Shirt, Contact, Building2, Link2, UserRound, Store, Play } from "lucide-react";
 import { useT } from "@/i18n/client";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { formatMoney } from "@/i18n";
 import { api } from "@/components/admin/pos/api";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Stat, QuickLink, panel, num } from "@/components/admin/dashboard/parts";
 
 interface StoreOverview {
@@ -42,15 +42,7 @@ export default function StoreOverviewPage() {
   }, []);
 
   if (error) return <p className="rounded-xl bg-badge-discount/10 border border-badge-discount/30 p-4 text-sm text-badge-discount">{error}</p>;
-  if (!data) {
-    return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-7xl mx-auto">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-2xl" />
-        ))}
-      </div>
-    );
-  }
+  if (!data) return <PageSkeleton label={t("shop.common.loading")} />;
 
   const paid = Math.max(1, ...data.methods.map((m) => m.amount));
 

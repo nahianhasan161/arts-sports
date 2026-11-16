@@ -1,25 +1,20 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getProducts, getProductsCount, getCategories } from "@/lib/services/products";
-import { getTerms, resolveTermProductIds, TERM_TYPES, type TermType } from "@/lib/services/catalog";
+import { getCategories } from "@/lib/services/products";
+import { getTerms } from "@/lib/services/catalog";
+import { parseShopFilters, loadShopProducts } from "@/lib/services/shop-query";
 import { ShopContent } from "./ShopContent";
+import { ProductGridSkeleton } from "@/components/shop/Skeletons";
 
 /**
- * The catalogue page.
- *
- * This used to import PRODUCTS from mock-data and filter in the browser, so
- * the page showed the same 12 sample rows no matter what an admin published,
- * priced, or removed. Every product the admin panel manages was invisible
- * here, and a shopper who added one of the mock items to a bag reached a
- * checkout that resolved no matching stock row and dead-ended.
- *
- * It is now a server component: the URL is the filter state, getProducts()
- * reads the database, and the client receives only the rows it renders.
+ * The catalogue page. The URL is the filter state. Only the first screenful
+ * of products (and of categories) is rendered on the server; the rest load
+ * from /api/shop/* as the shopper scrolls.
  */
 
-const PAGE_SIZE = 24;
-
-const SORTS = new Set(["newest", "popular", "price_asc", "price_desc"]);
+/** About one screen: 4 columns x 3 rows on desktop, 2 x 6 on a phone. */
+const PAGE_SIZE = 12;
+const CATEGORY_PAGE = 10;
 
 /** The published catalogue is public, so this page is indexed. */
 export const metadata: Metadata = {
@@ -40,96 +35,44 @@ interface ShopPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-function first(v: string | string[] | undefined): string | undefined {
-  return typeof v === "string" ? v : Array.isArray(v) ? v[0] : undefined;
-}
-
 export default async function ShopPage(props: ShopPageProps) {
-  const searchParams = await props.searchParams;
-  const category = first(searchParams.category) ?? "all";
-  const query = first(searchParams.q) ?? first(searchParams.search) ?? "";
-  const subCategory = first(searchParams.sub) ?? "";
-  const sortBy = SORTS.has(first(searchParams.sort) ?? "")
-    ? (first(searchParams.sort) as string)
-    : "newest";
-  const inStockOnly = first(searchParams.stock) === "in";
-  const dealsOnly = first(searchParams.deals) === "true";
-  const priceMin = first(searchParams.price_min);
-  const priceMax = first(searchParams.price_max);
-  const sizes = first(searchParams.sizes)
-    ?.split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const page = Math.max(1, Number(first(searchParams.page) ?? "1") || 1);
-
-  // Team / league / season / edition / brand / player filters: comma-separated
-  // slugs per type in the URL, resolved to the product ids they match.
-  const termSelection: Partial<Record<TermType, string[]>> = {};
-  for (const type of TERM_TYPES) {
-    const slugs = first(searchParams[type])
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (slugs && slugs.length > 0) termSelection[type] = slugs;
-  }
-  const [productIds, terms] = await Promise.all([resolveTermProductIds(termSelection), getTerms()]);
-
-  const [products, total, categories] = await Promise.all([
-    getProducts({
-      category,
-      subCategory: subCategory || undefined,
-      search: query || undefined,
-      sizes: sizes && sizes.length > 0 ? sizes : undefined,
-      sortBy,
-      productIds: productIds ?? undefined,
-      // The grid applies the size, price and stock predicates the query
-      // builder does not understand, so fetch a generous page and filter
-      // it. The count below is the authoritative total.
-      limit: PAGE_SIZE,
-      offset: (page - 1) * PAGE_SIZE,
-    }),
-    getProductsCount({
-      category,
-      subCategory: subCategory || undefined,
-      search: query || undefined,
-      productIds: productIds ?? undefined,
-    }),
+  const filters = parseShopFilters(await props.searchParams);
+  const [{ products, total }, terms, categories] = await Promise.all([
+    loadShopProducts(filters, 0, PAGE_SIZE, true),
+    getTerms(),
     getCategories(),
   ]);
-
   const parent =
-    category && category !== "all"
-      ? categories.find((c) => c.slug === category || c.id === category)
+    filters.category !== "all"
+      ? categories.find((c) => c.slug === filters.category || c.id === filters.category)
       : undefined;
 
   return (
     <Suspense
       fallback={
-        <div className="max-w-container-max mx-auto px-space-base py-24 text-center">
-          <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="mt-3 text-xs text-text-muted font-display uppercase tracking-wider">
-            Loading collection...
-          </p>
+        <div className="max-w-container-max mx-auto px-space-base py-space-lg grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-space-sm sm:gap-space-md">
+          <ProductGridSkeleton count={8} />
         </div>
       }
     >
       <ShopContent
         products={products}
-        total={total}
+        total={total ?? products.length}
         categories={categories}
+        categoryStrip={categories.slice(0, CATEGORY_PAGE).map(({ id, slug, name }) => ({ id, slug, name }))}
+        categoryHasMore={categories.length > CATEGORY_PAGE}
         terms={terms}
-        termSelection={termSelection}
+        termSelection={filters.termSelection}
         parentName={parent?.name}
-        category={category}
-        subCategory={subCategory}
-        query={query}
-        sortBy={sortBy}
-        inStockOnly={inStockOnly}
-        dealsOnly={dealsOnly}
-        sizes={sizes ?? []}
-        priceMin={priceMin ? Number(priceMin) : undefined}
-        priceMax={priceMax ? Number(priceMax) : undefined}
-        page={page}
+        category={filters.category}
+        subCategory={filters.subCategory}
+        query={filters.query}
+        sortBy={filters.sortBy}
+        inStockOnly={filters.inStockOnly}
+        dealsOnly={filters.dealsOnly}
+        sizes={filters.sizes}
+        priceMin={filters.priceMin}
+        priceMax={filters.priceMax}
         pageSize={PAGE_SIZE}
       />
     </Suspense>

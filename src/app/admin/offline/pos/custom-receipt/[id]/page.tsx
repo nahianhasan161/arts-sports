@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { useT } from "@/i18n/client";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { config } from "@/lib/config";
 import { taka } from "@/lib/pos/types";
 import { STATUS_LABEL } from "@/components/admin/custom-orders/labels";
@@ -31,7 +32,7 @@ export default function CustomReceiptPage({ params }: { params: Promise<{ id: st
   }, [id]);
 
   if (error) return <p className="text-sm text-badge-discount">{error}</p>;
-  if (!order) return <p className="text-sm text-text-muted">{t("shop.common.loading")}</p>;
+  if (!order) return <PageSkeleton variant="receipt" label={t("shop.common.loading")} />;
 
   const due = Math.max(0, order.total - order.paid);
   const date = order.due_date ?? order.needed_by;

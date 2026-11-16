@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient, isDynamicServerUsage as isDynamicUsage } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Profile } from "@/types";
 
 export interface AdminContext {
@@ -18,6 +19,20 @@ export class AdminAuthError extends Error {
     super(message);
     this.status = status;
   }
+}
+
+/**
+ * The signed-in person from the session cookie, or null.
+ *
+ * getClaims() verifies the JWT locally when the Supabase project uses
+ * asymmetric signing keys, so it costs no network call; with the legacy
+ * shared secret it asks the auth server, like getUser() did.
+ */
+export async function sessionUser(supabase: SupabaseClient): Promise<{ id: string; email?: string } | null> {
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (error || !claims?.sub) return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
 }
 
 export async function requireAdmin(): Promise<AdminContext> {
@@ -39,12 +54,9 @@ export async function requireAdmin(): Promise<AdminContext> {
     throw new AdminAuthError(500, "Authentication service not configured");
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const user = await sessionUser(supabase);
 
-  if (authError || !user) {
+  if (!user) {
     throw new AdminAuthError(
       401,
       "Not signed in. Sign in through the app first: this endpoint reads the session cookie, not an Authorization header."
@@ -119,12 +131,9 @@ export async function requireUser(): Promise<UserContext> {
     throw new AdminAuthError(500, "Authentication service not configured");
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const user = await sessionUser(supabase);
 
-  if (authError || !user) {
+  if (!user) {
     throw new AdminAuthError(
       401,
       "Not signed in. Sign in through the app first: this endpoint reads the session cookie, not an Authorization header."

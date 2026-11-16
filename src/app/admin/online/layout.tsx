@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, Menu, X, ChevronsLeft, ChevronsRight, Globe, ShoppingBag, Store, ExternalLink, LifeBuoy } from "lucide-react";
 import { useT } from "@/i18n/client";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
 import { OFFLINE, ONLINE } from "@/components/admin/nav";
 import { useAdminAccess, useCurrentItem } from "@/components/admin/access";
@@ -41,7 +42,7 @@ export default function OnlineLayout({ children }: { children: React.ReactNode }
     });
   }
 
-  if (redirecting) return <div className="h-screen bg-surface" />;
+  if (redirecting) return <PageSkeleton label={t("admin.shell.loading")} className="h-screen" />;
 
   const small = collapsed; // desktop only; the phone drawer is always full width
   const isShared = currentItem?.id === "inventory" || currentItem?.id === "customers" || currentItem?.id === "products";

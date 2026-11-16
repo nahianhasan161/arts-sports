@@ -14,6 +14,8 @@
  * never a way to store something that is not an image.
  */
 
+import { THUMB_MAX } from "./thumb";
+
 export interface ClientOptimizeOptions {
   maxWidth?: number;
   maxHeight?: number;
@@ -63,4 +65,26 @@ export async function optimizeImageFiles(files: File[], options?: ClientOptimize
   const out: File[] = [];
   for (const f of files) out.push(await optimizeImageFile(f, options));
   return out;
+}
+
+/**
+ * A small WebP for product grids (see lib/media/thumb.ts), or null when the
+ * browser can't make one. The server stores it next to the image.
+ */
+export async function makeThumbnail(file: File): Promise<File | null> {
+  const thumb = await optimizeImageFile(file, { maxWidth: THUMB_MAX.width, maxHeight: THUMB_MAX.height, quality: 0.75 });
+  return thumb !== file && thumb.type === "image/webp" ? thumb : null;
+}
+
+/**
+ * Adds each image to an upload form as `files`, with its grid thumbnail as
+ * `thumb_<index>`. Use this for every product-media upload so grids get the
+ * small version.
+ */
+export async function appendImageFiles(form: FormData, files: File[]): Promise<void> {
+  for (const [i, file] of files.entries()) {
+    form.append("files", file);
+    const thumb = await makeThumbnail(file);
+    if (thumb) form.append(`thumb_${i}`, thumb);
+  }
 }

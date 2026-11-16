@@ -19,7 +19,7 @@ import {
   MEDIA_MAX_BYTES,
   MEDIA_MAX_PER_PRODUCT,
 } from "@/types";
-import { optimizeImageFiles } from "@/lib/media/client-optimize";
+import { appendImageFiles, optimizeImageFiles } from "@/lib/media/client-optimize";
 
 interface PendingUpload {
   id: string;
@@ -116,7 +116,7 @@ export default function ProductMediaManager({
       ]);
 
       const form = new FormData();
-      for (const f of usable) form.append("files", f);
+      await appendImageFiles(form, usable);
 
       // XHR rather than fetch: upload progress is the reason to choose it,
       // and fetch still has no portable progress event.

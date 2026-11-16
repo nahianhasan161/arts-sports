@@ -138,11 +138,12 @@ export async function POST(request: NextRequest, { params }: Params) {
     const uploaded: ProductImage[] = [];
     const failed: { name: string; reason: string }[] = [];
 
-    for (const file of files) {
+    for (const [i, file] of files.entries()) {
+      const thumb = form.get(`thumb_${i}`);
       // Size, magic bytes and path generation all live in the shared
       // helper, so an image accepted by the product editor is accepted by
       // the library under identical rules.
-      const outcome = await uploadMediaFile(supabase, file, productId);
+      const outcome = await uploadMediaFile(supabase, file, productId, thumb instanceof File ? thumb : null);
 
       if (!outcome.ok) {
         failed.push({ name: outcome.name, reason: outcome.reason });

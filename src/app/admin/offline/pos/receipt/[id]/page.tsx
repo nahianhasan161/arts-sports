@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { useT } from "@/i18n/client";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { config } from "@/lib/config";
 import { taka, type PayMethod, type SaleDetail } from "@/lib/pos/types";
 import { api, btnGhost, btnPrimary, dateTime } from "@/components/admin/pos/api";
@@ -29,7 +30,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   }, [id]);
 
   if (error) return <p className="text-sm text-badge-discount">{error}</p>;
-  if (!data) return <p className="text-sm text-text-muted">{t("shop.common.loading")}</p>;
+  if (!data) return <PageSkeleton variant="receipt" label={t("shop.common.loading")} />;
 
   const { sale, items, payments } = data;
   const qr = `${window.location.origin}/admin/offline/orders?receipt=${sale.id}`;

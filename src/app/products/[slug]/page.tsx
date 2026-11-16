@@ -40,6 +40,17 @@ interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * ISR: each page is rendered on its first visit, kept in the cache, and
+ * rebuilt in the background at most once a minute. Nothing is prerendered at
+ * build time (the empty list), so builds don't query the DB. Price and stock
+ * shown here can be up to ~60 s old; checkout re-checks both on the server.
+ */
+export const revalidate = 60;
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata(props: ProductPageProps): Promise<Metadata> {
   const params = await props.params;
   const product = await getProductBySlug(params.slug);

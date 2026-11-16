@@ -1,17 +1,24 @@
 "use client";
 
+import { thumbUrl } from "@/lib/media/thumb";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, PauseCircle, Printer, ScanLine, Shirt, Ticket, Trash2, UserRound, Wallet, X, ShoppingCart, LayoutGrid, ImageOff, LifeBuoy } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useTheme } from "@/lib/theme";
+import { useAdminAccess } from "@/components/admin/access";
+import { ArrowLeft, EllipsisVertical, History, Menu, PauseCircle, Plus, Printer, ScanLine, Search, Shirt, Ticket, Trash2, Upload, X, ShoppingCart, LayoutGrid, LifeBuoy, Monitor, Moon, Sun, Download, Banknote, RotateCw, ChevronLeft, KeyRound, UserRound } from "lucide-react";
 import { useT } from "@/i18n/client";
-import { taka, type CartLine, type PosProduct, type PosVariant } from "@/lib/pos/types";
+import PageSkeleton, { SkeletonRows, SkeletonTiles } from "@/components/ui/PageSkeleton";
+import { lineDiscount, taka, type CartLine, type PosProduct, type PosVariant, type SaleDetail } from "@/lib/pos/types";
 import { OFFLINE, REGISTER } from "@/components/admin/nav";
-import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
-import { api, btnGhost, btnPrimary, field } from "../api";
+import { LanguageToggle } from "@/components/layout/Preferences";
+import { api, btnGhost, btnPrimary, dateTime, field } from "../api";
 import { DayTab, type SessionInfo } from "../DayTab";
 import { CustomTab } from "../CustomTab";
-import { Dialog, Numpad, applyKey, padSide, type PadKey } from "./parts";
+import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "./parts";
 import { PaymentScreen, type Pay } from "./PaymentScreen";
+import { OrdersView } from "./OrdersView";
+import { QuickAdd } from "./QuickAdd";
 
 interface Held {
   id: string;
@@ -37,11 +44,48 @@ interface Done {
 interface Listing {
   products: PosProduct[];
   scanned: string | null;
-  categories?: { id: string; name: string }[];
+  has_more?: boolean;
+  categories?: { id: string; name: string; image?: string | null }[];
+  categoriesHasMore?: boolean;
 }
 
-type Popup = "customer" | "discount" | "held" | "custom" | "drawer" | null;
-type Mode = "qty" | "disc";
+type Page = { products: PosProduct[]; hasMore: boolean };
+
+interface PastSale {
+  id: string;
+  receipt_no: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  total: number;
+  status: string;
+  created_at: string;
+}
+
+/** Chrome's install prompt, kept so the menu can show "Install app". */
+type InstallPromptEvent = Event & { prompt: () => Promise<void> };
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? parts.map((p) => p[0]).join("").slice(0, 3).toUpperCase() : name;
+}
+
+type Popup = "customer" | "discount" | "held" | "past" | "custom" | "drawer" | "note" | "menu" | "more" | "add" | null;
+type Mode = OrderMode;
+
+/** A bill parked in another order tab (kept in this browser tab only). */
+interface Draft {
+  no: number;
+  lines: CartLine[];
+  selected: string | null;
+  phone: string;
+  name: string;
+  consent: boolean;
+  coupon: string;
+  couponOff: { code: string; amount: number } | null;
+  billDiscount: string;
+  note: string;
+  heldId: string | null;
+}
 
 /**
  * The register (roadmap 4.1–4.3), full screen. Left: the bill with its
@@ -56,10 +100,19 @@ export function Register() {
   // The shop chosen on the dashboard card (?shop=), used until a drawer is open.
   const [wantedShop, setWantedShop] = useState("");
 
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string; image?: string | null }[]>([]);
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
   const [products, setProducts] = useState<PosProduct[] | null>(null);
+  // Lazy loading: the grid and the category row fetch one screenful at a time.
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [catsHasMore, setCatsHasMore] = useState(false);
+  const [loadingCats, setLoadingCats] = useState(false);
+  const gridScroll = useRef<HTMLDivElement>(null);
+  const gridEnd = useRef<HTMLDivElement>(null);
+  const catScroll = useRef<HTMLDivElement>(null);
+  const catEnd = useRef<HTMLDivElement>(null);
   const [picking, setPicking] = useState<PosProduct | null>(null);
 
   const [lines, setLines] = useState<CartLine[]>([]);
@@ -82,6 +135,7 @@ export function Register() {
   const [held, setHeld] = useState<Held[]>([]);
   const [heldId, setHeldId] = useState<string | null>(null);
   const [screen, setScreen] = useState<"bill" | "pay">("bill");
+  const [view, setView] = useState<"register" | "orders">("register");
   const [pays, setPays] = useState<Pay[]>([]);
   const [done, setDone] = useState<Done | null>(null);
   const [popup, setPopup] = useState<Popup>(null);
@@ -89,7 +143,14 @@ export function Register() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [openShop, setOpenShop] = useState("");
+  const [past, setPast] = useState<PastSale[] | null>(null);
+  const [pastQ, setPastQ] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
   const [float, setFloat] = useState("");
+  // Order tabs: the open bill is `orderNo`; the others wait in `drafts`.
+  const [orderNo, setOrderNo] = useState(1001);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const nextNo = useRef(1002);
 
   const loadInfo = useCallback(async () => {
     const res = await api<SessionInfo>("/api/admin/pos/session");
@@ -100,6 +161,19 @@ export function Register() {
   const loadHeld = useCallback(async () => {
     const res = await api<{ held: Held[] }>("/api/admin/pos/held");
     if (res.ok) setHeld(res.data.held);
+  }, []);
+
+  const { theme, toggle: toggleTheme } = useTheme();
+  const { userName } = useAdminAccess();
+  const router = useRouter();
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  useEffect(() => {
+    const keep = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as InstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", keep);
+    return () => window.removeEventListener("beforeinstallprompt", keep);
   }, []);
 
   useEffect(() => {
@@ -132,23 +206,64 @@ export function Register() {
   }, []);
 
   // The grid: the chosen category, or what the search box says. The newest answer wins.
+  //
+  // Stale-while-revalidate: a list seen before (same shop, category or search)
+  // shows at once from `cache`, then the fresh answer replaces it, because
+  // stock changes with every sale. The cache lives as long as the register.
   const request = useRef(0);
   const gotCategories = useRef(false);
+  const cache = useRef(new Map<string, Page>());
+  /** How many tiles fit the grid's visible area (plus one row), so the first load is just a screenful. */
+  const screenful = useCallback(() => {
+    const el = gridScroll.current;
+    const w = (el?.clientWidth ?? window.innerWidth) - 16;
+    const h = el?.clientHeight ?? window.innerHeight;
+    const cols = Math.max(2, Math.floor((w + 8) / 158)); // 150px tiles + 8px gap
+    const rows = Math.ceil(h / 168) + 1; // 160px tiles + 8px gap
+    return Math.min(100, cols * rows);
+  }, []);
+  const catScreenful = useCallback(() => Math.min(60, Math.ceil((catScroll.current?.clientWidth ?? window.innerWidth) / 168) + 2), []);
+  const listUrl = useCallback(
+    (term: string, cat: string, withCategories: boolean, offset = 0) => {
+      const params = new URLSearchParams({ showroom_id: showroomId });
+      if (term) params.set("q", term);
+      else {
+        if (cat) params.set("category_id", cat);
+        params.set("limit", String(screenful()));
+        params.set("offset", String(offset));
+      }
+      if (withCategories) {
+        params.set("categories", "1");
+        params.set("cat_limit", String(catScreenful()));
+      }
+      return `/api/admin/pos/products?${params}`;
+    },
+    [showroomId, screenful, catScreenful]
+  );
   const list = useCallback(
     async (term: string, submitted: boolean) => {
       if (!showroomId) return;
       const mine = ++request.current;
-      const params = new URLSearchParams({ showroom_id: showroomId });
-      if (term) params.set("q", term);
-      else if (category) params.set("category_id", category);
-      if (!gotCategories.current) params.set("categories", "1");
-      const res = await api<Listing>(`/api/admin/pos/products?${params}`);
-      if (mine !== request.current) return;
-      if (!res.ok) return setError(res.error);
+      const key = `${showroomId}|${term ? `q:${term.toLowerCase()}` : `c:${category}`}`;
+      const cached = cache.current.get(key);
+      // A scan must add the item, so it never answers from the cache.
+      if (cached && !submitted) {
+        setProducts(cached.products);
+        setHasMore(cached.hasMore);
+      }
+      const res = await api<Listing>(listUrl(term, category, !gotCategories.current));
+      const page: Page | null = res.ok ? { products: res.data.products, hasMore: !term && Boolean(res.data.has_more) } : null;
+      if (mine !== request.current) {
+        if (page) cache.current.set(key, page);
+        return;
+      }
+      if (!res.ok || !page) return setError(res.ok ? null : res.error);
       if (res.data.categories) {
         gotCategories.current = true;
         setCategories(res.data.categories);
+        setCatsHasMore(Boolean(res.data.categoriesHasMore));
       }
+      cache.current.set(key, page);
       // A barcode scan (the scanner presses Enter): straight into the bill, ready for the next scan.
       if (submitted && res.data.scanned) {
         const product = res.data.products.find((p) => p.variants.some((v) => v.variant_id === res.data.scanned));
@@ -160,17 +275,123 @@ export function Register() {
           return;
         }
       }
-      setProducts(res.data.products);
+      setProducts(page.products);
+      setHasMore(page.hasMore);
+      gridScroll.current?.scrollTo({ top: 0 });
     },
-    [showroomId, category, addLine]
+    [showroomId, category, addLine, listUrl]
   );
 
+  // Next page of the grid, when the shopper scrolls near its bottom.
+  const moreBusy = useRef(false);
+  const loadMore = useCallback(async () => {
+    if (moreBusy.current || !hasMore || q.trim() || !products) return;
+    moreBusy.current = true;
+    setLoadingMore(true);
+    const mine = request.current;
+    const key = `${showroomId}|c:${category}`;
+    const res = await api<Listing>(listUrl("", category, false, products.length));
+    moreBusy.current = false;
+    setLoadingMore(false);
+    if (mine !== request.current) return; // the category or search changed meanwhile
+    if (!res.ok) {
+      setHasMore(false);
+      return setError(res.error);
+    }
+    const seen = new Set(products.map((p) => p.product_id));
+    const next = [...products, ...res.data.products.filter((p) => !seen.has(p.product_id))];
+    const more = Boolean(res.data.has_more);
+    setProducts(next);
+    setHasMore(more);
+    cache.current.set(key, { products: next, hasMore: more });
+  }, [hasMore, q, products, showroomId, category, listUrl]);
+
+  useEffect(() => {
+    const el = gridEnd.current;
+    if (!el || !hasMore) return;
+    const io = new IntersectionObserver((e) => e[0]?.isIntersecting && void loadMore(), {
+      root: gridScroll.current,
+      rootMargin: "0px 0px 400px 0px",
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loadMore]);
+
+  // Next page of categories, when the row is scrolled to its right end.
+  const catsBusy = useRef(false);
+  const loadMoreCats = useCallback(async () => {
+    if (catsBusy.current || !catsHasMore || !showroomId) return;
+    catsBusy.current = true;
+    setLoadingCats(true);
+    const params = new URLSearchParams({ showroom_id: showroomId, categories_only: "1", cat_offset: String(categories.length), cat_limit: String(catScreenful()) });
+    const res = await api<Listing>(`/api/admin/pos/products?${params}`);
+    catsBusy.current = false;
+    setLoadingCats(false);
+    if (!res.ok) {
+      setCatsHasMore(false);
+      return setError(res.error);
+    }
+    const seen = new Set(categories.map((c) => c.id));
+    setCategories([...categories, ...(res.data.categories ?? []).filter((c) => !seen.has(c.id))]);
+    setCatsHasMore(Boolean(res.data.categoriesHasMore));
+  }, [catsHasMore, showroomId, categories, catScreenful]);
+
+  useEffect(() => {
+    const el = catEnd.current;
+    if (!el || !catsHasMore) return;
+    const io = new IntersectionObserver((e) => e[0]?.isIntersecting && void loadMoreCats(), {
+      root: catScroll.current,
+      rootMargin: "0px 300px 0px 0px",
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [catsHasMore, loadMoreCats]);
+
+  // Prefetch: once the categories are known, fill the cache for the first few
+  // in the background, one at a time, so the first tap on each is instant.
+  useEffect(() => {
+    if (!showroomId || !categories.length) return;
+    let stopped = false;
+    const timer = setTimeout(async () => {
+      for (const c of categories.slice(0, 8)) {
+        const key = `${showroomId}|c:${c.id}`;
+        if (stopped) return;
+        if (cache.current.has(key)) continue;
+        const res = await api<Listing>(listUrl("", c.id, false));
+        if (res.ok && !cache.current.has(key)) cache.current.set(key, { products: res.data.products, hasMore: Boolean(res.data.has_more) });
+      }
+    }, 1500);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [showroomId, categories, listUrl]);
+
+  // A barcode scanner "types" the whole code in a few milliseconds. When the
+  // text came in that fast, treat it as a scan and add the item without Enter.
+  const typing = useRef({ first: 0, last: 0 });
   useEffect(() => {
     const term = q.trim();
     if (term.length === 1) return;
-    const timer = setTimeout(() => void list(term, false), term ? 300 : 0);
+    const { first, last } = typing.current;
+    const scanned = term.length >= 4 && last - first < term.length * 35;
+    const timer = setTimeout(() => void list(term, scanned), !term ? 0 : scanned ? 120 : 300);
     return () => clearTimeout(timer);
   }, [q, list]);
+
+  // A scan while nothing is focused (after a tap on the grid or bill) still
+  // goes into the search box, so the scanner works from anywhere on the register.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      searchRef.current?.focus();
+    }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
 
   // Phone number -> the customer we already know (website and shop share one list).
   useEffect(() => {
@@ -189,7 +410,7 @@ export function Register() {
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce((s, l) => s + l.price * l.quantity, 0);
-    const lineDiscounts = lines.reduce((s, l) => s + Math.min(l.discount, l.price * l.quantity), 0);
+    const lineDiscounts = lines.reduce((s, l) => s + lineDiscount(l), 0);
     const couponAmount = couponOff?.amount ?? 0;
     const afterLines = Math.max(0, subtotal - lineDiscounts - couponAmount);
     const bill = Math.min(Math.max(0, Number(billDiscount) || 0), afterLines);
@@ -234,8 +455,9 @@ export function Register() {
     const line = lines.find((l) => l.key === selected);
     if (!line) return;
     const same = typed && typed.key === line.key && typed.mode === mode;
+    const current = mode === "qty" ? line.quantity : mode === "disc" ? (line.pct ?? "") : (line.unit ?? line.price);
     // A digit starts a new number; backspace works on the number already there.
-    const before = same ? typed.text : key === "back" ? String(mode === "qty" ? line.quantity : line.discount || "") : "";
+    const before = same ? typed.text : key === "back" ? String(current) : "";
     const text = applyKey(before, key);
     if (mode === "qty") {
       const quantity = Math.floor(Number(text) || 0);
@@ -244,10 +466,107 @@ export function Register() {
         return;
       }
       setLine(line.key, { quantity });
+    } else if (mode === "disc") {
+      setLine(line.key, { pct: text === "" ? undefined : Math.min(100, Number(text) || 0), unit: undefined, discount: 0 });
     } else {
-      setLine(line.key, { discount: Math.max(0, Number(text) || 0) });
+      // Only a lower price can be given: the shop price is checked on the server.
+      setLine(line.key, { unit: text === "" ? undefined : Math.min(line.price, Number(text) || 0), pct: undefined, discount: 0 });
     }
     setTyped({ key: line.key, mode, text });
+  }
+
+  const snapshot = (): Draft => ({ no: orderNo, lines, selected, phone, name, consent, coupon, couponOff, billDiscount, note, heldId });
+  const isEmpty = () => !lines.length && !phone && !name && !note;
+
+  function load(d: Draft) {
+    reset();
+    setLines(d.lines);
+    setSelected(d.selected);
+    setPhone(d.phone);
+    setName(d.name);
+    setConsent(d.consent);
+    setCoupon(d.coupon);
+    setCouponOff(d.couponOff);
+    setBillDiscount(d.billDiscount);
+    setNote(d.note);
+    setHeldId(d.heldId);
+    setOrderNo(d.no);
+  }
+
+  function switchOrder(no: number) {
+    if (no === orderNo) return;
+    const target = drafts.find((d) => d.no === no);
+    if (!target) return;
+    setDrafts((list) => [...list.filter((d) => d.no !== no), ...(isEmpty() ? [] : [snapshot()])]);
+    load(target);
+  }
+
+  function newOrder() {
+    if (isEmpty()) return;
+    setDrafts((list) => [...list, snapshot()]);
+    reset();
+    setOrderNo(nextNo.current++);
+  }
+
+  function menuPick(id: string) {
+    if (id === "past") { setPopup(null); return setView("orders"); }
+    if (id === "clear") {
+      reset();
+      return setPopup(null);
+    }
+    if (id === "help") {
+      window.open(`${OFFLINE}/help`, "_blank");
+      return setPopup(null);
+    }
+    setPopup(id as Popup);
+  }
+
+  const menuTiles: { id: string; icon: typeof Plus; label: string; danger?: boolean }[] = [
+    { id: "full", icon: Monitor, label: t("shop.register.fullScreen") },
+    { id: "theme", icon: theme === "dark" ? Sun : Moon, label: theme === "dark" ? t("shop.register.lightMode") : t("shop.register.darkMode") },
+    installPrompt ? { id: "install", icon: Download, label: t("shop.register.installApp") } : { id: "help", icon: LifeBuoy, label: t("admin.nav.shopHelp.name") },
+    { id: "drawer", icon: Banknote, label: t("shop.register.cashInOut") },
+    { id: "reload", icon: RotateCw, label: t("shop.register.reloadData") },
+    { id: "product", icon: Plus, label: t("shop.register.createProduct") },
+    { id: "backend", icon: ChevronLeft, label: t("shop.register.backend") },
+    { id: "held", icon: PauseCircle, label: `${t("shop.pos.heldBills")}${held.length ? ` (${held.length})` : ""}` },
+    { id: "past", icon: History, label: t("shop.register.pastSales") },
+    { id: "custom", icon: Shirt, label: t("shop.pos.tabs.custom") },
+    { id: "closeRegister", icon: KeyRound, label: t("shop.register.closeRegister"), danger: true },
+  ];
+
+  async function menuTile(id: string) {
+    if (id === "theme") return toggleTheme();
+    if (id === "drawer" || id === "closeRegister") return setPopup("drawer");
+    if (id === "help" || id === "held" || id === "past" || id === "custom") return menuPick(id);
+    if (id === "backend") return router.push(OFFLINE);
+    setPopup(null);
+    if (id === "full") {
+      if (document.fullscreenElement) void document.exitFullscreen();
+      else void document.documentElement.requestFullscreen?.().catch(() => {});
+    } else if (id === "install" && installPrompt) {
+      await installPrompt.prompt();
+      setInstallPrompt(null);
+    } else if (id === "reload") {
+      void loadInfo();
+      void loadHeld();
+      void list(q, false);
+    } else if (id === "product") {
+      window.open(`${OFFLINE}/products`, "_blank");
+    }
+  }
+
+
+  /** After a sale: the next waiting order, or a fresh number. */
+  function finishOrder() {
+    const [first, ...rest] = [...drafts].sort((x, y) => x.no - y.no);
+    if (first) {
+      setDrafts(rest);
+      load(first);
+    } else {
+      reset();
+      setOrderNo(nextNo.current++);
+    }
   }
 
   async function applyCoupon() {
@@ -282,6 +601,55 @@ export function Register() {
     setPane("bill");
   }
 
+  async function loadPast(term: string) {
+    setPast(null);
+    const res = await api<{ sales: PastSale[] }>(`/api/admin/pos/sales?q=${encodeURIComponent(term.trim())}`);
+    setPast(res.ok ? res.data.sales : []);
+    if (!res.ok) setError(res.error);
+  }
+
+
+  /** Put a past sale's items (at today's price and stock) and customer into a fresh bill. */
+  async function copySale(id: string) {
+    if (lines.length && !window.confirm(t("shop.register.copyReplace"))) return;
+    setBusy(true);
+    setError(null);
+    const detail = await api<SaleDetail>(`/api/admin/pos/sales/${id}`);
+    if (!detail.ok) {
+      setBusy(false);
+      return setError(detail.error);
+    }
+    const ids = [...new Set(detail.data.items.map((i) => i.product_id).filter(Boolean))] as string[];
+    const found = ids.length
+      ? await api<Listing>(`/api/admin/pos/products?ids=${encodeURIComponent(ids.join(","))}&showroom_id=${encodeURIComponent(showroomId)}`)
+      : null;
+    setBusy(false);
+    if (found && !found.ok) return setError(found.error);
+    const products = found?.ok ? found.data.products : [];
+    const next: CartLine[] = [];
+    let missing = 0;
+    for (const item of detail.data.items) {
+      const p = products.find((x) => x.product_id === item.product_id);
+      const v = p?.variants.find((x) => x.variant_id === (item.variant_id ?? null));
+      if (!p || !v) {
+        missing++;
+        continue;
+      }
+      const key = `${p.product_id}:${v.variant_id ?? ""}`;
+      const same = next.find((l) => l.key === key);
+      if (same) same.quantity += Number(item.quantity);
+      else next.push({ key, product_id: p.product_id, variant_id: v.variant_id, title: p.title, label: v.label, price: p.price, available: v.available, quantity: Number(item.quantity), discount: 0 });
+    }
+    const sale = detail.data.sale;
+    reset();
+    setLines(next);
+    setPhone(sale.customer_phone ?? "");
+    setName(sale.customer_name ?? "");
+    setPopup(null);
+    setPane("bill");
+    setNotice(missing ? t("shop.register.copyMissing", { n: missing }) : null);
+  }
+
   async function dropHeld(id: string) {
     await api(`/api/admin/pos/held?id=${id}`, undefined, "DELETE");
     if (heldId === id) setHeldId(null);
@@ -299,7 +667,7 @@ export function Register() {
     setBusy(true);
     setError(null);
     const res = await api<Done>("/api/admin/pos/sales", {
-      items: lines.map((l) => ({ product_id: l.product_id, variant_id: l.variant_id, quantity: l.quantity, discount: l.discount })),
+      items: lines.map((l) => ({ product_id: l.product_id, variant_id: l.variant_id, quantity: l.quantity, discount: lineDiscount(l) })),
       payments: pays.map((p) => ({ method: p.method, amount: Number(p.amount) || 0, reference: p.reference })),
       customer_phone: phone,
       customer_name: name,
@@ -337,10 +705,9 @@ export function Register() {
       </div>
     );
   }
-  if (!info) return <div className="h-screen bg-surface flex items-center justify-center text-sm text-text-muted">{t("shop.common.loading")}</div>;
+  if (!info) return <PageSkeleton variant="register" label={t("shop.common.loading")} className="h-screen" />;
 
   const customerLabel = name || phone || t("shop.register.customer");
-  const hasDiscount = Boolean(couponOff) || Number(billDiscount) > 0 || Boolean(note);
   const selectedLine = lines.find((l) => l.key === selected);
 
   const customerDialog = popup === "customer" && (
@@ -386,60 +753,76 @@ export function Register() {
   return (
     <div className="h-screen flex flex-col bg-surface overflow-hidden">
       {/* Top bar */}
-      <header className="h-14 bg-rail text-rail-text flex items-center gap-2 px-2 sm:px-4 flex-shrink-0">
-        <Link href={OFFLINE} className="inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-sm font-semibold hover:bg-white/10" title={t("shop.register.backToShop")}>
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden md:inline">{t("shop.register.backToShop")}</span>
-        </Link>
-        <div className="hidden sm:block leading-tight pl-2 border-l border-white/10 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{shopName}</p>
-          <p className="text-[11px] text-rail-muted">{sessionOpen ? t("shop.register.open") : t("shop.register.closed")}</p>
+      <header className="h-14 bg-surface-card border-b border-border-light flex items-center gap-2 px-2 flex-shrink-0">
+        <div className="hidden sm:flex rounded-md border border-border-light overflow-hidden text-sm font-semibold">
+          <button type="button" onClick={() => setView("register")} className={`h-10 px-3 border-r border-border-light ${view === "register" ? "bg-primary/10 text-on-surface" : "text-on-surface-variant hover:bg-surface-subtle"}`}>
+            {t("shop.register.registerTab")}
+          </button>
+          <button type="button" onClick={() => setView("orders")} className={`h-10 px-3 ${view === "orders" ? "bg-primary/10 text-on-surface" : "text-on-surface-variant hover:bg-surface-subtle"}`}>
+            {t("shop.register.ordersTab")}
+          </button>
+        </div>
+        <button type="button" onClick={() => { setView("register"); newOrder(); }} className="h-10 w-11 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center flex-shrink-0" title={t("shop.register.newOrder")} aria-label={t("shop.register.newOrder")}>
+          <Plus className="w-5 h-5" />
+        </button>
+        <div className="flex gap-1 overflow-x-auto no-scrollbar min-w-0 pl-1 border-l border-border-light">
+          {[orderNo, ...drafts.map((d) => d.no)]
+            .sort((a, b) => a - b)
+            .map((no) => (
+              <button key={no} type="button" onClick={() => { setView("register"); switchOrder(no); }} className={`h-10 px-3.5 rounded-md border text-sm tabular-nums flex-shrink-0 ${no === orderNo ? "border-primary bg-primary/10 text-on-surface font-semibold" : "border-border-light text-on-surface-variant hover:bg-surface-subtle"}`}>
+                {no}
+              </button>
+            ))}
         </div>
 
         <form
-          className="relative flex-1 max-w-xl mx-auto"
+          className="relative ml-auto w-full max-w-[16rem] min-w-[8rem]"
           onSubmit={(e) => {
             e.preventDefault();
             if (q.trim()) void list(q.trim(), true);
           }}
         >
-          <ScanLine className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-rail-muted" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             ref={searchRef}
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => {
+              const now = performance.now();
+              if (!q || !e.target.value) typing.current.first = now;
+              typing.current.last = now;
+              setQ(e.target.value);
+            }}
             onFocus={() => setPane("products")}
             placeholder={t("shop.pos.searchPlaceholder")}
-            className="w-full h-10 rounded-lg bg-white/10 border border-white/10 pl-9 pr-9 text-sm text-white placeholder:text-rail-muted focus:outline-none focus:border-accent-gold"
+            className="w-full h-10 rounded-md bg-surface-card border border-border-light pl-9 pr-8 text-sm text-on-surface placeholder:text-text-muted focus:outline-none focus:border-primary"
             autoComplete="off"
             autoFocus
           />
           {q && (
-            <button type="button" onClick={() => setQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-rail-muted hover:text-white" aria-label={t("shop.common.cancel")}>
+            <button type="button" onClick={() => setQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-on-surface" aria-label={t("shop.common.cancel")}>
               <X className="w-4 h-4" />
             </button>
           )}
         </form>
-
-        <button type="button" onClick={() => setPopup("held")} className="relative inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-sm font-semibold hover:bg-white/10" title={t("shop.pos.heldBills")}>
-          <PauseCircle className="w-4 h-4" />
-          <span className="hidden lg:inline">{t("shop.pos.heldBills")}</span>
-          {held.length > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-accent-gold text-rail text-[11px] font-bold flex items-center justify-center">{held.length}</span>}
+        <button type="button" onClick={() => setPopup("held")} className="relative h-10 w-11 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center flex-shrink-0" title={t("shop.register.draftBills")} aria-label={t("shop.register.draftBills")}>
+          <PauseCircle className="w-5 h-5" />
+          {held.length > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-accent-gold text-white text-[11px] font-bold flex items-center justify-center tabular-nums">{held.length}</span>}
         </button>
-        <button type="button" onClick={() => setPopup("drawer")} className="inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-sm font-semibold hover:bg-white/10" title={t("shop.register.cashDrawer")}>
-          <Wallet className="w-4 h-4" />
-          <span className="hidden lg:inline">{t("shop.register.cashDrawer")}</span>
+        <button type="button" onClick={() => setPopup("add")} className="h-10 px-3 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center gap-1.5 text-sm font-semibold flex-shrink-0" title={t("shop.register.quickAddTitle")}>
+          <Plus className="w-5 h-5" /> <span className="hidden sm:inline">{t("shop.register.quickAdd")}</span>
         </button>
-        <a href={`${OFFLINE}/help`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-white/10" title={t("admin.nav.shopHelp.name")} aria-label={t("admin.nav.shopHelp.name")}>
-          <LifeBuoy className="w-4 h-4" />
-        </a>
-        <span className="hidden md:flex items-center gap-1">
-          <LanguageToggle tone="dark" />
-          <ThemeToggle tone="dark" />
+        <span className="hidden md:flex h-9 px-3 items-center rounded-md bg-primary text-primary-foreground text-sm font-bold max-w-[10rem] truncate" title={sessionOpen ? t("shop.register.open") : t("shop.register.closed")}>
+          {shopName || "—"}
         </span>
+        <button type="button" onClick={() => setPopup("menu")} className="relative h-10 w-10 flex items-center justify-center rounded-md text-on-surface hover:bg-surface-subtle" aria-label={t("shop.register.menu")}>
+          <Menu className="w-5 h-5" />
+          {held.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-accent-gold" />}
+        </button>
       </header>
 
-      {done ? (
+      {view === "orders" ? (
+        <OrdersView canManage={canManage} onCopy={(id) => { setView("register"); void copySale(id); }} />
+      ) : done ? (
         <div className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
           <div className="w-full max-w-md rounded-2xl border border-border-light bg-surface-card p-6 text-center flex flex-col gap-3">
             <h2 className="font-display text-xl font-bold text-primary">{t("shop.pos.saleDone", { no: done.receipt_no })}</h2>
@@ -459,7 +842,7 @@ export function Register() {
               autoFocus
               onClick={() => {
                 setDone(null);
-                reset();
+                finishOrder();
               }}
             >
               {t("shop.pos.newSale")}
@@ -471,7 +854,7 @@ export function Register() {
       ) : (
         <div className="flex-1 min-h-0 flex">
           {/* The bill */}
-          <section className={`${pane === "bill" ? "flex" : "hidden"} lg:flex w-full lg:w-[400px] xl:w-[440px] flex-col bg-surface-card border-r border-border-light flex-shrink-0`}>
+          <section className={`${pane === "bill" ? "flex" : "hidden"} lg:flex w-full lg:w-[420px] xl:w-[450px] flex-col bg-surface-card border-r border-border-light flex-shrink-0`}>
             <div className="flex-1 min-h-0 overflow-y-auto">
               {lines.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center gap-2 text-text-muted p-6 text-center">
@@ -482,131 +865,34 @@ export function Register() {
                 <ul>
                   {lines.map((l) => {
                     const active = l.key === selected;
+                    const off = lineDiscount(l);
                     return (
-                      <li key={l.key} className={`border-b border-border-light ${active ? "bg-accent-gold-soft" : ""}`}>
-                        <div className="flex items-start gap-1 pr-1">
-                          <button
-                            type="button"
-                            className="flex-1 min-w-0 text-left px-3 py-2.5"
-                            onClick={() => {
-                              setSelected(l.key);
-                              setTyped(null);
-                            }}
-                          >
-                            <span className="flex justify-between gap-2 text-sm">
-                              <span className="font-semibold text-on-surface truncate">{l.title}</span>
-                              <strong className="whitespace-nowrap tabular-nums">{taka(Math.max(0, l.price * l.quantity - l.discount))}</strong>
-                            </span>
-                            <span className="block text-xs text-text-muted mt-0.5">
-                              <b className="text-on-surface">{l.quantity}</b> × {taka(l.price)}
-                              {l.label && ` · ${l.label}`}
-                              {l.discount > 0 && <span className="text-emerald-600"> · −{taka(l.discount)}</span>}
-                              {l.quantity > l.available && <span className="text-badge-discount font-semibold"> · {t("shop.pos.left", { n: l.available })}</span>}
-                            </span>
-                          </button>
-                          {active && (
-                            <button type="button" onClick={() => removeLine(l.key)} className="mt-2 p-1.5 rounded text-text-muted hover:text-badge-discount" aria-label={t("shop.common.remove")}>
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-            <div className="border-t border-border-light p-3 flex flex-col gap-2.5 flex-shrink-0">
-              <div className="flex items-end justify-between">
-                <div className="text-xs text-text-muted">
-                  <p>{t("shop.register.pieces", { n: totals.pieces })}</p>
-                  {couponOff && <p className="text-emerald-600">{t("shop.pos.couponOff", { code: couponOff.code })} −{taka(couponOff.amount)}</p>}
-                  {totals.manual > 0 && <p className={overLimit ? "text-badge-discount font-semibold" : ""}>{t("shop.pos.discount")} −{taka(totals.manual)}</p>}
-                </div>
-                <p className="text-2xl font-bold text-primary tabular-nums">{taka(totals.total)}</p>
-              </div>
-              {overLimit && <p className="text-xs text-badge-discount">{t("shop.pos.discountLimit", { percent: maxDiscount })}</p>}
-              {error && <p className="text-sm text-badge-discount bg-badge-discount/10 rounded p-2">{error}</p>}
-
-              <div className="grid grid-cols-4 gap-1.5 text-xs font-semibold">
-                {(
-                  [
-                    { id: "customer", icon: UserRound, label: name || phone || t("shop.register.customer"), on: Boolean(phone || name) },
-                    { id: "discount", icon: Ticket, label: t("shop.register.offers"), on: hasDiscount },
-                    { id: "hold", icon: PauseCircle, label: t("shop.pos.hold"), on: false },
-                    { id: "custom", icon: Shirt, label: t("shop.pos.tabs.custom"), on: false },
-                  ] as const
-                ).map((a) => (
-                  <button key={a.id} type="button" onClick={() => (a.id === "hold" ? void hold() : setPopup(a.id))} disabled={a.id === "hold" && !lines.length} className={`h-14 rounded-lg border flex flex-col items-center justify-center gap-1 px-1 disabled:opacity-40 ${a.on ? "border-accent-gold text-accent-gold bg-accent-gold-soft" : "border-border-light text-on-surface-variant bg-surface-card hover:bg-surface-subtle"}`}>
-                    <a.icon className="w-4 h-4" />
-                    <span className="truncate max-w-full">{a.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              <Numpad
-                onKey={press}
-                disabled={!selectedLine}
-                side={
-                  <>
-                    <button type="button" className={padSide(mode === "qty")} onClick={() => { setMode("qty"); setTyped(null); }}>
-                      {t("shop.common.qty")}
-                    </button>
-                    <button type="button" className={padSide(mode === "disc")} onClick={() => { setMode("disc"); setTyped(null); }}>
-                      {t("shop.register.disc")}
-                    </button>
-                    <button type="button" className={`${padSide(false)} row-span-2`} disabled={!lines.length} onClick={reset} title={t("shop.register.clearBill")}>
-                      <Trash2 className="w-4 h-4 mx-auto" />
-                    </button>
-                  </>
-                }
-              />
-
-              <button type="button" onClick={goToPay} disabled={!lines.length || !sessionOpen} className="h-14 rounded-xl bg-accent-gold text-white text-lg font-bold hover:opacity-90 disabled:opacity-40">
-                {t("shop.register.payment")} · {taka(totals.total)}
-              </button>
-            </div>
-          </section>
-
-          {/* Products */}
-          <section className={`${pane === "products" ? "flex" : "hidden"} lg:flex flex-1 min-w-0 flex-col`}>
-            {!q && categories.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 py-2.5 border-b border-border-light bg-surface-card flex-shrink-0">
-                {[{ id: "", name: t("shop.register.all") }, ...categories].map((c) => (
-                  <button key={c.id} type="button" onClick={() => setCategory(c.id)} className={`px-3.5 h-9 rounded-full text-sm font-semibold whitespace-nowrap ${category === c.id ? "bg-primary text-primary-foreground" : "bg-surface-subtle text-on-surface-variant hover:bg-surface-container"}`}>
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto p-3">
-              {products === null ? (
-                <p className="text-sm text-text-muted p-4">{t("shop.common.loading")}</p>
-              ) : products.length === 0 ? (
-                <p className="text-sm text-text-muted p-4">{q ? t("shop.pos.noResults") : t("shop.register.noProducts")}</p>
-              ) : (
-                <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5">
-                  {products.map((p) => {
-                    const stock = p.variants.reduce((s, v) => s + v.available, 0);
-                    return (
-                      <li key={p.product_id}>
+                      <li key={l.key}>
                         <button
                           type="button"
-                          onClick={() => (p.variants.length === 1 ? addLine(p, p.variants[0]) : setPicking(p))}
-                          className={`w-full h-full text-left rounded-xl border border-border-light bg-surface-card overflow-hidden hover:border-accent-gold active:scale-[0.98] transition ${stock > 0 ? "" : "opacity-60"}`}
+                          className={`w-full text-left px-3 py-2 text-sm ${active ? "bg-primary/10" : "hover:bg-surface-subtle"}`}
+                          onClick={() => {
+                            setSelected(l.key);
+                            setTyped(null);
+                          }}
                         >
-                          <span className="relative block aspect-square bg-surface-subtle">
-                            {p.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={p.image} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
-                            ) : (
-                              <ImageOff className="absolute inset-0 m-auto w-8 h-8 text-text-muted/40" />
-                            )}
-                            <span className="absolute top-1.5 right-1.5 rounded-md bg-rail/85 text-white text-xs font-bold px-1.5 py-0.5 tabular-nums">{taka(p.price)}</span>
-                            <span className={`absolute bottom-1.5 left-1.5 rounded-md text-[11px] font-semibold px-1.5 py-0.5 ${stock > 0 ? "bg-surface-card/90 text-on-surface" : "bg-badge-discount text-white"}`}>{stock > 0 ? t("shop.pos.left", { n: stock }) : t("shop.register.soldOut")}</span>
+                          <span className="flex items-baseline gap-3">
+                            <b className="tabular-nums text-on-surface">{l.quantity}</b>
+                            <span className="flex-1 min-w-0 truncate text-on-surface">{l.title}</span>
+                            <b className="whitespace-nowrap tabular-nums text-on-surface">{taka(Math.max(0, l.price * l.quantity - off))}</b>
                           </span>
-                          <span className="block px-2 py-1.5 text-xs sm:text-sm font-semibold text-on-surface leading-snug line-clamp-2">{p.title}</span>
+                          {(l.label || off > 0 || l.quantity > l.available) && (
+                            <span className="block text-xs text-text-muted mt-0.5 pl-6">
+                              {l.label}
+                              {off > 0 && (
+                                <span className="text-emerald-600">
+                                  {l.label && " · "}
+                                  {l.pct != null ? `${l.pct}% ` : ""}−{taka(off)} ({t("shop.register.price")} {taka(l.price)})
+                                </span>
+                              )}
+                              {l.quantity > l.available && <span className="text-badge-discount font-semibold"> · {t("shop.pos.left", { n: l.available })}</span>}
+                            </span>
+                          )}
                         </button>
                       </li>
                     );
@@ -614,9 +900,131 @@ export function Register() {
                 </ul>
               )}
             </div>
+
+            <div className="px-2 pb-2 flex flex-col gap-2 flex-shrink-0">
+              <div className="px-1 pt-2 border-t border-border-light">
+                {couponOff && <p className="flex justify-between text-xs text-emerald-600"><span>{t("shop.pos.couponOff", { code: couponOff.code })}</span><span>−{taka(couponOff.amount)}</span></p>}
+                {totals.manual > 0 && <p className={`flex justify-between text-xs ${overLimit ? "text-badge-discount font-semibold" : "text-text-muted"}`}><span>{t("shop.pos.discount")}</span><span className="tabular-nums">−{taka(totals.manual)}</span></p>}
+                <p className="flex justify-between items-baseline text-on-surface">
+                  <span className="font-bold">{t("shop.register.total")} <span className="text-xs font-normal text-text-muted">· {t("shop.register.pieces", { n: totals.pieces })}</span></span>
+                  <span className="text-lg font-bold tabular-nums">{taka(totals.total)}</span>
+                </p>
+              </div>
+              {overLimit && <p className="text-xs text-badge-discount">{t("shop.pos.discountLimit", { percent: maxDiscount })}</p>}
+              {error && <p className="text-sm text-badge-discount bg-badge-discount/10 rounded p-2">{error}</p>}
+              {notice && (
+                <p className="text-sm text-on-surface-variant bg-surface-subtle rounded p-2 flex items-start gap-2">
+                  <span className="flex-1">{notice}</span>
+                  <button type="button" onClick={() => setNotice(null)} aria-label={t("shop.common.cancel")}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </p>
+              )}
+
+              <div className="flex gap-2 border-t border-border-light pt-2">
+                <button type="button" onClick={() => setPopup("customer")} className={`h-10 px-3 rounded-md border text-sm max-w-[45%] truncate ${phone || name ? "border-primary bg-primary/10 text-on-surface font-semibold" : "border-border-light bg-surface-subtle text-on-surface hover:bg-surface-container"}`}>
+                  {customerLabel}
+                </button>
+                <button type="button" onClick={() => setPopup("note")} className={`h-10 px-3 rounded-md border text-sm ${note ? "border-primary bg-primary/10 font-semibold" : "border-border-light bg-surface-subtle hover:bg-surface-container"} text-on-surface`}>
+                  {t("shop.common.note")}
+                </button>
+                <button type="button" onClick={() => void hold()} disabled={!lines.length} className="ml-auto h-10 w-11 rounded-md border border-border-light bg-surface-subtle text-on-surface hover:bg-surface-container disabled:opacity-40 flex items-center justify-center" title={t("shop.pos.hold")} aria-label={t("shop.pos.hold")}>
+                  <Upload className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => setPopup("more")} className={`h-10 w-11 rounded-md border flex items-center justify-center ${couponOff || Number(billDiscount) > 0 ? "border-primary bg-primary/10" : "border-border-light bg-surface-subtle hover:bg-surface-container"} text-on-surface`} title={t("shop.register.more")} aria-label={t("shop.register.more")}>
+                  <EllipsisVertical className="w-4 h-4" />
+                </button>
+              </div>
+
+              <OrderPad
+                onKey={press}
+                onSign={() => selectedLine && removeLine(selectedLine.key)}
+                mode={mode}
+                setMode={(m) => {
+                  setMode(m);
+                  setTyped(null);
+                }}
+                disabled={!selectedLine}
+                labels={{ qty: t("shop.common.qty"), price: t("shop.register.price"), sign: t("shop.register.removeLine") }}
+              />
+
+              <button type="button" onClick={goToPay} disabled={!lines.length || !sessionOpen} className="h-16 rounded-md bg-primary text-primary-foreground text-base font-semibold hover:opacity-90 disabled:opacity-50">
+                {t("shop.register.payment")}
+              </button>
+            </div>
+          </section>
+
+          {/* Products */}
+          <section className={`${pane === "products" ? "flex" : "hidden"} lg:flex flex-1 min-w-0 flex-col bg-surface`}>
+            <div ref={gridScroll} className="flex-1 overflow-y-auto p-2">
+              {!q && categories.length > 0 && (
+                <div ref={catScroll} className="flex flex-nowrap gap-2 mb-3 overflow-x-auto no-scrollbar snap-x pb-1">
+                  {[{ id: "", name: t("shop.register.all") }, ...categories].map((c) => (
+                    <button key={c.id} type="button" onClick={() => setCategory(c.id)} className={`relative shrink-0 snap-start min-w-[10rem] h-16 px-4 rounded-md text-sm font-medium text-on-surface transition overflow-hidden flex items-center gap-2 ${category === c.id ? "bg-accent-gold/70 ring-2 ring-accent-gold" : "bg-accent-gold/30 hover:bg-accent-gold/45"}`}>
+                      {"image" in c && c.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={thumbUrl(c.image)} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback || !c.image) return; img.dataset.fallback = "1"; img.src = c.image; }} alt="" loading="lazy" className="w-12 h-12 rounded object-cover flex-shrink-0" />
+                      ) : null}
+                      <span className="flex-1 text-center">{c.name}</span>
+                    </button>
+                  ))}
+                  {loadingCats && Array.from({ length: 3 }).map((_, i) => <span key={`cs${i}`} aria-hidden className="shrink-0 min-w-[10rem] h-16 rounded-md bg-surface-subtle animate-pulse" />)}
+                  {catsHasMore && <span ref={catEnd} className="shrink-0 w-px h-16" />}
+                </div>
+              )}
+              {products === null ? (
+                <SkeletonTiles label={t("shop.common.loading")} />
+              ) : products.length === 0 ? (
+                <p className="text-sm text-text-muted p-4">{q ? t("shop.pos.noResults") : t("shop.register.noProducts")}</p>
+              ) : (
+                <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+                  {products.map((p) => {
+                    const stock = p.variants.reduce((s, v) => s + v.available, 0);
+                    const inBill = lines.filter((l) => l.product_id === p.product_id).reduce((s, l) => s + l.quantity, 0);
+                    return (
+                      <li key={p.product_id}>
+                        <button
+                          type="button"
+                          onClick={() => (p.variants.length === 1 ? addLine(p, p.variants[0]) : setPicking(p))}
+                          title={`${p.title} · ${taka(p.price)}`}
+                          className={`group relative w-full h-40 flex flex-col text-left rounded-md border bg-surface-card overflow-hidden border-b-4 transition active:scale-[0.98] ${inBill ? "border-accent-gold" : "border-border-light border-b-accent-gold/60 hover:border-accent-gold"} ${stock > 0 ? "" : "opacity-60"}`}
+                        >
+                          {p.image ? (
+                            <span className="relative flex-1 min-h-0 bg-surface-subtle">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={thumbUrl(p.image)}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                // No thumbnail yet (older upload): show the original.
+                                onError={(e) => {
+                                  const img = e.currentTarget;
+                                  if (!p.image || img.dataset.fallback) return;
+                                  img.dataset.fallback = "1";
+                                  img.src = p.image;
+                                }}
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
+                            </span>
+                          ) : null}
+                          <span className={`px-2 py-1.5 text-sm text-on-surface leading-snug line-clamp-2 ${p.image ? "pr-8" : "flex-1 flex items-center justify-center text-center"}`}>{p.title}</span>
+                          <span className="absolute top-1 right-1 rounded bg-surface-card/90 text-on-surface text-[11px] font-semibold px-1.5 py-0.5 tabular-nums">{taka(p.price)}</span>
+                          {stock <= 0 && <span className="absolute top-1 left-1 rounded bg-badge-discount text-white text-[11px] font-semibold px-1.5 py-0.5">{t("shop.register.soldOut")}</span>}
+                          {inBill > 0 && <span className="absolute bottom-1.5 right-1.5 min-w-6 h-6 px-1.5 rounded-md bg-neutral-900 text-white text-xs font-bold flex items-center justify-center tabular-nums">{inBill}</span>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {loadingMore && Array.from({ length: 6 }).map((_, k) => <li key={`sk${k}`} aria-hidden className="h-40 rounded-md border border-border-light bg-surface-subtle animate-pulse" />)}
+                </ul>
+              )}
+              {hasMore && !q && <div ref={gridEnd} className="h-px" />}
+            </div>
           </section>
         </div>
       )}
+
 
       {/* Phones: switch between the products and the bill. */}
       {!done && screen === "bill" && (
@@ -646,6 +1054,80 @@ export function Register() {
             ))}
           </div>
         </Dialog>
+      )}
+
+      {popup === "add" && (
+        <QuickAdd
+          categories={categories}
+          onClose={() => setPopup(null)}
+          onSaved={(kind) => {
+            cache.current.clear();
+            if (kind === "category") gotCategories.current = false;
+            void list(q, false);
+          }}
+        />
+      )}
+
+      {popup === "note" && (
+        <Dialog title={t("shop.common.note")} onClose={() => setPopup(null)}>
+          <div className="flex flex-col gap-3">
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} className={`${field} min-h-24`} maxLength={500} placeholder={t("shop.register.noteHint")} autoFocus />
+            <button type="button" className={btnPrimary} onClick={() => setPopup(null)}>
+              {t("shop.register.done")}
+            </button>
+          </div>
+        </Dialog>
+      )}
+
+      {popup === "more" && (
+        <Dialog title={t("shop.register.more")} onClose={() => setPopup(null)}>
+          <div className="flex flex-col divide-y divide-border-light -my-2">
+            {[
+              { id: "discount", icon: Ticket, label: t("shop.register.offers") },
+              { id: "custom", icon: Shirt, label: t("shop.pos.tabs.custom") },
+              { id: "clear", icon: Trash2, label: t("shop.register.clearBill") },
+            ].map((item) => (
+              <button key={item.id} type="button" disabled={item.id === "clear" && !lines.length} onClick={() => menuPick(item.id)} className="flex items-center gap-3 py-3 text-left text-sm font-semibold text-on-surface hover:text-primary disabled:opacity-40">
+                <item.icon className="w-4 h-4 text-text-muted" /> {item.label}
+              </button>
+            ))}
+          </div>
+        </Dialog>
+      )}
+
+      {popup === "menu" && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 sm:pt-10" onClick={() => setPopup(null)} role="dialog" aria-modal="true" aria-label={t("shop.register.menu")}>
+          <div className="w-full max-w-4xl rounded-lg bg-surface-card border border-border-light shadow-xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <span className="inline-flex items-center gap-2 h-10 px-3 rounded-md border border-primary/60 text-primary text-sm font-semibold max-w-[60%] truncate">
+                <UserRound className="w-4 h-4 flex-shrink-0" /> {initials(userName)}
+              </span>
+              <div className="flex items-center gap-2">
+                <LanguageToggle />
+                <button type="button" onClick={() => setPopup(null)} className="p-2 rounded-md text-text-muted hover:bg-surface-subtle" aria-label="Close">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {menuTiles.map((tile) => (
+                <button
+                  key={tile.id}
+                  type="button"
+                  onClick={() => void menuTile(tile.id)}
+                  className={`h-28 sm:h-40 flex flex-col items-center justify-center gap-3 rounded-md border text-sm sm:text-base font-medium transition-colors ${
+                    tile.danger
+                      ? "border-transparent bg-gradient-to-br from-red-400 to-red-600 text-white hover:from-red-500 hover:to-red-700"
+                      : "border-border-light bg-surface-subtle text-on-surface hover:bg-surface-container"
+                  }`}
+                >
+                  <tile.icon className={`w-6 h-6 ${tile.danger ? "text-white/80" : "text-text-muted"}`} />
+                  <span className="px-2 text-center">{tile.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {customerDialog}
@@ -694,7 +1176,7 @@ export function Register() {
           ) : (
             <ul className="divide-y divide-border-light">
               {held.map((h) => {
-                const sum = (h.payload.lines ?? []).reduce((s, l) => s + l.price * l.quantity - l.discount, 0);
+                const sum = (h.payload.lines ?? []).reduce((s, l) => s + l.price * l.quantity - lineDiscount(l), 0);
                 return (
                   <li key={h.id} className="flex items-center gap-2 py-2">
                     <button type="button" className="flex-1 text-left min-w-0" onClick={() => resume(h)}>
@@ -712,6 +1194,50 @@ export function Register() {
                   </li>
                 );
               })}
+            </ul>
+          )}
+        </Dialog>
+      )}
+
+      {popup === "past" && (
+        <Dialog title={t("shop.register.pastSales")} onClose={() => setPopup(null)} wide>
+          <form
+            className="flex gap-2 mb-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void loadPast(pastQ);
+            }}
+          >
+            <input className={`${field} flex-1`} value={pastQ} onChange={(e) => setPastQ(e.target.value)} placeholder={t("shop.register.pastSearch")} autoFocus />
+            <button type="submit" className={btnGhost}>
+              <ScanLine className="w-4 h-4" />
+            </button>
+          </form>
+          {error && <p className="text-sm text-badge-discount mb-2">{error}</p>}
+          {past === null ? (
+            <SkeletonRows count={5} className="py-2" label={t("shop.common.loading")} />
+          ) : past.length === 0 ? (
+            <p className="text-sm text-text-muted">{t("shop.register.noPastSales")}</p>
+          ) : (
+            <ul className="divide-y divide-border-light max-h-[60vh] overflow-y-auto">
+              {past.map((s) => (
+                <li key={s.id} className="flex items-center gap-2 py-2">
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold truncate">
+                      {s.receipt_no} · {s.customer_name || s.customer_phone || t("shop.sales.walkIn")}
+                    </span>
+                    <span className="block text-xs text-text-muted">
+                      {dateTime(s.created_at)} · {taka(s.total)}
+                    </span>
+                  </div>
+                  <a className={`${btnGhost} !px-2`} href={`${REGISTER}/receipt/${s.id}?size=thermal`} target="_blank" rel="noreferrer" aria-label={t("shop.sales.reprint")}>
+                    <Printer className="w-4 h-4" />
+                  </a>
+                  <button type="button" className={btnPrimary} disabled={busy} onClick={() => void copySale(s.id)}>
+                    {t("shop.register.copyToBill")}
+                  </button>
+                </li>
+              ))}
             </ul>
           )}
         </Dialog>

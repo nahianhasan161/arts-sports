@@ -85,12 +85,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    // Wait for the role too: pages that gate on it (the admin shell) would
+    // otherwise see "signed in, no role" for a moment and turn the person away.
+    supabase.auth.getSession().then(async ({ data }) => {
       if (active) {
         const sessionUser = data.session?.user ?? null;
         setUser(sessionUser);
         if (sessionUser) {
-          loadProfile(sessionUser.id);
+          await loadProfile(sessionUser.id);
         }
       }
     }).finally(() => {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, ShoppingBag, Store } from "lucide-react";
 import { useT } from "@/i18n/client";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
 import { OFFLINE, ONLINE, REGISTER } from "@/components/admin/nav";
 import { useAdminAccess, useCurrentItem } from "@/components/admin/access";
@@ -28,7 +29,7 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
     }
   }, []);
 
-  if (redirecting) return <div className="h-screen bg-surface" />;
+  if (redirecting) return <PageSkeleton label={t("admin.shell.loading")} className="h-screen" />;
   if (pathname === REGISTER) return <>{children}</>;
   // Receipts: a plain page, ready to print.
   if (pathname.startsWith(`${REGISTER}/`)) return <div className="min-h-screen bg-surface p-4 print:p-0 print:bg-white">{children}</div>;

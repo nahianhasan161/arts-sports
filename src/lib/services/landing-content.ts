@@ -1,12 +1,12 @@
 import "server-only";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getPublicSupabase } from "@/lib/supabase/public";
 
 /**
  * Landing-page content, read server-side.
  *
  * The FAB editor writes rows into `site_content` as an admin edits the page,
- * so the page has to read them back on every render or an edit only survives
- * until the next navigation. Previously nothing read them, which is why a
+ * and the page reads them back (the cached page refreshes within its
+ * revalidate window, see app/page.tsx). Previously nothing read them, which is why a
  * replaced image showed correctly in the editor and then reverted to the
  * hardcoded file on reload.
  */
@@ -20,7 +20,7 @@ export interface LandingContentRow {
 
 export async function getLandingContent(area = "landing-page"): Promise<Map<string, LandingContentRow>> {
   const map = new Map<string, LandingContentRow>();
-  const supabase = await getSupabaseServerClient();
+  const supabase = getPublicSupabase();
   if (!supabase) return map;
 
   const { data, error } = await supabase

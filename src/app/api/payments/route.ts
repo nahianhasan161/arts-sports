@@ -221,6 +221,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A customer may only open a charge. Marking money as received (or a
+    // refund) is for the gateway webhook or an admin, never the browser.
+    if (type !== "charge" || (status && status !== "initiated")) {
+      return NextResponse.json({ error: "Only an initiated charge can be recorded here" }, { status: 403 });
+    }
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      return NextResponse.json({ error: "amount must be greater than zero" }, { status: 400 });
+    }
+
     // Verify the order belongs to this user
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -235,17 +244,20 @@ export async function POST(request: NextRequest) {
     if (order.user_id !== userId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    if (Number(amount) > Number(order.total_amount)) {
+      return NextResponse.json({ error: "Amount is more than the order total" }, { status: 400 });
+    }
 
     const { data, error } = await supabase
       .from("payments")
       .insert({
         order_id,
         user_id: userId,
-        type,
+        type: "charge",
         provider: provider || "cod",
         amount: Number(amount),
         provider_txn_id: provider_txn_id || null,
-        status: status || "initiated",
+        status: "initiated",
         metadata: metadata || {},
       })
       .select()

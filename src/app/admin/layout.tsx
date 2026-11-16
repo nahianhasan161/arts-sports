@@ -6,6 +6,7 @@ import { Shield } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useT } from "@/i18n/client";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { AdminAccessProvider, buildAccess, type AdminAccess } from "@/components/admin/access";
 import type { NavItem } from "@/components/admin/nav";
 
@@ -51,16 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => clearTimeout(timer);
   }, [loading, allowed, router]);
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-surface">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-accent-gold border-t-transparent rounded-full animate-spin" />
-          <p className="text-text-muted text-sm">{t("admin.shell.loading")}</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <PageSkeleton label={t("admin.shell.loading")} className="h-screen" />;
 
   if (!allowed) {
     return (

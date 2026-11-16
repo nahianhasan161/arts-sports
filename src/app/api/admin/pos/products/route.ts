@@ -8,6 +8,9 @@ import { effectivePrices, explainPosError, listShowrooms, loadVariants, shelfSto
 /**
  * GET /api/admin/pos/products?q=<barcode, SKU or name>&showroom_id=
  * GET /api/admin/pos/products?category_id=&showroom_id=&categories=1
+ * GET /api/admin/pos/products?categories_only=1&cat_offset=&cat_limit=   next page of categories
+ *   (browsing also takes limit= and offset= for the grid's lazy loading; the answer has has_more)
+ * GET /api/admin/pos/products?ids=<id,id,...>&showroom_id=   these products (copying a past sale)
  *
  * Without `q` it lists products for the register's grid (one category, or
  * the first ones by name); `categories=1` adds the top-level categories.
@@ -23,27 +26,66 @@ export async function GET(request: Request) {
     const db = getServiceSupabase();
     const categoryId = (url.searchParams.get("category_id") ?? "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
 
-    let categories: { id: string; name: string }[] | undefined;
-    if (url.searchParams.get("categories") === "1") {
-      const { data } = await db.from("categories").select("id, name, parent_id").is("parent_id", null).order("name").limit(40);
-      categories = (data ?? []).map((c) => ({ id: c.id as string, name: c.name as string }));
-    }
+    const idList = (url.searchParams.get("ids") ?? "")
+      .split(",")
+      .map((i) => i.replace(/[^A-Za-z0-9_-]/g, ""))
+      .filter(Boolean)
+      .slice(0, 100);
 
-    const showrooms = await listShowrooms(db);
+    const int = (k: string, d: number, max: number) => Math.min(max, Math.max(0, Number(url.searchParams.get(k) ?? d) || 0));
+    const limit = Math.max(1, int("limit", 60, 100));
+    const offset = int("offset", 0, 100000);
+    const catLimit = Math.max(1, int("cat_limit", 20, 60));
+    const catOffset = int("cat_offset", 0, 10000);
+    const wantCategories = url.searchParams.get("categories") === "1" || url.searchParams.get("categories_only") === "1";
+
+    // Independent reads run together: the shop list, the category strip and
+    // the barcode/SKU lookup. Each used to wait for the one before it.
+    const [showrooms, categoryRows] = await Promise.all([
+      listShowrooms(db),
+      wantCategories
+        ? // "*" so the strip keeps working before the image_url migration is applied.
+          // One extra row says whether the strip has another page.
+          db.from("categories").select("*").is("parent_id", null).order("name").order("id").range(catOffset, catOffset + catLimit)
+        : null,
+    ]);
+    const categoriesHasMore = categoryRows ? (categoryRows.data ?? []).length > catLimit : false;
+    const categories = categoryRows ? (categoryRows.data ?? []).slice(0, catLimit).map((c) => ({ id: c.id as string, name: c.name as string, image: ((c as { image_url?: string | null }).image_url ?? null) })) : undefined;
     const showroomId = showrooms.find((s) => s.id === url.searchParams.get("showroom_id"))?.id ?? showrooms[0]?.id;
     if (!showroomId) return NextResponse.json({ error: "No shop is set up. Add a showroom first." }, { status: 400 });
+    if (url.searchParams.get("categories_only") === "1") return NextResponse.json({ categories: categories ?? [], categoriesHasMore });
+
+    // Fast path: one SQL call does the pick, prices, variants and shelf stock
+    // (migration 20261117100000). Falls back to the reads below if it is missing.
+    const grid = await db.rpc("pos_register_grid", {
+      p_showroom_id: showroomId,
+      p_category_id: categoryId || null,
+      p_q: q || null,
+      p_ids: idList.length ? idList : null,
+      p_limit: limit,
+      p_offset: offset,
+    });
+    if (!grid.error && grid.data) {
+      const g = grid.data as { products: PosProduct[]; scanned: string | null; has_more?: boolean };
+      return NextResponse.json({ products: g.products ?? [], scanned: g.scanned ?? null, has_more: Boolean(g.has_more), categories, categoriesHasMore });
+    }
 
     const exact = q ? await loadVariants(db, { code: q }) : [];
     let productIds = [...new Set(exact.map((v) => v.product_id))];
     const scanned = exact.length === 1 ? exact[0].variant_id : null;
 
-    if (!q) {
+    const ids = idList;
+    let hasMore = false;
+    if (ids.length) {
+      productIds = [...new Set(ids)];
+    } else if (!q) {
       // The grid: one category (or a sub-category of it), else the first products by name.
-      let browse = db.from("products").select("id").is("deleted_at", null).order("title").limit(60);
+      let browse = db.from("products").select("id").is("deleted_at", null).order("title").order("id").range(offset, offset + limit);
       if (categoryId) browse = browse.or(`category_id.eq.${categoryId},sub_category_id.eq.${categoryId}`);
       const { data, error } = await browse;
       if (error) return NextResponse.json({ error: explainPosError(error.message) }, { status: 500 });
-      productIds = (data ?? []).map((p) => p.id);
+      hasMore = (data ?? []).length > limit;
+      productIds = (data ?? []).slice(0, limit).map((p) => p.id);
     } else if (!productIds.length) {
       const safe = q.replace(/[%,()]/g, " ").trim();
       const { data, error } = await db
@@ -62,17 +104,20 @@ export async function GET(request: Request) {
         productIds = (data ?? []).map((p) => p.id);
       }
     }
-    if (!productIds.length) return NextResponse.json({ products: [], scanned: null, categories });
+    if (!productIds.length) return NextResponse.json({ products: [], scanned: null, has_more: false, categories, categoriesHasMore });
 
+    // One products read, shared with loadVariants (it used to fetch them again).
+    const plainQuery = db.from("products").select("id, title, images, stock").in("id", productIds);
+    const plainRows = Promise.resolve(plainQuery).then((r) => (r.data ?? []) as { id: string; title: string; images: unknown; stock: number }[]);
     const [variants, prices, plain] = await Promise.all([
-      loadVariants(db, { productIds }),
+      loadVariants(db, { productIds }, plainRows),
       effectivePrices(db, productIds),
-      db.from("products").select("id, title, images, stock").in("id", productIds),
+      plainRows,
     ]);
     const shelf = await shelfStock(db, showroomId, variants.map((v) => v.variant_id));
 
     const products: PosProduct[] = [];
-    for (const p of plain.data ?? []) {
+    for (const p of plain) {
       const own = variants.filter((v) => v.product_id === p.id && v.is_active);
       const images = Array.isArray(p.images) ? p.images : [];
       const price = prices.get(p.id);
@@ -92,7 +137,7 @@ export async function GET(request: Request) {
       });
     }
     products.sort((a, b) => a.title.localeCompare(b.title));
-    return NextResponse.json({ products, scanned, categories });
+    return NextResponse.json({ products, scanned, has_more: hasMore, categories, categoriesHasMore });
   } catch (error) {
     return failed(error);
   }

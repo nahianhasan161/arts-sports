@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { Product, Category } from "@/types";
 import { PRODUCTS, CATEGORIES } from "@/lib/data/mock-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -5,13 +6,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function getActiveSupabaseClient(): Promise<SupabaseClient | null> {
   if (typeof window === "undefined") {
-    // Dynamically import to avoid bundling next/headers in client components
-    try {
-      const { getSupabaseServerClient } = await import("@/lib/supabase/server");
-      return await getSupabaseServerClient();
-    } catch {
-      return null;
-    }
+    // No cookies: these are public catalogue reads, and a session-free client
+    // keeps the pages that call them cacheable.
+    const { getPublicSupabase } = await import("@/lib/supabase/public");
+    return getPublicSupabase();
   }
   return getSupabaseBrowserClient();
 }
@@ -171,7 +169,11 @@ export async function getProducts(options?: {
   return items;
 }
 
-export async function getProductBySlug(slug: string): Promise<Product | null> {
+/**
+ * One product by slug. Wrapped in cache() so generateMetadata and the page
+ * share a single query per render.
+ */
+export const getProductBySlug = cache(async (slug: string): Promise<Product | null> => {
   const supabase = await getActiveSupabaseClient();
   if (supabase) {
     try {
@@ -199,7 +201,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
   const found = PRODUCTS.find((p) => p.slug === slug);
   return found || null;
-}
+});
 
 export async function getFeaturedProducts(): Promise<Product[]> {
   return getProducts({ limit: 6 });

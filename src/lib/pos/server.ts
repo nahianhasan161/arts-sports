@@ -93,7 +93,13 @@ const VARIANT_COLUMNS = "id, product_id, color_id, size_id, sku, barcode, stock,
 /** Variants with their product title and a "Red / M" label. */
 export async function loadVariants(
   db: SupabaseClient,
-  by: { productIds: string[] } | { variantIds: string[] } | { code: string }
+  by: { productIds: string[] } | { variantIds: string[] } | { code: string },
+  /**
+   * The product rows (id, title, images), when the caller is fetching them
+   * anyway. Passing them skips a second products query and lets the variant,
+   * colour and size reads run alongside the caller's.
+   */
+  knownProducts?: PromiseLike<{ id: string; title: string; images: unknown }[]>
 ): Promise<VariantRow[]> {
   let query = db.from("product_variants").select(VARIANT_COLUMNS).limit(2000);
   if ("productIds" in by) {
@@ -107,18 +113,23 @@ export async function loadVariants(
     if (!safe) return [];
     query = query.or(`barcode.eq."${safe}",sku.eq."${safe}"`);
   }
-  const { data, error } = await query;
+  const [{ data, error }, colors, sizes, known] = await Promise.all([
+    query,
+    db.from("colors").select("id, name"),
+    db.from("sizes").select("id, name"),
+    knownProducts ?? null,
+  ]);
   if (error) throw new Error(explainPosError(error.message));
   const variants = (data ?? []) as RawVariant[];
   if (!variants.length) return [];
 
-  const productIds = [...new Set(variants.map((v) => v.product_id))];
-  const [products, colors, sizes] = await Promise.all([
-    db.from("products").select("id, title, images").in("id", productIds),
-    db.from("colors").select("id, name"),
-    db.from("sizes").select("id, name"),
-  ]);
-  const product = new Map((products.data ?? []).map((p) => [p.id as string, p as { title: string; images: unknown }]));
+  let productRows = known;
+  if (!productRows) {
+    const productIds = [...new Set(variants.map((v) => v.product_id))];
+    const { data: rows } = await db.from("products").select("id, title, images").in("id", productIds);
+    productRows = (rows ?? []) as { id: string; title: string; images: unknown }[];
+  }
+  const product = new Map(productRows.map((p) => [p.id, p]));
   const color = new Map((colors.data ?? []).map((c) => [c.id as string, c.name as string]));
   const size = new Map((sizes.data ?? []).map((s) => [s.id as string, s.name as string]));
 

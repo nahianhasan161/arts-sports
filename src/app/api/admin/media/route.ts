@@ -130,8 +130,9 @@ export async function POST(request: NextRequest) {
     const uploaded: Record<string, unknown>[] = [];
     const failed: { name: string; reason: string }[] = [];
 
-    for (const file of files) {
-      const out = await uploadMediaFile(supabase, file, prefix);
+    for (const [i, file] of files.entries()) {
+      const thumb = form.get(`thumb_${i}`);
+      const out = await uploadMediaFile(supabase, file, prefix, thumb instanceof File ? thumb : null);
 
       if (!out.ok) {
         failed.push({ name: out.name, reason: out.reason });
