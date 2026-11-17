@@ -20,7 +20,8 @@ import { effectivePrices, explainPosError, listShowrooms, loadVariants, shelfSto
  */
 export async function GET(request: Request) {
   try {
-    const { user: actor } = await requirePermission("pos.use");
+    // The register and the supplier-purchase screen share this grid.
+    const { user: actor } = await requirePermission("pos.use").catch(() => requirePermission("inventory.manage"));
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
     const db = getServiceSupabase(actor);

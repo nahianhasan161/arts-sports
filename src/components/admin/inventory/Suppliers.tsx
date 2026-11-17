@@ -6,6 +6,9 @@ import { useT } from "@/i18n/client";
 import { parseDelimited, parseXlsx } from "@/lib/custom-jersey/roster";
 import { api, btnGhost, btnPrimary, card, field } from "@/components/admin/pos/api";
 import type { Supplier } from "./types";
+import { useConfirm } from "@/components/ui/confirm";
+import { useToast } from "@/components/ui/toast";
+import { SkeletonRows } from "@/components/ui/PageSkeleton";
 
 interface SupplierStock {
   variant_id: string;
@@ -22,7 +25,9 @@ const EMPTY = { id: "", name: "", phone: "", address: "", notes: "", lead_days: 
 /** Suppliers, and what each of them has that we can bring in (secondary stock). */
 export function Suppliers({ onChanged }: { onChanged: () => void }) {
   const { t } = useT();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[] | null>(null);
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [stock, setStock] = useState<SupplierStock[]>([]);
   const [form, setForm] = useState(EMPTY);
   const [target, setTarget] = useState("");
@@ -52,6 +57,22 @@ export function Suppliers({ onChanged }: { onChanged: () => void }) {
     await load();
     onChanged();
     return res.data;
+  }
+
+  /** Optimistic delete: the row goes at once and comes back (with a toast) if the server says no. */
+  async function remove(s: Supplier) {
+    const ok = await confirm({ title: t("shop.suppliers.confirmDelete", { name: s.name }), confirmText: t("shop.common.delete"), danger: true });
+    if (!ok) return;
+    const before = suppliers;
+    setSuppliers((rows) => rows?.filter((r) => r.id !== s.id) ?? rows);
+    const res = await api("/api/admin/inventory/suppliers", { action: "delete", id: s.id });
+    if (!res.ok) {
+      setSuppliers(before);
+      toast(t("shop.common.revertFailed", { error: res.error }), "error");
+      return;
+    }
+    void load();
+    onChanged();
   }
 
   /** Rows of: code (barcode or SKU), quantity, buying price. A header row is skipped. */
@@ -99,8 +120,13 @@ export function Suppliers({ onChanged }: { onChanged: () => void }) {
         </form>
 
         <ul className={`${card} divide-y divide-border-light`}>
-          {suppliers.length === 0 && <li className="p-3 text-sm text-text-muted">{t("shop.common.none")}</li>}
-          {suppliers.map((s) => (
+          {suppliers === null && (
+            <li>
+              <SkeletonRows count={4} label={t("shop.common.loading")} />
+            </li>
+          )}
+          {suppliers?.length === 0 && <li className="p-3 text-sm text-text-muted">{t("shop.common.none")}</li>}
+          {suppliers?.map((s) => (
             <li key={s.id} className="p-3 flex justify-between gap-2 text-sm">
               <button className="text-left" onClick={() => setForm({ id: s.id, name: s.name, phone: s.phone ?? "", address: s.address ?? "", notes: s.notes ?? "", lead_days: String(s.lead_days), is_active: s.is_active })}>
                 <strong className={s.is_active ? "text-primary" : "text-text-muted line-through"}>{s.name}</strong>
@@ -110,9 +136,7 @@ export function Suppliers({ onChanged }: { onChanged: () => void }) {
               </button>
               <button
                 className="text-text-muted hover:text-badge-discount"
-                onClick={() => {
-                  if (window.confirm(t("shop.suppliers.confirmDelete", { name: s.name }))) void send({ action: "delete", id: s.id });
-                }}
+                onClick={() => void remove(s)}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -126,7 +150,7 @@ export function Suppliers({ onChanged }: { onChanged: () => void }) {
           <h3 className="text-sm font-semibold">{t("shop.suppliers.stockTitle")}</h3>
           <p className="text-xs text-text-muted">{t("shop.suppliers.uploadHint")}</p>
           <select value={target} onChange={(e) => setTarget(e.target.value)} className={field}>
-            {suppliers.map((s) => (
+            {suppliers?.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>
@@ -168,7 +192,7 @@ export function Suppliers({ onChanged }: { onChanged: () => void }) {
                   <tr key={`${s.variant_id}:${s.supplier_id}`} className="border-t border-border-light first:border-0">
                     <td className="p-2">
                       {s.title} <span className="text-text-muted">{s.label}</span>
-                      <span className="block text-xs text-text-muted">{suppliers.find((x) => x.id === s.supplier_id)?.name}</span>
+                      <span className="block text-xs text-text-muted">{suppliers?.find((x) => x.id === s.supplier_id)?.name}</span>
                     </td>
                     <td className="p-2 text-right font-semibold">{s.quantity}</td>
                     <td className="p-2 text-right text-text-muted">{s.unit_cost === null ? "" : `৳${s.unit_cost}`}</td>

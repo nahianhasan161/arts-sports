@@ -7,6 +7,9 @@ import { taka } from "@/lib/pos/types";
 import { api, btnGhost, btnPrimary, card, dateTime, field } from "@/components/admin/pos/api";
 import { methodKey, purchaseNo, type PurchaseEdit, type PurchaseItem, type PurchaseRow, type SupplierPayment } from "@/lib/pos/purchase-types";
 import { Sheet } from "./SupplierForm";
+import { useConfirm } from "@/components/ui/confirm";
+import { useToast } from "@/components/ui/toast";
+import { SkeletonRows } from "@/components/ui/PageSkeleton";
 import { PurchaseEdits } from "./History";
 
 interface Data {
@@ -18,12 +21,37 @@ interface Data {
   created_by: string;
 }
 
-/** Undo a payment: asks why, keeps the row struck out. Returns true when done. */
-export async function undoPayment(t: ReturnType<typeof useT>["t"], id: string): Promise<{ ok: boolean; error?: string }> {
-  const reason = window.prompt(t("shop.history.undoAsk"))?.trim();
-  if (!reason) return { ok: false };
-  const res = await api("/api/admin/purchases", { action: "void_payment", payment_id: id, reason });
-  return res.ok ? { ok: true } : { ok: false, error: res.error };
+/**
+ * Undo a payment, optimistically: asks why (dialog), strikes the row out at once, then
+ * tells the server. On failure the row is put back and an error toast is shown.
+ */
+export function useUndoPayment() {
+  const { t } = useT();
+  const confirm = useConfirm();
+  const { toast } = useToast();
+  return async function undo(
+    pay: SupplierPayment,
+    setPayments: (fn: (rows: SupplierPayment[]) => SupplierPayment[]) => void,
+  ): Promise<boolean> {
+    const answer = await confirm({
+      title: t("shop.history.undoTitle"),
+      description: `${taka(pay.amount)} · ${t(methodKey(pay.method))}. ${t("shop.history.undoDesc")}`,
+      confirmText: t("shop.history.undo"),
+      danger: true,
+      reason: { label: t("shop.history.undoAsk") },
+    });
+    if (!answer) return false;
+    const before = pay;
+    setPayments((rows) => rows.map((r) => (r.id === pay.id ? { ...r, voided_at: new Date().toISOString(), void_reason: answer.reason, voided_by: r.voided_by ?? "…" } : r)));
+    const res = await api("/api/admin/purchases", { action: "void_payment", payment_id: pay.id, reason: answer.reason });
+    if (!res.ok) {
+      setPayments((rows) => rows.map((r) => (r.id === pay.id ? before : r)));
+      toast(t("shop.history.undoFailed", { error: res.error }), "error");
+      return false;
+    }
+    toast(t("shop.history.undone"), "success");
+    return true;
+  };
 }
 
 /** One payment line; an undone one is struck out with who and why. */
@@ -60,6 +88,7 @@ export function PurchaseDetail({ id, onClose, onChanged }: { id: string; onClose
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const undo = useUndoPayment();
 
   const load = useCallback(async () => {
     const res = await api<Data>(`/api/admin/purchases?id=${encodeURIComponent(id)}`);
@@ -83,7 +112,7 @@ export function PurchaseDetail({ id, onClose, onChanged }: { id: string; onClose
     <Sheet title={p ? `${purchaseNo(p)} · ${p.supplier}` : t("shop.common.loading")} onClose={onClose}>
       {error && <p className="text-sm text-badge-discount mb-2">{error}</p>}
       {notice && <p className="text-sm text-green-800 bg-green-50 dark:bg-green-900/30 dark:text-green-200 rounded p-2 mb-2">{notice}</p>}
-      {!data && !error && <p className="text-sm text-text-muted">{t("shop.common.loading")}</p>}
+      {!data && !error && <SkeletonRows count={7} label={t("shop.common.loading")} className="p-0" />}
       {p && data && editing && (
         <EditPurchase
           data={data}
@@ -183,9 +212,11 @@ export function PurchaseDetail({ id, onClose, onChanged }: { id: string; onClose
                   <PaymentLine
                     pay={pay}
                     onUndo={async () => {
-                      const r = await undoPayment(t, pay.id);
-                      if (r.error) setError(r.error);
-                      if (r.ok) void changed(t("shop.history.undone"));
+                      const ok = await undo(pay, (fn) => setData((d) => (d ? { ...d, payments: fn(d.payments) } : d)));
+                      if (ok) {
+                        await load();
+                        onChanged?.();
+                      }
                     }}
                   />
                   {pay.voided_at && <p className="text-[11px] text-amber-700 dark:text-amber-400">{t("shop.history.undoneBy", { name: pay.voided_by || "—", reason: pay.void_reason ?? "" })}</p>}

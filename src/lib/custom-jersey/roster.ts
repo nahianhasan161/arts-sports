@@ -1,4 +1,4 @@
-import type { RosterRow, Sleeve } from "./types";
+import { BOYS_SIZES, CUSTOM_SIZE, type Fit, type RosterRow, type Sleeve } from "./types";
 
 /**
  * Team list import: CSV, pasted cells from Excel/Sheets (tab separated) and
@@ -14,8 +14,49 @@ const HEADERS: Record<keyof RosterRow, RegExp> = {
   player_name: /^(player\s*)?name$|নাম/i,
   player_number: /^(no\.?|number|num|jersey\s*(no\.?|number)|#)$|নম্বর|নাম্বার/i,
   size: /^size$|সাইজ|মাপ/i,
-  sleeve: /sleeve|হাতা/i,
+  sleeve: /^(sleeve|হাতা)(\s*type)?$/i,
+  fit: /^(fit|type|men\s*\/\s*boys|for)$|ধরন/i,
+  chest: /chest|বুক/i,
+  length: /^(body\s*)?(length|long)$|লম্বা|লং/i,
+  sleeve_length: /sleeve.*(len|long|inch)|হাতার\s*(মাপ|লম্বা)/i,
 };
+
+/** A measurement in inches, or null. Accepts Bangla digits and 38.5. */
+export function parseInches(raw: unknown): number | null {
+  const n = Number(toAsciiDigits(String(raw ?? "")).replace(/["”in\s]/gi, ""));
+  return Number.isFinite(n) && n >= 4 && n <= 80 ? Math.round(n * 2) / 2 : null;
+}
+
+export function parseFit(raw: unknown, size = ""): Fit {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (/boy|kid|child|junior|বাচ্চা|ছেলে|শিশু/.test(v)) return "boys";
+  if (!v && (BOYS_SIZES as readonly string[]).includes(size)) return "boys";
+  return "men";
+}
+
+/**
+ * Server-side clean-up of one row sent by a browser. Returns null when the row
+ * has no size, or is CUSTOM without chest and length.
+ */
+export function cleanRosterRow(raw: unknown, fallbackSleeve: Sleeve): RosterRow | null {
+  const row = (raw ?? {}) as Record<string, unknown>;
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+  const size = str(row.size, 12).toUpperCase();
+  if (!size) return null;
+  const chest = parseInches(row.chest);
+  const length = parseInches(row.length);
+  if (size === CUSTOM_SIZE && (!chest || !length)) return null;
+  return {
+    player_name: str(row.player_name, 40),
+    player_number: str(row.player_number, 4),
+    size,
+    sleeve: row.sleeve === "full" ? "full" : row.sleeve === "short" ? "short" : fallbackSleeve,
+    fit: row.fit === "boys" ? "boys" : "men",
+    chest,
+    length,
+    sleeve_length: parseInches(row.sleeve_length),
+  };
+}
 
 function toAsciiDigits(s: string): string {
   return s.replace(/[০-৯]/g, (d) => String(d.charCodeAt(0) - 0x09e6));
@@ -84,14 +125,18 @@ export function rowsToRoster(cells: string[][], defaultSleeve: Sleeve = "short")
   const hasHeader = Object.keys(columns).length >= 2 || columns.size !== undefined;
   const col = hasHeader
     ? columns
-    : ({ player_name: 0, player_number: 1, size: 2, sleeve: 3 } satisfies Record<keyof RosterRow, number>);
+    : ({ player_name: 0, player_number: 1, size: 2, sleeve: 3, fit: 4, chest: 5, length: 6, sleeve_length: 7 } satisfies Record<keyof RosterRow, number>);
   const body = hasHeader ? cells.slice(1) : cells;
 
   const rows: RosterRow[] = [];
   let skipped = 0;
   for (const r of body) {
     const get = (key: keyof RosterRow) => (col[key] === undefined ? "" : (r[col[key]!] ?? "").trim());
-    const size = get("size").toUpperCase().replace(/\s+/g, "").slice(0, 12);
+    const chest = parseInches(get("chest"));
+    const length = parseInches(get("length"));
+    let size = get("size").toUpperCase().replace(/\s+/g, "").slice(0, 12);
+    if (!size && chest && length) size = CUSTOM_SIZE;
+    if (size === "CUSTOM" && !(chest && length)) size = "";
     if (!size || rows.length >= MAX_ROSTER) {
       skipped++;
       continue;
@@ -101,6 +146,10 @@ export function rowsToRoster(cells: string[][], defaultSleeve: Sleeve = "short")
       player_number: toAsciiDigits(get("player_number")).replace(/\.0+$/, "").slice(0, 4),
       size,
       sleeve: parseSleeve(get("sleeve"), defaultSleeve),
+      fit: parseFit(get("fit"), size),
+      chest,
+      length,
+      sleeve_length: parseInches(get("sleeve_length")),
     });
   }
   return { rows, skipped };
@@ -203,4 +252,5 @@ export async function importRosterFile(file: File, defaultSleeve: Sleeve = "shor
   return rowsToRoster(cells, defaultSleeve);
 }
 
-export const ROSTER_SAMPLE_CSV = "Name,Number,Size,Sleeve\nRAHIM,10,M,Short\nKARIM,7,L,Full\n";
+export const ROSTER_SAMPLE_CSV =
+  "Name,Number,Size,Sleeve,Fit,Chest,Length,Sleeve length\nRAHIM,10,M,Short,Men,,,\nKARIM,7,L,Full,Men,,,25\nSAKIB,9,26,Short,Boys,,,\nTAMIM,3,Custom,Short,Men,44,31,\n";

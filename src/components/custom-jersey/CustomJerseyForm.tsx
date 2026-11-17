@@ -219,7 +219,7 @@ export function CustomJerseyForm() {
           channel: new URLSearchParams(window.location.search).get("shop") === "1" ? "shop" : undefined,
           source,
           sport,
-          files: source === "upload" ? files : [],
+          files,
           notes,
           template_id: source === "template" ? template?.id : null,
           design: source === "template" ? { colors, team_name: teamName, name: sampleName, number: sampleNumber, logo_path: logo?.path ?? null, preview_path: previewPath } : {},
@@ -337,26 +337,7 @@ export function CustomJerseyForm() {
         {source === "upload" ? (
           <section className={card}>
             <h2 className={heading}>{t("customJersey.upload.label")}</h2>
-            <label className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-border-light rounded-xl py-6 px-3 text-center cursor-pointer hover:bg-surface-subtle">
-              {uploading ? <Loader2 className="w-6 h-6 animate-spin text-text-muted" /> : <Upload className="w-6 h-6 text-text-muted" />}
-              <span className="text-sm font-semibold">{uploading ? t("customJersey.upload.uploading") : t("customJersey.upload.add")}</span>
-              <span className="text-xs text-text-muted">{t("customJersey.upload.hint")}</span>
-              <input type="file" multiple accept={DESIGN_ACCEPT} className="hidden" disabled={uploading || files.length >= 10} onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
-            </label>
-            {files.length > 0 && (
-              <ul className="flex flex-col gap-1.5">
-                {files.map((f) => (
-                  <li key={f.path} className="flex items-center gap-2 text-sm bg-surface-subtle rounded-lg px-3 py-2">
-                    <FileText className="w-4 h-4 shrink-0 text-text-muted" />
-                    <span className="truncate flex-1">{f.name}</span>
-                    <span className="text-xs text-text-muted tabular-nums">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
-                    <button type="button" onClick={() => setFiles(files.filter((x) => x.path !== f.path))} aria-label={t("customJersey.upload.remove")} className="text-text-muted hover:text-badge-discount">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <DesignFiles files={files} setFiles={setFiles} uploading={uploading} onAdd={addFiles} />
             <label className="text-xs font-semibold" htmlFor="cj-notes">{t("customJersey.upload.notes")}</label>
             <textarea id="cj-notes" className="w-full rounded-lg border border-border-light bg-surface-card p-3 text-sm" rows={3} maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("customJersey.upload.notesPlaceholder")} />
           </section>
@@ -438,6 +419,8 @@ export function CustomJerseyForm() {
                     )}
                   </div>
                   <textarea className="w-full rounded-lg border border-border-light bg-surface-card p-3 text-sm" rows={2} maxLength={4000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("customJersey.upload.notesPlaceholder")} aria-label={t("customJersey.upload.notes")} />
+                  <span className="text-xs font-semibold">{t("customJersey.upload.extraLabel")}</span>
+                  <DesignFiles files={files} setFiles={setFiles} uploading={uploading} onAdd={addFiles} />
                   <p className="text-xs text-text-muted">{t("customJersey.template.previewNote")}</p>
                 </div>
               </div>
@@ -608,5 +591,67 @@ export function CustomJerseyForm() {
         </Link>
       </aside>
     </form>
+  );
+}
+
+const FILE_TAGS = ["front", "back", "logo", "sleeve", "sponsor", "reference"] as const;
+
+/** Upload box + one row per file, each with a note saying what the picture is. */
+function DesignFiles({ files, setFiles, uploading, onAdd }: {
+  files: UploadedFile[];
+  setFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
+  uploading: boolean;
+  onAdd: (list: FileList | null) => void | Promise<void>;
+}) {
+  const { t } = useT();
+  const setNote = (path: string, note: string) => setFiles((prev) => prev.map((x) => (x.path === path ? { ...x, note } : x)));
+  return (
+    <>
+      <label className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-border-light rounded-xl py-6 px-3 text-center cursor-pointer hover:bg-surface-subtle">
+        {uploading ? <Loader2 className="w-6 h-6 animate-spin text-text-muted" /> : <Upload className="w-6 h-6 text-text-muted" />}
+        <span className="text-sm font-semibold">{uploading ? t("customJersey.upload.uploading") : t("customJersey.upload.add")}</span>
+        <span className="text-xs text-text-muted">{t("customJersey.upload.hint")}</span>
+        <input type="file" multiple accept={DESIGN_ACCEPT} className="hidden" disabled={uploading || files.length >= 10} onChange={(e) => { void onAdd(e.target.files); e.target.value = ""; }} />
+      </label>
+      {files.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {files.map((f) => (
+            <li key={f.path} className="flex flex-col gap-1.5 text-sm bg-surface-subtle rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 shrink-0 text-text-muted" />
+                <span className="truncate flex-1">{f.name}</span>
+                <span className="text-xs text-text-muted tabular-nums">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                <button type="button" onClick={() => setFiles((prev) => prev.filter((x) => x.path !== f.path))} aria-label={t("customJersey.upload.remove")} className="text-text-muted hover:text-badge-discount">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {FILE_TAGS.map((tag) => {
+                  const label = t(`customJersey.upload.tags.${tag}`);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setNote(f.path, label)}
+                      className={`text-xs rounded-full border px-2.5 py-0.5 ${f.note === label ? "border-primary bg-primary text-white" : "border-border-light bg-surface-card hover:bg-surface-subtle"}`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                className="w-full rounded-lg border border-border-light bg-surface-card px-3 h-9 text-sm"
+                value={f.note ?? ""}
+                maxLength={200}
+                onChange={(e) => setNote(f.path, e.target.value)}
+                placeholder={t("customJersey.upload.notePlaceholder")}
+                aria-label={t("customJersey.upload.notePlaceholder")}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }

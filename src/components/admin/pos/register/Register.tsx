@@ -8,17 +8,18 @@ import { useTheme } from "@/lib/theme";
 import { useAdminAccess } from "@/components/admin/access";
 import { ArrowLeft, EllipsisVertical, History, Menu, PauseCircle, Plus, Printer, ScanLine, Search, Shirt, Ticket, Trash2, Upload, X, ShoppingCart, LayoutGrid, LifeBuoy, Monitor, Moon, Sun, Download, Banknote, RotateCw, ChevronLeft, KeyRound, UserRound } from "lucide-react";
 import { useT } from "@/i18n/client";
+import { useConfirm } from "@/components/ui/confirm";
 import PageSkeleton, { SkeletonRows, SkeletonTiles } from "@/components/ui/PageSkeleton";
 import { lineDiscount, taka, type CartLine, type PosProduct, type PosVariant, type SaleDetail } from "@/lib/pos/types";
 import { OFFLINE, REGISTER } from "@/components/admin/nav";
 import { LanguageToggle } from "@/components/layout/Preferences";
 import { api, btnGhost, btnPrimary, dateTime, field } from "../api";
 import { DayTab, type SessionInfo } from "../DayTab";
-import { CustomTab } from "../CustomTab";
+import { CustomRegister } from "./CustomRegister";
 import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "./parts";
 import { PaymentScreen, type Pay } from "./PaymentScreen";
 import { OrdersView } from "./OrdersView";
-import { QuickAdd } from "./QuickAdd";
+import { QuickAdd, type QuickAddTab } from "./QuickAdd";
 
 interface Held {
   id: string;
@@ -102,6 +103,7 @@ interface Draft {
  */
 export function Register() {
   const { t } = useT();
+  const confirm = useConfirm();
   const searchRef = useRef<HTMLInputElement>(null);
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
@@ -147,7 +149,7 @@ export function Register() {
   const [held, setHeld] = useState<Held[]>([]);
   const [heldId, setHeldId] = useState<string | null>(null);
   const [screen, setScreen] = useState<"bill" | "pay">("bill");
-  const [view, setView] = useState<"register" | "orders">("register");
+  const [view, setView] = useState<"register" | "orders" | "custom">("register");
   const [pays, setPays] = useState<Pay[]>([]);
   const [done, setDone] = useState<Done | null>(null);
   const [popup, setPopup] = useState<Popup>(null);
@@ -176,7 +178,14 @@ export function Register() {
   }, []);
 
   const { theme, toggle: toggleTheme } = useTheme();
-  const { userName } = useAdminAccess();
+  const { userName, isStaff } = useAdminAccess();
+  // Creating products/categories needs an admin account (the APIs use requireAdmin).
+  const canAdd = !isStaff;
+  const [addTab, setAddTab] = useState<QuickAddTab>("product");
+  const openAdd = (tab: QuickAddTab) => {
+    setAddTab(tab);
+    setPopup("add");
+  };
   const router = useRouter();
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   useEffect(() => {
@@ -537,6 +546,7 @@ export function Register() {
 
   function menuPick(id: string) {
     if (id === "past") { setPopup(null); return setView("orders"); }
+    if (id === "custom") { setPopup(null); return setView("custom"); }
     if (id === "clear") {
       reset();
       return setPopup(null);
@@ -638,7 +648,7 @@ export function Register() {
 
   /** Put a past sale's items (at today's price and stock) and customer into a fresh bill. */
   async function copySale(id: string) {
-    if (lines.length && !window.confirm(t("shop.register.copyReplace"))) return;
+    if (lines.length && !(await confirm({ title: t("shop.register.copyReplace") }))) return;
     setBusy(true);
     setError(null);
     const detail = await api<SaleDetail>(`/api/admin/pos/sales/${id}`);
@@ -813,8 +823,11 @@ export function Register() {
           <button type="button" onClick={() => setView("register")} className={`h-10 px-3 border-r border-border-light ${view === "register" ? "bg-primary/10 text-on-surface" : "text-on-surface-variant hover:bg-surface-subtle"}`}>
             {t("shop.register.registerTab")}
           </button>
-          <button type="button" onClick={() => setView("orders")} className={`h-10 px-3 ${view === "orders" ? "bg-primary/10 text-on-surface" : "text-on-surface-variant hover:bg-surface-subtle"}`}>
+          <button type="button" onClick={() => setView("orders")} className={`h-10 px-3 border-r border-border-light ${view === "orders" ? "bg-primary/10 text-on-surface" : "text-on-surface-variant hover:bg-surface-subtle"}`}>
             {t("shop.register.ordersTab")}
+          </button>
+          <button type="button" onClick={() => setView("custom")} className={`h-10 px-3 flex items-center gap-1.5 ${view === "custom" ? "bg-primary/10 text-on-surface" : "text-on-surface-variant hover:bg-surface-subtle"}`}>
+            <Shirt className="w-4 h-4" /> {t("shop.pos.tabs.custom")}
           </button>
         </div>
         <button type="button" onClick={() => { setView("register"); newOrder(); }} className="h-10 w-11 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center flex-shrink-0" title={t("shop.register.newOrder")} aria-label={t("shop.register.newOrder")}>
@@ -863,9 +876,9 @@ export function Register() {
           <PauseCircle className="w-5 h-5" />
           {held.length > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-accent-gold text-white text-[11px] font-bold flex items-center justify-center tabular-nums">{held.length}</span>}
         </button>
-        <button type="button" onClick={() => setPopup("add")} className="h-10 px-3 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center gap-1.5 text-sm font-semibold flex-shrink-0" title={t("shop.register.quickAddTitle")}>
+        {canAdd && <button type="button" onClick={() => openAdd("product")} className="h-10 px-3 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center gap-1.5 text-sm font-semibold flex-shrink-0" title={t("shop.register.quickAddTitle")}>
           <Plus className="w-5 h-5" /> <span className="hidden sm:inline">{t("shop.register.quickAdd")}</span>
-        </button>
+        </button>}
         <span className="hidden md:flex h-9 px-3 items-center rounded-md bg-primary text-primary-foreground text-sm font-bold max-w-[10rem] truncate" title={sessionOpen ? t("shop.register.open") : t("shop.register.closed")}>
           {shopName || "—"}
         </span>
@@ -875,7 +888,9 @@ export function Register() {
         </button>
       </header>
 
-      {view === "orders" ? (
+      {view === "custom" ? (
+        <CustomRegister />
+      ) : view === "orders" ? (
         <OrdersView canManage={canManage} onCopy={(id) => { setView("register"); void copySale(id); }} />
       ) : done ? (
         <div className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
@@ -1023,6 +1038,11 @@ export function Register() {
                       <span className="flex-1 text-center">{c.name}</span>
                     </button>
                   ))}
+                  {canAdd && !catsHasMore && !loadingCats && (
+                    <button type="button" onClick={() => openAdd("category")} className="shrink-0 snap-start min-w-[6rem] h-16 rounded-md border-2 border-dashed border-accent-gold/60 text-accent-gold hover:bg-accent-gold/10 flex items-center justify-center" title={t("shop.register.saveCategory")} aria-label={t("shop.register.saveCategory")}>
+                      <Plus className="w-6 h-6" />
+                    </button>
+                  )}
                   {loadingCats && Array.from({ length: 3 }).map((_, i) => <span key={`cs${i}`} aria-hidden className="shrink-0 min-w-[10rem] h-16 rounded-md bg-surface-subtle animate-pulse" />)}
                   {catsHasMore && <span ref={catEnd} className="shrink-0 w-px h-16" />}
                 </div>
@@ -1030,7 +1050,14 @@ export function Register() {
               {products === null ? (
                 <SkeletonTiles label={t("shop.common.loading")} />
               ) : products.length === 0 ? (
-                <p className="text-sm text-text-muted p-4">{q ? t("shop.pos.noResults") : t("shop.register.noProducts")}</p>
+                <div className="p-4 flex flex-col items-start gap-3">
+                  <p className="text-sm text-text-muted">{q ? t("shop.pos.noResults") : t("shop.register.noProducts")}</p>
+                  {canAdd && !q && (
+                    <button type="button" onClick={() => openAdd("product")} className="w-[150px] h-40 rounded-md border-2 border-dashed border-accent-gold/60 text-accent-gold hover:bg-accent-gold/10 flex flex-col items-center justify-center gap-1 text-sm font-semibold">
+                      <Plus className="w-8 h-8" /> {t("shop.register.saveProduct")}
+                    </button>
+                  )}
+                </div>
               ) : (
                 <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
                   {products.map((p) => {
@@ -1071,6 +1098,13 @@ export function Register() {
                       </li>
                     );
                   })}
+                  {canAdd && !hasMore && !loadingMore && !q && (
+                    <li>
+                      <button type="button" onClick={() => openAdd("product")} className="w-full h-40 rounded-md border-2 border-dashed border-accent-gold/60 text-accent-gold hover:bg-accent-gold/10 flex flex-col items-center justify-center gap-1 text-sm font-semibold">
+                        <Plus className="w-8 h-8" /> {t("shop.register.saveProduct")}
+                      </button>
+                    </li>
+                  )}
                   {loadingMore && Array.from({ length: 6 }).map((_, k) => <li key={`sk${k}`} aria-hidden className="h-40 rounded-md border border-border-light bg-surface-subtle animate-pulse" />)}
                 </ul>
               )}
@@ -1114,6 +1148,8 @@ export function Register() {
       {popup === "add" && (
         <QuickAdd
           categories={categories}
+          initialTab={addTab}
+          defaultCategory={category}
           onClose={() => setPopup(null)}
           onSaved={(kind) => {
             cache.current.clear();
@@ -1295,12 +1331,6 @@ export function Register() {
               ))}
             </ul>
           )}
-        </Dialog>
-      )}
-
-      {popup === "custom" && (
-        <Dialog title={t("shop.pos.tabs.custom")} onClose={() => setPopup(null)} wide>
-          <CustomTab />
         </Dialog>
       )}
 

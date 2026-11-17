@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Printer, Search } from "lucide-react";
+import { ExternalLink, Plus, Printer, Search } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka } from "@/lib/pos/types";
 import { STATUS_LABEL } from "@/components/admin/custom-orders/labels";
 import type { CustomOrderStatus } from "@/lib/custom-jersey/types";
 import { api, btnGhost, btnPrimary, card, field } from "./api";
+import { NewCustomOrder } from "./NewCustomOrder";
 
 export interface CounterOrder {
   id: string;
@@ -31,13 +32,14 @@ export interface CounterOrder {
 const METHODS = ["cash", "card", "bkash", "nagad"] as const;
 
 /** Custom jersey at the counter (roadmap 4.3): start an order, find one by scan or phone, take money, hand it over. */
-export function CustomTab() {
+export function CustomTab({ hideNew = false }: { hideNew?: boolean } = {}) {
   const { t } = useT();
   const [q, setQ] = useState("");
   const [orders, setOrders] = useState<CounterOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pay, setPay] = useState<Record<string, { amount: string; method: (typeof METHODS)[number]; trx: string }>>({});
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   async function search(term = q) {
     if (!term.trim()) return;
@@ -58,12 +60,28 @@ export function CustomTab() {
 
   return (
     <div className="flex flex-col gap-4 max-w-3xl">
-      <div className={`${card} p-4 flex flex-wrap items-center justify-between gap-3`}>
-        <p className="text-sm text-on-surface-variant max-w-md">{t("shop.custom.newHint")}</p>
-        <a className={btnPrimary} href="/custom-jersey?shop=1" target="_blank" rel="noreferrer">
-          <ExternalLink className="w-4 h-4" /> {t("shop.custom.newOrder")}
-        </a>
-      </div>
+      {hideNew ? null : creating ? (
+        <NewCustomOrder
+          onCancel={() => setCreating(false)}
+          onDone={(number) => {
+            setCreating(false);
+            setQ(number);
+            void search(number);
+          }}
+        />
+      ) : (
+        <div className={`${card} p-4 flex flex-wrap items-center justify-between gap-3`}>
+          <p className="text-sm text-on-surface-variant max-w-md">{t("shop.custom.newHint")}</p>
+          <div className="flex flex-wrap gap-2">
+            <button className={btnPrimary} onClick={() => setCreating(true)}>
+              <Plus className="w-4 h-4" /> {t("shop.custom.newOrder")}
+            </button>
+            <a className={btnGhost} href="/custom-jersey?shop=1" target="_blank" rel="noreferrer" title={t("shop.custom.fullFormHint")}>
+              <ExternalLink className="w-4 h-4" /> {t("shop.custom.fullForm")}
+            </a>
+          </div>
+        </div>
+      )}
 
       <form
         className="flex gap-2"

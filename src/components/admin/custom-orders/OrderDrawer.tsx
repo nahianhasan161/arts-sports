@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, ArrowLeft, ArrowRight, Copy, Download, ImagePlus, Loader2, X } from "lucide-react";
 import { JerseyPreview } from "@/components/custom-jersey/JerseyPreview";
-import { sizeSummary } from "@/lib/custom-jersey/pricing";
+import { measureText, sizeLabel, sizeSummary } from "@/lib/custom-jersey/pricing";
 import { BEFORE_APPROVAL, STAFF_TRANSITIONS, isOverdue, type CustomOrderDetail, type CustomOrderStatus, type Pattern } from "@/lib/custom-jersey/types";
 import { STATUS_LABEL, taka } from "./labels";
 
@@ -135,7 +135,11 @@ export function OrderDrawer({
   const exportRoster = () => {
     if (!data) return;
     const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-    const csv = ["Name,Number,Size,Sleeve", ...data.order.roster.map((r) => [r.player_name, r.player_number, r.size, r.sleeve].map(esc).join(","))].join("\n");
+    const num = (v?: number | null) => (v ? String(v) : "");
+    const csv = [
+      "Name,Number,Size,Sleeve,Fit,Chest,Length,Sleeve length",
+      ...data.order.roster.map((r) => [r.player_name, r.player_number, r.size, r.sleeve, r.fit ?? "men", num(r.chest), num(r.length), num(r.sleeve_length)].map(esc).join(",")),
+    ].join("\n");
     const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
@@ -345,6 +349,7 @@ export function OrderDrawer({
                       <a href={`/api/custom-jersey/file?id=${o.id}&i=${i}`} target="_blank" rel="noopener noreferrer" className="text-sm inline-flex items-center gap-1.5 underline underline-offset-2">
                         <Download className="w-3.5 h-3.5" /> {f.name} <span className="text-xs text-text-muted">({(f.size / 1024 / 1024).toFixed(1)} MB)</span>
                       </a>
+                      {f.note && <span className="block text-xs text-text-muted ml-5">{f.note}</span>}
                     </li>
                   ))}
                 </ul>
@@ -365,7 +370,7 @@ export function OrderDrawer({
                     <tbody>
                       {o.roster.map((r, i) => (
                         <tr key={r.id} className="border-t border-border-light">
-                          <td className="py-1 text-text-muted tabular-nums">{i + 1}</td><td>{r.player_name}</td><td className="tabular-nums">{r.player_number}</td><td>{r.size}</td><td>{r.sleeve}</td>
+                          <td className="py-1 text-text-muted tabular-nums">{i + 1}</td><td>{r.player_name}</td><td className="tabular-nums">{r.player_number}</td><td>{sizeLabel(r)}{measureText(r) && <span className="block text-[11px] text-text-muted">{measureText(r)}</span>}</td><td>{r.sleeve}</td>
                         </tr>
                       ))}
                     </tbody>

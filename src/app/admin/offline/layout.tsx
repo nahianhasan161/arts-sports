@@ -7,7 +7,7 @@ import { LogOut, ShoppingBag, Store } from "lucide-react";
 import { useT } from "@/i18n/client";
 import PageSkeleton from "@/components/ui/PageSkeleton";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
-import { OFFLINE, ONLINE, REGISTER } from "@/components/admin/nav";
+import { BUY, OFFLINE, ONLINE, REGISTER } from "@/components/admin/nav";
 import { useAdminAccess, useCurrentItem } from "@/components/admin/access";
 
 /**
@@ -30,7 +30,7 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
   }, []);
 
   if (redirecting) return <PageSkeleton label={t("admin.shell.loading")} className="h-screen" />;
-  if (pathname === REGISTER) return <>{children}</>;
+  if (pathname === REGISTER || pathname === BUY) return <>{children}</>;
   // Receipts: a plain page, ready to print.
   if (pathname.startsWith(`${REGISTER}/`)) return <div className="min-h-screen bg-surface p-4 print:p-0 print:bg-white">{children}</div>;
 
@@ -52,7 +52,7 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
             {offlineItems.map((item) => {
               const active = currentItem?.href === item.href;
               return (
-                <Link key={item.id} href={item.href} aria-current={active ? "page" : undefined} className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${active ? "bg-white/10 text-white" : "text-rail-text/80 hover:bg-rail-hover hover:text-white"}`}>
+                <Link key={item.id} href={item.href} aria-current={active ? "page" : undefined} className={`${item.id === "purchases" ? "ml-auto " : ""}px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${active ? "bg-white/10 text-white" : "text-rail-text/80 hover:bg-rail-hover hover:text-white"}`}>
                   {t(`admin.nav.${item.id}.name`)}
                 </Link>
               );

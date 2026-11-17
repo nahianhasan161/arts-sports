@@ -10,6 +10,14 @@ export const PATTERNS = ["plain", "stripes", "hoops", "sash", "halves", "chevron
 export type Pattern = (typeof PATTERNS)[number];
 
 export const SIZES = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL"] as const;
+/** Boys' (kids') jersey sizes, by chest width in inches as the factory labels them. */
+export const BOYS_SIZES = ["20", "22", "24", "26", "28", "30", "32", "34"] as const;
+/** Size value for a piece made to the player's own measurements. */
+export const CUSTOM_SIZE = "CUSTOM";
+
+/** Men is the default; boys use BOYS_SIZES. */
+export type Fit = "men" | "boys";
+export const FITS: Fit[] = ["men", "boys"];
 
 export type Sleeve = "short" | "full";
 export type Collar = "round" | "v" | "polo";
@@ -120,6 +128,13 @@ export interface RosterRow {
   player_number: string;
   size: string;
   sleeve: Sleeve;
+  /** Missing = men. */
+  fit?: Fit;
+  /** Body measurements in inches. Chest + length are required when size is CUSTOM. */
+  chest?: number | null;
+  length?: number | null;
+  /** Optional; also allowed on a standard size when only the sleeve is made longer/shorter. */
+  sleeve_length?: number | null;
 }
 
 export interface UploadedFile {
@@ -128,6 +143,8 @@ export interface UploadedFile {
   mime: string;
   size: number;
   kind: "design" | "reference" | "logo" | "preview";
+  /** What the picture shows, written by the customer: "front", "back", "logo", ... */
+  note?: string;
 }
 
 export interface TemplateDesign {

@@ -24,6 +24,8 @@ export const ONLINE = "/admin/online";
 export const OFFLINE = "/admin/offline";
 /** The register: full screen, without the shop's top menu. */
 export const REGISTER = `${OFFLINE}/pos`;
+/** The full-screen supplier-purchase window (same look as the register). */
+export const BUY = `${OFFLINE}/purchases`;
 
 export interface NavItem {
   id: NavId;
@@ -83,7 +85,7 @@ export const NAV: NavGroup[] = [
     id: "shared",
     items: [
       { id: "inventory", href: `${ONLINE}/inventory`, icon: Boxes, perm: "inventory.manage" },
-      { id: "purchases", href: `${ONLINE}/purchases`, icon: PackagePlus, perm: "inventory.manage" },
+      { id: "purchases", href: BUY, icon: PackagePlus, perm: "inventory.manage" },
       { id: "suppliers", href: `${ONLINE}/suppliers`, icon: Handshake, perm: "inventory.manage" },
       { id: "customers", href: `${ONLINE}/customers`, icon: Contact, perm: "customers.view" },
     ],
@@ -110,11 +112,11 @@ export const OFFLINE_NAV: NavItem[] = [
   { id: "cash", href: `${OFFLINE}/cash`, icon: Wallet, perm: "pos.use" },
   { id: "products", href: `${OFFLINE}/products`, icon: Package },
   { id: "inventory", href: `${OFFLINE}/inventory`, icon: Boxes, perm: "inventory.manage" },
-  { id: "purchases", href: `${OFFLINE}/purchases`, icon: PackagePlus, perm: "inventory.manage" },
   { id: "suppliers", href: `${OFFLINE}/suppliers`, icon: Handshake, perm: "inventory.manage" },
   { id: "customers", href: `${OFFLINE}/customers`, icon: Contact, perm: "customers.view" },
   { id: "branches", href: `${OFFLINE}/branches`, icon: Building2, perm: "settings.manage" },
   { id: "shopHelp", href: `${OFFLINE}/help`, icon: LifeBuoy, open: true },
+  { id: "purchases", href: BUY, icon: PackagePlus, perm: "inventory.manage" },
 ];
 
 /** The menu item a path belongs to: an exact match first, then the longest parent. */

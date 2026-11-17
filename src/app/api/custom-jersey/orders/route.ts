@@ -9,7 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { estimate } from "@/lib/custom-jersey/pricing";
 import { isDesignPath, isPreviewPath } from "@/lib/custom-jersey/files";
 import { explainDbError, loadConfig, notifyCustomOrder, findOrder } from "@/lib/custom-jersey/server";
-import { MAX_ROSTER } from "@/lib/custom-jersey/roster";
+import { MAX_ROSTER, cleanRosterRow } from "@/lib/custom-jersey/roster";
 import { PATTERNS, SPORTS, type Collar, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
 
 /**
@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       mime: text(file.mime, 80),
       size: Number(file.size) || 0,
       kind: file.kind === "reference" ? "reference" : "design",
+      note: text(file.note, 200) || undefined,
     });
   }
   const notes = text(b.notes, 4000) || null;
@@ -113,15 +114,8 @@ export async function POST(request: NextRequest) {
 
   const roster: RosterRow[] = [];
   for (const r of Array.isArray(b.roster) ? b.roster.slice(0, MAX_ROSTER) : []) {
-    const row = r as Partial<RosterRow>;
-    const size = text(row.size, 12).toUpperCase();
-    if (!size) continue;
-    roster.push({
-      player_name: text(row.player_name, 40),
-      player_number: text(row.player_number, 4),
-      size,
-      sleeve: row.sleeve === "full" ? "full" : row.sleeve === "short" ? "short" : sleeve,
-    });
+    const row = cleanRosterRow(r, sleeve);
+    if (row) roster.push(row);
   }
 
   const quantity = roster.length || Math.floor(Number(b.quantity));

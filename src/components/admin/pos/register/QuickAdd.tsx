@@ -7,7 +7,8 @@ import { appendImageFiles } from "@/lib/media/client-optimize";
 import { OFFLINE } from "@/components/admin/nav";
 import { api, btnGhost, btnPrimary, field } from "../api";
 
-type Tab = "product" | "category";
+export type QuickAddTab = "product" | "category";
+type Tab = QuickAddTab;
 
 /** A slug from the English part of a name; Bangla-only names get a random one. */
 function slugify(name: string, prefix: string) {
@@ -57,13 +58,13 @@ function ImageField({ file, setFile, label }: { file: File | null; setFile: (f: 
  * leaving the bill. Products are saved published with no options (one
  * unnamed variant); sizes, colours and stock are set in the full editor.
  */
-export function QuickAdd({ categories, onClose, onSaved }: { categories: { id: string; name: string }[]; onClose: () => void; onSaved: (kind: Tab) => void }) {
+export function QuickAdd({ categories, initialTab = "product", defaultCategory = "", onClose, onSaved }: { categories: { id: string; name: string }[]; initialTab?: Tab; defaultCategory?: string; onClose: () => void; onSaved: (kind: Tab) => void }) {
   const { t } = useT();
-  const [tab, setTab] = useState<Tab>("product");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [name, setName] = useState("");
   const [nameBn, setNameBn] = useState("");
   const [price, setPrice] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState(defaultCategory);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);

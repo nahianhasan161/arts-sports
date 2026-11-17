@@ -113,7 +113,7 @@ export async function findOrder(by: { id: string } | { token: string }): Promise
 export async function loadDetail(order: OrderRow, audience: "staff" | "customer"): Promise<CustomOrderDetail> {
   const db = getServiceSupabase();
   const [roster, mockups, messages, events, payments] = await Promise.all([
-    db.from("custom_order_roster").select("id, position, player_name, player_number, size, sleeve").eq("custom_order_id", order.id).order("position"),
+    db.from("custom_order_roster").select("id, position, player_name, player_number, size, sleeve, fit, chest, length, sleeve_length").eq("custom_order_id", order.id).order("position"),
     db.from("custom_order_mockups").select("id, version, images, note, created_at").eq("custom_order_id", order.id).order("version", { ascending: false }),
     db.from("custom_order_messages").select("id, author, body, created_at").eq("custom_order_id", order.id).order("created_at"),
     db.from("custom_order_events").select("id, from_status, to_status, actor, note, created_at").eq("custom_order_id", order.id).order("created_at"),
@@ -129,7 +129,7 @@ export async function loadDetail(order: OrderRow, audience: "staff" | "customer"
   const detail: CustomOrderDetail = {
     ...rest,
     paid_total,
-    roster: (roster.data ?? []).map((r) => ({ ...r, player_name: r.player_name ?? "", player_number: r.player_number ?? "" })) as CustomOrderDetail["roster"],
+    roster: (roster.data ?? []).map((r) => ({ ...r, player_name: r.player_name ?? "", player_number: r.player_number ?? "", chest: r.chest == null ? null : Number(r.chest), length: r.length == null ? null : Number(r.length), sleeve_length: r.sleeve_length == null ? null : Number(r.sleeve_length) })) as CustomOrderDetail["roster"],
     mockups: (mockups.data ?? []) as CustomOrderDetail["mockups"],
     messages: (messages.data ?? []) as CustomOrderDetail["messages"],
     events: (events.data ?? []) as CustomOrderDetail["events"],

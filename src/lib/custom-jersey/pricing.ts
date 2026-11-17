@@ -151,14 +151,32 @@ export function advanceFor(total: number, pricing: PricingConfig): number {
   return Math.ceil((total * pricing.advance_percent) / 100);
 }
 
+/** "M", "BOYS 26", "CUSTOM": the size with its fit, for counts and lists. */
+export function sizeLabel(r: Pick<RosterRow, "size" | "fit">): string {
+  const size = r.size.trim().toUpperCase();
+  return size && r.fit === "boys" ? `BOYS ${size}` : size;
+}
+
+/** 'Chest 38" · Length 29" · Sleeve 9"' — empty when no measurements. */
+export function measureText(r: Pick<RosterRow, "chest" | "length" | "sleeve_length">): string {
+  return [
+    r.chest ? `Chest ${r.chest}"` : "",
+    r.length ? `Length ${r.length}"` : "",
+    r.sleeve_length ? `Sleeve ${r.sleeve_length}"` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /** { M: 5, L: 4 } in the usual size order. */
-export function sizeSummary(roster: Pick<RosterRow, "size">[]): [string, number][] {
-  const order = ["XS", "S", "M", "L", "XL", "2XL", "XXL", "3XL", "XXXL", "4XL"];
+export function sizeSummary(roster: Pick<RosterRow, "size" | "fit">[]): [string, number][] {
+  const order = ["XS", "S", "M", "L", "XL", "2XL", "XXL", "3XL", "XXXL", "4XL", "CUSTOM"];
   const counts = new Map<string, number>();
   for (const r of roster) {
-    const size = r.size.trim().toUpperCase();
+    const size = sizeLabel(r);
     if (size) counts.set(size, (counts.get(size) ?? 0) + 1);
   }
-  const rank = (s: string) => (order.indexOf(s) === -1 ? order.length : order.indexOf(s));
+  // Men first, then boys, then custom.
+  const rank = (s: string) => (s.startsWith("BOYS ") ? 100 + Number(s.slice(5)) || 199 : s === "CUSTOM" || s === "BOYS CUSTOM" ? 300 : order.indexOf(s) === -1 ? order.length : order.indexOf(s));
   return [...counts.entries()].sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0]));
 }

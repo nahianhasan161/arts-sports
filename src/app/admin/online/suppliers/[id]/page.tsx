@@ -9,7 +9,10 @@ import { taka } from "@/lib/pos/types";
 import { api, btnGhost, btnPrimary, card, field } from "@/components/admin/pos/api";
 import { Sheet, SupplierForm } from "@/components/admin/purchases/SupplierForm";
 import { PurchaseList } from "@/components/admin/purchases/PurchaseList";
-import { PaymentLine, undoPayment } from "@/components/admin/purchases/PurchaseDetail";
+import { PaymentLine, useUndoPayment } from "@/components/admin/purchases/PurchaseDetail";
+import { useConfirm } from "@/components/ui/confirm";
+import { useToast } from "@/components/ui/toast";
+import PageSkeleton from "@/components/ui/PageSkeleton";
 import { AuditList } from "@/components/admin/purchases/History";
 import { methodKey } from "@/lib/pos/purchase-types";
 import { purchaseNo, SUPPLIER_PAY_METHODS, type AuditEntry, type PurchaseRow, type SupplierBalance, type SupplierFull, type SupplierPayment, type SupplierPayMethod } from "@/lib/pos/purchase-types";
@@ -34,6 +37,9 @@ export default function SupplierDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const undo = useUndoPayment();
+  const confirm = useConfirm();
+  const { toast } = useToast();
 
   const load = useCallback(async () => {
     const res = await api<Detail>(`/api/admin/inventory/suppliers?id=${encodeURIComponent(id)}`);
@@ -46,15 +52,19 @@ export default function SupplierDetailPage() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  if (!data) return <p className={`text-sm ${error ? "text-badge-discount" : "text-text-muted"}`}>{error ?? t("shop.common.loading")}</p>;
+  if (!data) return error ? <p className="text-sm text-badge-discount">{error}</p> : <PageSkeleton />;
   const s = data.supplier;
   const b = data.balance;
   const due = b?.due ?? s.opening_due;
 
   async function remove() {
-    if (!window.confirm(t("shop.supplier.confirmDelete", { name: s.name }))) return;
+    const ok = await confirm({ title: t("shop.supplier.confirmDelete", { name: s.name }), confirmText: t("shop.common.delete"), danger: true });
+    if (!ok) return;
     const res = await api<{ deactivated?: boolean }>("/api/admin/inventory/suppliers", { action: "delete", id: s.id });
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      toast(res.error, "error");
+      return setError(res.error);
+    }
     if (res.data.deactivated) {
       setNotice(t("shop.supplier.deactivated", { name: s.name }));
       void load();
@@ -157,12 +167,7 @@ export default function SupplierDetailPage() {
                             pay={p}
                             extra={against && <span className="text-text-muted"> · {purchaseNo(against)}</span>}
                             onUndo={async () => {
-                              const r = await undoPayment(t, p.id);
-                              if (r.error) setError(r.error);
-                              if (r.ok) {
-                                setNotice(t("shop.history.undone"));
-                                void load();
-                              }
+                              if (await undo(p, (fn) => setData((d) => (d ? { ...d, payments: fn(d.payments) } : d)))) void load();
                             }}
                           />
                           {p.voided_at && <p className="text-[11px] text-amber-700 dark:text-amber-400">{t("shop.history.undoneBy", { name: p.voided_by || "—", reason: p.void_reason ?? "" })}</p>}

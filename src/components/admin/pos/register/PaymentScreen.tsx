@@ -33,6 +33,8 @@ export function PaymentScreen({
   busy,
   error,
   blocked,
+  methods = PAY_METHODS,
+  extra,
 }: {
   total: number;
   pays: Pay[];
@@ -45,6 +47,10 @@ export function PaymentScreen({
   error: string | null;
   /** A reason the sale cannot be saved (discount over the limit), shown instead of the button being silently off. */
   blocked: string | null;
+  /** Which ways of paying to offer (default: all). */
+  methods?: readonly PayMethod[];
+  /** Shown under the customer button, e.g. the advance / full choice for a custom order. */
+  extra?: React.ReactNode;
 }) {
   const { t } = useT();
   const [selected, setSelected] = useState(0);
@@ -89,7 +95,7 @@ export function PaymentScreen({
           </button>
           <p className="text-xs font-semibold text-text-muted mt-2">{t("shop.register.payWith")}</p>
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
-            {PAY_METHODS.map((m) => {
+            {methods.map((m) => {
               const Icon = ICONS[m];
               return (
                 <button key={m} type="button" onClick={() => addMethod(m)} disabled={pays.length >= 4} className="h-12 px-3 rounded-lg border border-border-light bg-surface-card flex items-center gap-2.5 text-sm font-semibold text-on-surface hover:border-accent-gold disabled:opacity-40">
@@ -103,6 +109,7 @@ export function PaymentScreen({
             <UserRound className="w-5 h-5 text-accent-gold" />
             <span className="truncate">{customerLabel}</span>
           </button>
+          {extra}
         </aside>
 
         <section className="flex flex-col gap-4 min-w-0">

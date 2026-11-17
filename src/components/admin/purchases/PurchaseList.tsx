@@ -11,6 +11,16 @@ import { PurchaseDetail } from "./PurchaseDetail";
 export function PurchaseList({ rows, showSupplier = true, onChanged }: { rows: PurchaseRow[]; showSupplier?: boolean; onChanged?: () => void }) {
   const { t } = useT();
   const [open, setOpen] = useState<string | null>(null);
+  const sum = rows.reduce(
+    (a, p) => ({
+      lines: a.lines + Number(p.lines || 0),
+      pieces: a.pieces + Number(p.pieces || 0),
+      payable: a.payable + Number(p.payable || 0),
+      paid: a.paid + Number(p.paid || 0),
+      due: a.due + Number(p.due || 0),
+    }),
+    { lines: 0, pieces: 0, payable: 0, paid: 0, due: 0 },
+  );
   return (
     <>
       <div className={`${card} overflow-x-auto`}>
@@ -49,6 +59,21 @@ export function PurchaseList({ rows, showSupplier = true, onChanged }: { rows: P
               </tr>
             ))}
           </tbody>
+          {rows.length > 0 && (
+            <tfoot className="border-t-2 border-border-light bg-surface-subtle font-semibold">
+              <tr>
+                <td className="p-2" colSpan={showSupplier ? 3 : 2}>
+                  {t("shop.purchase.totalRow", { n: rows.length })}
+                </td>
+                <td className="p-2 text-xs text-text-muted">
+                  {t("shop.purchase.pieces", { lines: sum.lines, n: sum.pieces })}
+                </td>
+                <td className="p-2 text-right">{taka(sum.payable)}</td>
+                <td className="p-2 text-right text-green-700">{taka(sum.paid)}</td>
+                <td className={`p-2 text-right ${sum.due > 0 ? "text-badge-discount" : "text-text-muted"}`}>{sum.due > 0 ? taka(sum.due) : "—"}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
       {open && <PurchaseDetail id={open} onClose={() => setOpen(null)} onChanged={onChanged} />}

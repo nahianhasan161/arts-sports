@@ -95,7 +95,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         for (const f of Array.isArray(b.files) ? b.files.slice(0, 10) : []) {
           const file = f as Partial<UploadedFile>;
           if (!isDesignPath(file.path) || files.some((x) => x.path === file.path)) continue;
-          files.push({ path: file.path, name: String(file.name ?? "file").slice(0, 120), mime: String(file.mime ?? ""), size: Number(file.size) || 0, kind: "design" });
+          files.push({ path: file.path, name: String(file.name ?? "file").slice(0, 120), mime: String(file.mime ?? ""), size: Number(file.size) || 0, kind: "design", note: typeof file.note === "string" ? file.note.trim().slice(0, 200) || undefined : undefined });
         }
         const patch: Record<string, unknown> = { files: files.slice(0, 20) };
         if (typeof b.notes === "string" && b.notes.trim()) patch.notes = b.notes.trim().slice(0, 4000);

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { AlertCircle, Check, Copy, Download, FileText, Loader2, MessageCircle, Upload } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { formatMoney } from "@/i18n";
-import { sizeSummary } from "@/lib/custom-jersey/pricing";
+import { measureText, sizeLabel, sizeSummary } from "@/lib/custom-jersey/pricing";
 import { DESIGN_ACCEPT } from "@/lib/custom-jersey/files";
 import { BEFORE_APPROVAL, PRODUCTION_STEPS, type CustomOrderDetail, type Pattern, type UploadedFile } from "@/lib/custom-jersey/types";
 import { JerseyPreview } from "./JerseyPreview";
@@ -501,6 +501,7 @@ export function CustomOrderView({ token }: { token: string }) {
                   <a href={`/api/custom-jersey/file?token=${token}&i=${i}`} target="_blank" rel="noopener noreferrer" className="text-sm inline-flex items-center gap-1.5 underline underline-offset-2">
                     <Download className="w-3.5 h-3.5" /> {f.name}
                   </a>
+                      {f.note && <span className="block text-xs text-text-muted ml-5">{f.note}</span>}
                 </li>
               ))}
             </ul>
@@ -520,7 +521,10 @@ export function CustomOrderView({ token }: { token: string }) {
                       <td className="py-1 pr-2 text-text-muted tabular-nums">{i + 1}</td>
                       <td className="py-1 pr-2">{r.player_name}</td>
                       <td className="py-1 pr-2 tabular-nums">{r.player_number}</td>
-                      <td className="py-1 pr-2">{r.size}</td>
+                      <td className="py-1 pr-2">
+                        {sizeLabel(r)}
+                        {measureText(r) && <span className="block text-[11px] text-text-muted">{measureText(r)}</span>}
+                      </td>
                       <td className="py-1">{t(`customJersey.options.${r.sleeve}`)}</td>
                     </tr>
                   ))}

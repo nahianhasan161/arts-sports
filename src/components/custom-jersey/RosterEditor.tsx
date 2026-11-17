@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ClipboardPaste, Download, FileSpreadsheet, Plus, Trash2, X } from "lucide-react";
+import { Fragment, useRef, useState } from "react";
+import { ClipboardPaste, Download, FileSpreadsheet, Plus, Ruler, Trash2, X } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { importRosterFile, parseDelimited, rowsToRoster, MAX_ROSTER, ROSTER_SAMPLE_CSV } from "@/lib/custom-jersey/roster";
 import { sizeSummary } from "@/lib/custom-jersey/pricing";
-import { SIZES, type RosterRow, type Sleeve } from "@/lib/custom-jersey/types";
+import { BOYS_SIZES, CUSTOM_SIZE, SIZES, type Fit, type RosterRow, type Sleeve } from "@/lib/custom-jersey/types";
 
 const cell = "w-full h-9 px-2 rounded-md border border-border-light bg-surface-card text-sm focus:outline-none focus:ring-1 focus:ring-primary";
 const tool = "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-light bg-surface-card text-xs font-semibold hover:bg-surface-subtle";
@@ -27,8 +27,27 @@ export function RosterEditor({
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasted, setPasted] = useState("");
 
+  // Rows whose measurement line is open (custom size always shows it).
+  const [measureOpen, setMeasureOpen] = useState<Set<number>>(new Set());
+  const toggleMeasure = (i: number) =>
+    setMeasureOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  const inches = (v: string) => {
+    const n = Number(v);
+    return v.trim() === "" || !Number.isFinite(n) ? null : n;
+  };
+  const changeFit = (i: number, fit: Fit) => {
+    const r = rows[i];
+    const list: readonly string[] = fit === "boys" ? BOYS_SIZES : SIZES;
+    update(i, { fit, size: r.size === CUSTOM_SIZE || list.includes(r.size) ? r.size : fit === "boys" ? "26" : "M" });
+  };
+
   const update = (index: number, patch: Partial<RosterRow>) => onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
-  const addRow = () => rows.length < MAX_ROSTER && onChange([...rows, { player_name: "", player_number: "", size: "M", sleeve: defaultSleeve }]);
+  const addRow = () => rows.length < MAX_ROSTER && onChange([...rows, { player_name: "", player_number: "", size: "M", sleeve: defaultSleeve, fit: "men" }]);
 
   const append = (imported: { rows: RosterRow[]; skipped: number }) => {
     const room = MAX_ROSTER - rows.length;
@@ -114,20 +133,27 @@ export function RosterEditor({
 
       {rows.length > 0 && (
         <div className="overflow-x-auto -mx-1 px-1">
-          <table className="w-full min-w-[420px] text-sm">
+          <table className="w-full min-w-[520px] text-sm">
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-text-muted">
                 <th className="w-8 font-semibold pb-1">#</th>
                 <th className="font-semibold pb-1">{t("customJersey.roster.name")}</th>
                 <th className="w-20 font-semibold pb-1">{t("customJersey.roster.number")}</th>
+                <th className="w-24 font-semibold pb-1">{t("customJersey.roster.fit")}</th>
                 <th className="w-24 font-semibold pb-1">{t("customJersey.roster.size")}</th>
                 <th className="w-32 font-semibold pb-1">{t("customJersey.roster.sleeve")}</th>
-                <th className="w-8" />
+                <th className="w-16" />
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={i}>
+              {rows.map((r, i) => {
+                const sizes: readonly string[] = r.fit === "boys" ? BOYS_SIZES : SIZES;
+                const custom = r.size === CUSTOM_SIZE;
+                const showMeasure = custom || measureOpen.has(i) || !!r.sleeve_length || !!r.chest || !!r.length;
+                const missing = custom && (!r.chest || !r.length);
+                return (
+                <Fragment key={i}>
+                <tr>
                   <td className="text-xs text-text-muted tabular-nums">{i + 1}</td>
                   <td className="p-0.5">
                     <input className={cell} value={r.player_name} maxLength={40} onChange={(e) => update(i, { player_name: e.target.value })} aria-label={t("customJersey.roster.name")} />
@@ -136,13 +162,20 @@ export function RosterEditor({
                     <input className={cell} value={r.player_number} maxLength={4} inputMode="numeric" onChange={(e) => update(i, { player_number: e.target.value })} aria-label={t("customJersey.roster.number")} />
                   </td>
                   <td className="p-0.5">
+                    <select className={cell} value={r.fit ?? "men"} onChange={(e) => changeFit(i, e.target.value as Fit)} aria-label={t("customJersey.roster.fit")}>
+                      <option value="men">{t("customJersey.roster.men")}</option>
+                      <option value="boys">{t("customJersey.roster.boys")}</option>
+                    </select>
+                  </td>
+                  <td className="p-0.5">
                     <select className={cell} value={r.size} onChange={(e) => update(i, { size: e.target.value })} aria-label={t("customJersey.roster.size")}>
-                      {(SIZES as readonly string[]).includes(r.size) ? null : <option value={r.size}>{r.size}</option>}
-                      {SIZES.map((s) => (
+                      {sizes.includes(r.size) || custom ? null : <option value={r.size}>{r.size}</option>}
+                      {sizes.map((s) => (
                         <option key={s} value={s}>
                           {s}
                         </option>
                       ))}
+                      <option value={CUSTOM_SIZE}>{t("customJersey.roster.custom")}</option>
                     </select>
                   </td>
                   <td className="p-0.5">
@@ -151,13 +184,43 @@ export function RosterEditor({
                       <option value="full">{t("customJersey.options.full")}</option>
                     </select>
                   </td>
-                  <td>
-                    <button type="button" onClick={() => onChange(rows.filter((_, x) => x !== i))} aria-label={t("customJersey.roster.remove")} className="p-1 text-text-muted hover:text-badge-discount">
+                  <td className="whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => toggleMeasure(i)}
+                      disabled={custom}
+                      title={t("customJersey.roster.measure")}
+                      aria-label={t("customJersey.roster.measure")}
+                      className={`p-1 hover:text-primary ${showMeasure ? "text-primary" : "text-text-muted"}`}
+                    >
+                      <Ruler className="w-4 h-4" />
+                    </button>
+                    <button type="button" onClick={() => { setMeasureOpen(new Set()); onChange(rows.filter((_, x) => x !== i)); }} aria-label={t("customJersey.roster.remove")} className="p-1 text-text-muted hover:text-badge-discount">
                       <X className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
-              ))}
+                {showMeasure && (
+                  <tr>
+                    <td />
+                    <td colSpan={6} className="pb-2">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-text-muted">{t("customJersey.roster.inches")}</span>
+                        {custom && (
+                          <>
+                            <MeasureInput label={`${t("customJersey.roster.chest")} *`} value={r.chest} invalid={missing && !r.chest} onChange={(v) => update(i, { chest: inches(v) })} />
+                            <MeasureInput label={`${t("customJersey.roster.length")} *`} value={r.length} invalid={missing && !r.length} onChange={(v) => update(i, { length: inches(v) })} />
+                          </>
+                        )}
+                        <MeasureInput label={t("customJersey.roster.sleeveLength")} value={r.sleeve_length} onChange={(v) => update(i, { sleeve_length: inches(v) })} />
+                        {missing && <span className="text-badge-discount">{t("customJersey.roster.needMeasure")}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -169,6 +232,24 @@ export function RosterEditor({
 
       {summary.length > 0 && <SizeSummary summary={summary} total={rows.length} label={t("customJersey.roster.total")} />}
     </div>
+  );
+}
+
+function MeasureInput({ label, value, invalid, onChange }: { label: string; value?: number | null; invalid?: boolean; onChange: (v: string) => void }) {
+  return (
+    <label className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <input
+        className={`${cell} w-16 h-8 ${invalid ? "border-badge-discount" : ""}`}
+        type="number"
+        inputMode="decimal"
+        min={4}
+        max={80}
+        step={0.5}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
   );
 }
 

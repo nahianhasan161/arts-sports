@@ -1,2 +1,6 @@
-// The same screen as the online app: suppliers and stock are one set of data.
-export { default } from "@/app/admin/online/purchases/page";
+import { PurchaseScreen } from "@/components/admin/purchases/PurchaseScreen";
+
+/** Buying from a supplier: a full-screen window laid out like the register. Needs `inventory.manage`. */
+export default function PurchasesPage() {
+  return <PurchaseScreen />;
+}
