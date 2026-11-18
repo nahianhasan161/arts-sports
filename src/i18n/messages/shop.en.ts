@@ -297,6 +297,7 @@ export const shopEn = {
     expectedCash: "Cash that should be in the drawer",
     float: "Started with {amount}",
     cashInOut: "Cash in / out",
+    customJersey: "Custom jersey ({count})",
     cashHint: "Money put in or taken out that is not a sale: change brought in, tea, a delivery paid in cash.",
     cashReason: "What for",
     cashIn: "Put in",

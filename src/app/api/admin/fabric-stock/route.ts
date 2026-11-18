@@ -24,7 +24,10 @@ const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").repla
 const num = (v: unknown) => (v === "" || v === null || v === undefined ? NaN : Number(v));
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const MIGRATION = "Fabric stock is not set up yet: the migration 20261118140000_fabric_stock.sql has not been applied.";
-const explain = (m: string) => (/fabric_(moves|stock|purchase)|kg_per_piece|low_stock_kg/.test(m) && /does not exist|schema cache|Could not find/i.test(m) ? MIGRATION : m);
+const explain = (m: string) =>
+  /^not_enough_stock:/.test(m.trim())
+    ? `Not enough fabric in stock: only ${m.trim().split(":")[1]} kg left. Buy or correct the count first.`
+    : /fabric_(moves|stock|purchase)|kg_per_piece|low_stock_kg/.test(m) && /does not exist|schema cache|Could not find/i.test(m) ? MIGRATION : m;
 
 const SQL_ERRORS: Record<string, string> = {
   fabric_not_found: "Fabric not found",

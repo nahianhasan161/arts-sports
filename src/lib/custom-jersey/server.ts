@@ -269,16 +269,18 @@ async function settle(paymentId: string, status: string, gatewayStatus: string |
   });
   if (error) throw new Error(explainDbError(error.message));
   const result = data as SettleResult;
-
-  if (result.became_successful) {
-    const order = await findOrder({ id: result.custom_order_id });
-    if (order) {
-      await notifyCustomOrder(order, result.entered_production ? "custom_advance_received" : "custom_payment_received", {
-        amount: formatMoney(Number(result.amount), resolveLocale(order.locale)),
-      });
-    }
-  }
+  await notifySettled(result);
   return result;
+}
+
+/** Tells the customer about a payment that just went through. */
+async function notifySettled(result: SettleResult): Promise<void> {
+  if (!result.became_successful) return;
+  const order = await findOrder({ id: result.custom_order_id });
+  if (!order) return;
+  await notifyCustomOrder(order, result.entered_production ? "custom_advance_received" : "custom_payment_received", {
+    amount: formatMoney(Number(result.amount), resolveLocale(order.locale)),
+  });
 }
 
 /** Starts an online payment for what is due now and returns the gateway's checkout link. */
@@ -352,7 +354,26 @@ export async function syncCustomPaymentById(paymentId: string): Promise<void> {
   await syncCustomGatewayPayment(data.gateway, data.gateway_payment_id);
 }
 
-/** Cash, card or a wallet transfer taken by staff (shop, COD on delivery). */
+/** Turns custom_order_take_payment's error codes into a line staff can act on. */
+function explainPaymentError(message: string): string {
+  const [code, detail] = message.trim().split(":");
+  if (code === "more_than_due") return `That is more than what is left to pay (৳${Number(detail ?? 0)})`;
+  if (code === "not_payable") return "Money is taken only after the customer has confirmed the design";
+  if (code === "session_not_open") return "Open the cash drawer first (Cash page), then take the cash";
+  if (code === "invalid_payment_method") return "Choose how it was paid";
+  if (code === "invalid_amount") return "Enter the amount";
+  if (code === "order_not_found") return "Order not found";
+  if (/custom_order_take_payment/.test(message) && /does not exist|schema cache|Could not find/i.test(message)) {
+    return "Payment guard is not set up yet: the migration 20261119110000_custom_payment_guards.sql has not been applied.";
+  }
+  return explainDbError(message);
+}
+
+/**
+ * Cash, card or a wallet transfer taken by staff (shop, COD on delivery).
+ * Done in SQL under a lock on the order, so it can never go over the total.
+ * atCounter: the money goes into the staff member's open cash drawer (cash needs one).
+ */
 export async function recordManualPayment(input: {
   order: OrderRow;
   amount: number;
@@ -361,21 +382,22 @@ export async function recordManualPayment(input: {
   trxId?: string | null;
   note?: string | null;
   staffId: string;
+  atCounter?: boolean;
 }): Promise<SettleResult> {
-  const { data: row, error } = await getServiceSupabase()
-    .from("custom_order_payments")
-    .insert({
-      custom_order_id: input.order.id,
-      kind: input.kind,
-      method: input.method,
+  const { data, error } = await getServiceSupabase({ id: input.staffId }).rpc("custom_order_take_payment", {
+    p: {
+      actor: input.staffId,
+      order_id: input.order.id,
       amount: input.amount,
-      status: "initiated",
+      method: input.method,
+      kind: input.kind,
       trx_id: input.trxId || null,
       note: input.note || null,
-      recorded_by: input.staffId,
-    })
-    .select("id")
-    .single();
-  if (error || !row) throw new Error(explainDbError(error?.message ?? "Could not record the payment"));
-  return settle(row.id, "successful", null, input.trxId ?? null);
+      at_counter: input.atCounter === true,
+    },
+  });
+  if (error || !data) throw new Error(explainPaymentError(error?.message ?? "Could not record the payment"));
+  const result = data as SettleResult;
+  await notifySettled(result);
+  return result;
 }

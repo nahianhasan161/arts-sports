@@ -66,9 +66,15 @@ export default function CustomOrdersAdminPage() {
   const late = visible.filter((r) => isOverdue(r)).length;
   const boardMode = view === "board" && scope === "open";
 
-  async function advance(row: Row, to: CustomOrderStatus) {
-    const res = await fetch(`/api/admin/custom-orders/${row.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "move", to }) });
-    if (!res.ok) setError((await res.json().catch(() => ({}))).error ?? "Could not move the order");
+  async function advance(row: Row, to: CustomOrderStatus, allowDue = false) {
+    const res = await fetch(`/api/admin/custom-orders/${row.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "move", to, allow_due: allowDue }) });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 409 && json.code === "due_left" && !allowDue) {
+        if (confirm(`${json.error}. Mark it delivered anyway (for example, the courier collects it)?`)) return advance(row, to, true);
+      }
+      setError(json.error ?? "Could not move the order");
+    }
     await load();
   }
 

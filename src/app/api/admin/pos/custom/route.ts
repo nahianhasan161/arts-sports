@@ -72,7 +72,11 @@ export async function POST(request: Request) {
       if (!Number.isFinite(amount) || amount <= 0) return bad("Enter the amount");
       if (!PAY_METHODS.includes(method)) return bad("Choose how it was paid");
       if (amount > due.total - due.paid + 0.001) return bad(`That is more than what is left to pay (৳${due.total - due.paid})`);
-      await recordManualPayment({ order, amount, method, kind: due.kind, trxId: typeof b.trx_id === "string" ? b.trx_id.trim().slice(0, 60) : null, note: "Taken at the shop counter", staffId: user.id });
+      try {
+        await recordManualPayment({ order, amount, method, kind: due.kind, trxId: typeof b.trx_id === "string" ? b.trx_id.trim().slice(0, 60) : null, note: "Taken at the shop counter", staffId: user.id, atCounter: true });
+      } catch (err) {
+        return bad(err instanceof Error ? err.message : "Could not record the payment");
+      }
       return NextResponse.json({ ok: true });
     }
 
@@ -254,7 +258,7 @@ async function createOrder(b: Record<string, unknown>, staffId: string) {
     else if (payNow > total + 0.001) paymentError = `Order saved, but ৳${payNow} is more than the total (৳${total}): take the payment again`;
     else {
       try {
-        await recordManualPayment({ order, amount: payNow, method, kind: payNow >= total ? "balance" : "advance", trxId: text(b.pay_trx, 60) || null, note: "Taken at the shop counter", staffId });
+        await recordManualPayment({ order, amount: payNow, method, kind: payNow >= total ? "balance" : "advance", trxId: text(b.pay_trx, 60) || null, note: "Taken at the shop counter", staffId, atCounter: true });
       } catch (err) {
         paymentError = `Order saved, but the payment failed: ${err instanceof Error ? err.message : "try again"}`;
       }

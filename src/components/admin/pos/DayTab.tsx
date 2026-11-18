@@ -8,7 +8,7 @@ import { api, btnGhost, btnPrimary, card, dateTime, field } from "./api";
 export interface SessionInfo {
   showrooms: { id: string; name: string }[];
   session: { id: string; showroom_id: string; opened_at: string; opening_float: number } | null;
-  summary: { opening_float: number; sales_count: number; sales_total: number; refunds_total: number; cash_moves: number; expected_cash: number; by_method: Record<string, number> } | null;
+  summary: { opening_float: number; sales_count: number; sales_total: number; refunds_total: number; cash_moves: number; expected_cash: number; custom_count?: number; custom_total?: number; by_method: Record<string, number> } | null;
   moves: { id: string; amount: number; reason: string; created_at: string }[];
   history: { id: string; staff: string; opened_at: string; closed_at: string; expected_cash: number; counted_cash: number; difference: number; note: string | null }[];
   can_manage: boolean;
@@ -98,6 +98,7 @@ export function DayTab({ info, reload }: { info: SessionInfo; reload: () => Prom
                 {t("shop.day.float", { amount: taka(s.opening_float) })}
                 {Object.entries(s.by_method).map(([m, v]) => ` · ${t(`shop.method.${m as PayMethod}`)} ${taka(v)}`)}
                 {s.cash_moves !== 0 && ` · ${t("shop.day.cashInOut")} ${taka(s.cash_moves)}`}
+                {Number(s.custom_count ?? 0) > 0 && ` · ${t("shop.day.customJersey", { count: String(s.custom_count) })} ${taka(Number(s.custom_total ?? 0))}`}
               </p>
             </section>
 

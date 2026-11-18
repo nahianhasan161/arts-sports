@@ -22,7 +22,10 @@ import { ACCESSORY_KINDS } from "@/lib/custom-jersey/production";
 const num = (v: unknown) => (v === "" || v === null || v === undefined ? NaN : Number(v));
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const MIGRATION = "Accessory stock is not set up yet: the migration 20261118150000_production_costing.sql has not been applied.";
-const explain = (m: string) => (/accessor(y|ies)_|custom_accessories/.test(m) && /does not exist|schema cache|Could not find/i.test(m) ? MIGRATION : m);
+const explain = (m: string) =>
+  /^not_enough_stock:/.test(m.trim())
+    ? `Not enough in stock: only ${m.trim().split(":")[1]} pcs left. Buy or correct the count first.`
+    : /accessor(y|ies)_|custom_accessories/.test(m) && /does not exist|schema cache|Could not find/i.test(m) ? MIGRATION : m;
 
 const SQL_ERRORS: Record<string, string> = {
   accessory_not_found: "Accessory not found",

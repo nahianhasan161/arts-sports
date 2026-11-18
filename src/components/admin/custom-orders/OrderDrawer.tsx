@@ -88,6 +88,11 @@ export function OrderDrawer({
         body: JSON.stringify({ action, ...body }),
       });
       const json = await res.json().catch(() => ({}));
+      if (res.status === 409 && json.code === "due_left" && !body.allow_due) {
+        if (confirm(`${json.error}. Mark it delivered anyway (for example, the courier collects it)?`)) return act(action, { ...body, allow_due: true });
+        setError(json.error);
+        return false;
+      }
       if (!res.ok) {
         setError(json.error ?? "Could not save");
         return false;

@@ -27,7 +27,9 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slic
 const num = (v: unknown) => (v === "" || v === null || v === undefined ? NaN : Number(v));
 const MIGRATION = "Production costing is not set up yet: the migration 20261118150000_production_costing.sql has not been applied.";
 const explain = (m: string) =>
-  /production_|accessor(y|ies)_|custom_accessories|batch_id/.test(m) && /does not exist|schema cache|Could not find/i.test(m) ? MIGRATION : m;
+  /^not_enough_stock:/.test(m.trim())
+    ? `Not enough in stock: only ${m.trim().split(":")[1]} left. Buy or correct the count first.`
+    : /production_|accessor(y|ies)_|custom_accessories|batch_id/.test(m) && /does not exist|schema cache|Could not find/i.test(m) ? MIGRATION : m;
 
 const SQL_ERRORS: Record<string, string> = {
   batch_not_found: "Batch not found",

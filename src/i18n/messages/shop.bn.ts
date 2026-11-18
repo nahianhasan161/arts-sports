@@ -298,6 +298,7 @@ export const shopBn: Widen<typeof shopEn> = {
     expectedCash: "ড্রয়ারে যত নগদ থাকার কথা",
     float: "শুরুতে ছিল {amount}",
     cashInOut: "নগদ ঢোকানো / বের করা",
+    customJersey: "কাস্টম জার্সি ({count}টি)",
     cashHint: "বিক্রি ছাড়া যে টাকা ড্রয়ারে ঢুকল বা বের হল: ভাংতি আনা, চা-নাস্তা, নগদে দেওয়া delivery খরচ।",
     cashReason: "কীসের জন্য",
     cashIn: "ঢোকান",

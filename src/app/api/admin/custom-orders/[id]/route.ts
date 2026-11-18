@@ -78,6 +78,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
         const reason = text(b.reason, 1000);
         if ((to === "rejected" || to === "changes_needed") && reason.length < 3) return bad("Give the reason: the customer will read it");
+        // Handing over with money still due needs a second click (e.g. the courier collects it).
+        if (to === "delivered" && b.allow_due !== true) {
+          const left = dueFor(order, (await loadDetail(order, "staff")).paid_total);
+          const owed = Math.round((left.total - left.paid) * 100) / 100;
+          if (owed > 0.001) {
+            return NextResponse.json(
+              { error: `${formatMoney(owed, "en")} is still to be paid on this order`, code: "due_left", due_left: owed },
+              { status: 409 }
+            );
+          }
+        }
         if (!(await moveOrder(order, to, staff, { reason: reason || null }))) return stale();
 
         if (to === "changes_needed") await notifyCustomOrder(order, "custom_changes_needed", { reason });
@@ -166,7 +177,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const due = dueFor(order, detail.paid_total);
         if (amount > due.total - due.paid + 0.001) return bad(`That is more than what is left to pay (${formatMoney(due.total - due.paid, "en")})`);
         const kind = b.kind === "advance" || b.kind === "balance" || b.kind === "other" ? b.kind : due.kind;
-        await recordManualPayment({ order, amount, method, kind, trxId: text(b.trx_id, 60), note: text(b.note, 300), staffId: user.id });
+        try {
+          await recordManualPayment({ order, amount, method, kind, trxId: text(b.trx_id, 60), note: text(b.note, 300), staffId: user.id });
+        } catch (err) {
+          return bad(err instanceof Error ? err.message : "Could not record the payment");
+        }
         break;
       }
 
