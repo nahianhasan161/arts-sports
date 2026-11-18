@@ -8,6 +8,7 @@ import { advanceFor, estimate } from "@/lib/custom-jersey/pricing";
 import { SIZES, SPORTS, orderTotal, type Collar, type CustomJerseyConfig, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
 import { RosterEditor } from "@/components/custom-jersey/RosterEditor";
 import { api, btnGhost, btnPrimary, card, field } from "./api";
+import { CustomerInput } from "@/components/admin/pickers";
 
 const METHODS = ["cash", "card", "bkash", "nagad"] as const;
 type Method = (typeof METHODS)[number];
@@ -77,7 +78,7 @@ export function NewCustomOrder({ onDone, onCancel }: { onDone: (orderNumber: str
   const est = useMemo(() => {
     if (!config || !fabric || sizedRoster.length === 0) return null;
     return estimate(
-      { fabricPrice: fabric.price_per_piece, quantity: sizedRoster.length, sleeve, collar, withShorts: extras.with_shorts, withNames: extras.with_names, withNumbers: extras.with_numbers, withLogo: extras.with_logo, roster: sizedRoster, neededBy: neededBy || null },
+      { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity: sizedRoster.length, sleeve, collar, withShorts: extras.with_shorts, withNames: extras.with_names, withNumbers: extras.with_numbers, withLogo: extras.with_logo, roster: sizedRoster, neededBy: neededBy || null },
       config.pricing
     );
   }, [config, fabric, sizedRoster, sleeve, collar, extras, neededBy]);
@@ -171,11 +172,11 @@ export function NewCustomOrder({ onDone, onCancel }: { onDone: (orderNumber: str
       <div className="grid sm:grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
           <span className={label}>{t("shop.customNew.phone")}</span>
-          <input value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, "").slice(0, 11))} placeholder="01XXXXXXXXX" inputMode="numeric" className={field} />
+          <CustomerInput value={phone} onChange={(v) => setPhone(v.replace(/[^\d]/g, "").slice(0, 11))} onPick={(c) => { setPhone(c.phone); setName(c.name ?? ""); }} minChars={3} placeholder="01XXXXXXXXX" inputMode="numeric" className={field} />
         </label>
         <label className="flex flex-col gap-1">
           <span className={label}>{t("shop.customNew.name")}</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} className={field} />
+          <CustomerInput value={name} onChange={setName} onPick={(c) => { setPhone(c.phone); setName(c.name ?? ""); }} className={field} />
         </label>
       </div>
 

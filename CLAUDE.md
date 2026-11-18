@@ -3,6 +3,16 @@
 Bangladesh sports e-commerce + (planned) offline POS. Custom jersey is the key product.
 **Read only what the task needs.** This file is the map; don't re-explore the repo.
 
+## Context files (read at session start)
+Always read `context/progress-tracker.md` first (current goal, in-progress work, open questions).
+Read the others when the task touches them:
+- `context/project-overview.md`: what the product is, user flows, scope
+- `context/architecture.md`: stack, boundaries, storage, auth, **invariants** (new routes, tables, features)
+- `context/code-standards.md`: TS/Next/i18n/API/migration conventions
+- `context/ui-context.md`: colour tokens, fonts, radius, layouts, icons (any UI work)
+- `context/ai-workflow-rules.md`: scoping, what to ask before doing, definition of done
+After meaningful work, update `context/progress-tracker.md` (and the other context files if a decision changed).
+
 ## Stack
 - Next.js 16 App Router (webpack mode), React 19, TS, Tailwind 3, shadcn/base-ui, Zustand, TipTap
 - Supabase = DB + auth. Images = Cloudflare R2 (falls back to Tigris if R2 keys unset)
@@ -35,10 +45,20 @@ Bangladesh sports e-commerce + (planned) offline POS. Custom jersey is the key p
   `roster.ts` CSV/xlsx import), `components/custom-jersey/`, pages `/custom-jersey`, `/custom-jersey/order/[token]`,
   admin `/admin/online/custom-orders` (board) + `/admin/online/custom-jersey` (prices); SQL `20261113100000_custom_jersey.sql`.
   Its payments are in `custom_order_payments`, not `payments`. Customer access = `access_token` in the URL, no login.
+  Design catalogue: admin `/admin/{online,offline}/designs` (`components/admin/designs/DesignCatalog.tsx`, API `api/admin/custom-jersey/designs`);
+  categories are rows in `custom_design_categories` (staff add them), designs are `custom_gallery`; helpers `lib/custom-jersey/designs{,-server}.ts`.
+  Fabric stock (kg): `/admin/{online,offline}/fabric-stock`, API `api/admin/fabric-stock`, `lib/custom-jersey/fabric-stock.ts`,
+  table `fabric_moves` + view `fabric_stock` + `fabric_purchase()`, SQL `20261118140000_fabric_stock.sql` (applied live 2026-11-18).
+  Making cost: accessories stock (pcs) `/admin/{online,offline}/accessory-stock` + production batches `/production`
+  (`components/admin/production/`, APIs `api/admin/{accessory-stock,production}`, `lib/custom-jersey/production.ts`; garments rate card
+  in `app_settings.garment_rates`). SQL `20261118150000_production_costing.sql` (applied live 2026-11-19): batch = many orders, print shop +
+  garments are suppliers (their charges go into `supplier_balances`), cost views `production_batch_totals` / `production_line_costs`.
 - Shop (Phase 4): `lib/pos/` (`server.ts` helpers + error text, `codes.ts` Code128/QR, `types.ts`), `components/admin/pos/` +
   `components/admin/inventory/`, pages under `/admin/offline` (see below), `/admin/online/inventory`, `/admin/online/customers`;
   APIs `api/admin/{pos,inventory,customers}`; SQL `20261114100000_pos_stock_crm.sql` (needs `20261113100000` first).
   Shop sales are in `pos_sales`/`pos_sale_items`/`pos_payments`, not `orders`. Stock changes go through `stock_apply()`.
+  Register catalogue is cached on the device: `lib/pos/catalog-store.ts` (IndexedDB) + `lib/pos/catalog.ts`, APIs `api/admin/pos/{catalog,stock}`.
+  POS catalogue is kept on the device: `lib/pos/catalog-store.ts` (+ `catalog.ts`, APIs `pos/catalog`, `pos/stock`); screens search it locally.
   Text for these screens: `i18n/messages/shop.{en,bn}.ts`. Staff accounts enter `/admin`; the menus filter by permission.
 - Supplier purchases: pages `/admin/{online,offline}/purchases` (POS-style buy screen) and `/suppliers`, `/suppliers/[id]`
   (details, bought/paid/due, pay form); `components/admin/purchases/`, `lib/pos/purchases.ts` + `purchase-types.ts`,
@@ -78,7 +98,7 @@ For docs, `grep -n '^#'` first and read just the relevant section.
 
 ## Conventions
 - Phone = customer identity, format `01XXXXXXXXX` (`lib/phone.ts`)
-- Currency BDT (৳). Delivery: Dhaka ৳60, outside ৳120
+- Currency BDT (৳). Delivery: Dhaka ৳70, outside ৳120 (live values = admin settings `delivery_fee_dhaka`/`_outside`)
 - Speed: public pages read through `getPublicSupabase()` (`lib/supabase/public.ts`, no cookies) so they stay ISR-cacheable;
   home/product/team/collection use `revalidate = 60` (R2 cache in `open-next.config.ts`, binding `NEXT_INC_CACHE_R2_BUCKET`).
   Don't read cookies/headers on those pages. Middleware only does auth for `/admin` and `/account` pages; APIs check auth
@@ -90,6 +110,9 @@ For docs, `grep -n '^#'` first and read just the relevant section.
 - Don't touch `.next/`, `.open-next/`, `.wrangler/`, `node_modules/` (except Next docs)
 
 ## Current state
+(Live detail, in-progress work and next steps: `context/progress-tracker.md`.)
+- `20261118120000` (design catalogue: `custom_design_categories` table + `custom_gallery.category/title`) applied live 2026-11-18.
+  `20261118130000` (`custom_gallery.images`, several pictures per design) applied live 2026-11-18.
 - Branch `cloudflare-migration`. Phase 0 and 1 built (keys pending, see roadmap "পরে করার কাজ"). Phase 2 built except 2.2 picker + 2.4 bundles.
 - Phase 3 (custom jersey) built; the seeded prices are placeholders. See the status box under Phase 3 in the roadmap.
 - Phase 4 (POS, stock, staff, customers) built. Left out: supplier stock in online checkout, shop pickup, gateway QR at POS.

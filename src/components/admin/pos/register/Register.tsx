@@ -16,10 +16,12 @@ import { LanguageToggle } from "@/components/layout/Preferences";
 import { api, btnGhost, btnPrimary, dateTime, field } from "../api";
 import { DayTab, type SessionInfo } from "../DayTab";
 import { CustomRegister } from "./CustomRegister";
+import { useUrlState } from "@/lib/url-state";
 import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "./parts";
 import { PaymentScreen, type Pay } from "./PaymentScreen";
 import { OrdersView } from "./OrdersView";
 import { QuickAdd, type QuickAddTab } from "./QuickAdd";
+import { searchLocal, useCatalogIndex } from "@/lib/pos/catalog-store";
 
 interface Held {
   id: string;
@@ -110,14 +112,14 @@ export function Register() {
   // The shop chosen on the dashboard card (?shop=), used until a drawer is open.
   const [wantedShop, setWantedShop] = useState("");
 
-  const [categories, setCategories] = useState<{ id: string; name: string; image?: string | null }[]>([]);
+  const [serverCategories, setCategories] = useState<{ id: string; name: string; image?: string | null }[]>([]);
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
-  const [products, setProducts] = useState<PosProduct[] | null>(null);
+  const [serverProducts, setProducts] = useState<PosProduct[] | null>(null);
   // Lazy loading: the grid and the category row fetch one screenful at a time.
-  const [hasMore, setHasMore] = useState(false);
+  const [serverHasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [catsHasMore, setCatsHasMore] = useState(false);
+  const [serverCatsHasMore, setCatsHasMore] = useState(false);
   const [loadingCats, setLoadingCats] = useState(false);
   const gridScroll = useRef<HTMLDivElement>(null);
   const gridEnd = useRef<HTMLDivElement>(null);
@@ -149,10 +151,17 @@ export function Register() {
   const [held, setHeld] = useState<Held[]>([]);
   const [heldId, setHeldId] = useState<string | null>(null);
   const [screen, setScreen] = useState<"bill" | "pay">("bill");
-  const [view, setView] = useState<"register" | "orders" | "custom">("register");
+  const [view, setView] = useUrlState<"register" | "orders" | "custom">("type", "register", {
+    toUrl: (v) => (v === "custom" ? "custom-jersey" : v),
+    fromUrl: (s) => (s === "custom-jersey" ? "custom" : s === "orders" ? "orders" : null),
+  });
   const [pays, setPays] = useState<Pay[]>([]);
   const [done, setDone] = useState<Done | null>(null);
-  const [popup, setPopup] = useState<Popup>(null);
+  const [popupRaw, setPopupRaw] = useUrlState<NonNullable<Popup> | "">("popup", "", {
+    fromUrl: (s) => (["customer", "discount", "held", "past", "drawer", "note", "menu", "more", "add"].includes(s) ? (s as NonNullable<Popup>) : null),
+  });
+  const popup: Popup = popupRaw || null;
+  const setPopup = useCallback((p: Popup) => setPopupRaw(p ?? ""), [setPopupRaw]);
   const [pane, setPane] = useState<"products" | "bill">("products"); // phones show one at a time
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -212,6 +221,25 @@ export function Register() {
   const maxDiscount = info?.max_discount_percent ?? 0;
   const canManage = info?.can_manage ?? false;
 
+  // The catalogue kept on this device (lib/pos/catalog-store.ts). Once it and
+  // this shop's stock are here, the grid, categories and scans run locally;
+  // until then (first open on a new device) the server answers as before.
+  // Opens from the device copy, then checks in the background (see the hook).
+  const { catalog, index, check: checkCatalog, loadStock } = useCatalogIndex(showroomId);
+  // list() reads the newest index through a ref, so a stock refresh updates
+  // the cards without re-running the search (which would scroll to the top).
+  const indexRef = useRef(index);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+  const localReady = index !== null;
+  const [localView, setLocalView] = useState({ term: "", cat: "", count: 0 });
+  const localAll = useMemo(() => (index ? searchLocal(index, localView.term, localView.cat).products : null), [index, localView.term, localView.cat]);
+  const products = localAll ? localAll.slice(0, localView.count || 60) : serverProducts;
+  const hasMore = localAll ? localAll.length > (localView.count || 60) : serverHasMore;
+  const categories = catalog ? catalog.categories : serverCategories;
+  const catsHasMore = catalog ? false : serverCatsHasMore;
+
   const addLine = useCallback((p: PosProduct, v: PosVariant) => {
     const key = `${p.product_id}:${v.variant_id ?? ""}`;
     setError(null);
@@ -265,6 +293,28 @@ export function Register() {
     async (term: string, submitted: boolean) => {
       if (!showroomId) return;
       const mine = ++request.current;
+      const local = indexRef.current;
+      if (localReady && local) {
+        const found = searchLocal(local, term, category);
+        if (submitted && found.scanned) {
+          const product = found.products.find((p) => p.variants.some((v) => v.variant_id === found.scanned));
+          const variant = product?.variants.find((v) => v.variant_id === found.scanned);
+          if (product && variant) {
+            addLine(product, variant);
+            setQ("");
+            searchRef.current?.focus();
+            return;
+          }
+        }
+        // A scan the device copy doesn't know (a product added a moment ago):
+        // ask the server below, and refresh the copy.
+        if (!(submitted && term && !found.products.length)) {
+          setLocalView({ term, cat: category, count: screenful() });
+          gridScroll.current?.scrollTo({ top: 0 });
+          return;
+        }
+        void checkCatalog();
+      }
       const key = `${showroomId}|${term ? `q:${term.toLowerCase()}` : `c:${category}`}`;
       const cached = cache.current.get(key);
       // A scan must add the item, so it never answers from the cache.
@@ -300,12 +350,13 @@ export function Register() {
       setHasMore(page.hasMore);
       gridScroll.current?.scrollTo({ top: 0 });
     },
-    [showroomId, category, addLine, listUrl]
+    [showroomId, category, addLine, listUrl, localReady, screenful, checkCatalog]
   );
 
   // Next page of the grid, when the shopper scrolls near its bottom.
   const moreBusy = useRef(false);
   const loadMore = useCallback(async () => {
+    if (localAll) return setLocalView((v) => ({ ...v, count: (v.count || 60) + screenful() }));
     if (moreBusy.current || !hasMore || q.trim() || !products) return;
     moreBusy.current = true;
     setLoadingMore(true);
@@ -325,7 +376,7 @@ export function Register() {
     setProducts(next);
     setHasMore(more);
     cache.current.set(key, { products: next, hasMore: more });
-  }, [hasMore, q, products, showroomId, category, listUrl]);
+  }, [hasMore, q, products, showroomId, category, listUrl, localAll, screenful]);
 
   useEffect(() => {
     const el = gridEnd.current;
@@ -371,7 +422,7 @@ export function Register() {
   // Prefetch: once the categories are known, fill the cache for the first few
   // in the background, one at a time, so the first tap on each is instant.
   useEffect(() => {
-    if (!showroomId || !categories.length) return;
+    if (!showroomId || !categories.length || catalog) return;
     let stopped = false;
     const timer = setTimeout(async () => {
       for (const c of categories.slice(0, 8)) {
@@ -386,7 +437,7 @@ export function Register() {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [showroomId, categories, listUrl]);
+  }, [showroomId, categories, listUrl, catalog]);
 
   // A barcode scanner "types" the whole code in a few milliseconds. When the
   // text came in that fast, treat it as a scan and add the item without Enter.
@@ -587,6 +638,8 @@ export function Register() {
     } else if (id === "reload") {
       void loadInfo();
       void loadHeld();
+      void checkCatalog(true);
+      void loadStock(showroomId);
       void list(q, false);
     } else if (id === "product") {
       window.open(`${OFFLINE}/products`, "_blank");
@@ -657,12 +710,16 @@ export function Register() {
       return setError(detail.error);
     }
     const ids = [...new Set(detail.data.items.map((i) => i.product_id).filter(Boolean))] as string[];
-    const found = ids.length
-      ? await api<Listing>(`/api/admin/pos/products?ids=${encodeURIComponent(ids.join(","))}&showroom_id=${encodeURIComponent(showroomId)}`)
-      : null;
+    // From the device copy when it has every product; else ask the server.
+    const local = indexRef.current;
+    const fromDevice = local ? ids.map((id) => local.all.find((p) => p.product_id === id)).filter((p): p is PosProduct => Boolean(p)) : [];
+    const found =
+      ids.length && fromDevice.length < ids.length
+        ? await api<Listing>(`/api/admin/pos/products?ids=${encodeURIComponent(ids.join(","))}&showroom_id=${encodeURIComponent(showroomId)}`)
+        : null;
     setBusy(false);
     if (found && !found.ok) return setError(found.error);
-    const products = found?.ok ? found.data.products : [];
+    const products = found?.ok ? found.data.products : fromDevice;
     const next: CartLine[] = [];
     let missing = 0;
     for (const item of detail.data.items) {
@@ -719,7 +776,8 @@ export function Register() {
     setDone(res.data);
     void loadHeld();
     // Stock on the cards has changed.
-    void list(q.trim(), false);
+    void loadStock(showroomId);
+    if (!localReady) void list(q.trim(), false);
   }
 
   async function openRegister() {
@@ -1154,6 +1212,8 @@ export function Register() {
           onSaved={(kind) => {
             cache.current.clear();
             if (kind === "category") gotCategories.current = false;
+            void checkCatalog();
+            void loadStock(showroomId);
             void list(q, false);
           }}
         />

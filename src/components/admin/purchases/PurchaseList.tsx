@@ -1,16 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { PeriodSelect, inPeriod, type Period } from "@/components/admin/filters/period";
 import { useT } from "@/i18n/client";
 import { taka } from "@/lib/pos/types";
-import { card, dateTime } from "@/components/admin/pos/api";
+import { card, dateTime, field } from "@/components/admin/pos/api";
 import { purchaseNo, type PurchaseRow } from "@/lib/pos/purchase-types";
 import { PurchaseDetail } from "./PurchaseDetail";
 
 /** A table of purchases; a row opens the full bill. */
-export function PurchaseList({ rows, showSupplier = true, onChanged }: { rows: PurchaseRow[]; showSupplier?: boolean; onChanged?: () => void }) {
+export function PurchaseList({ rows: all, showSupplier = true, onChanged }: { rows: PurchaseRow[]; showSupplier?: boolean; onChanged?: () => void }) {
   const { t } = useT();
   const [open, setOpen] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [period, setPeriod] = useState<Period>("all");
+  const [dueOnly, setDueOnly] = useState(false);
+  const rows = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return all.filter(
+      (p) =>
+        inPeriod(p.created_at, period) &&
+        (!dueOnly || Number(p.due) > 0) &&
+        (!term || [purchaseNo(p), p.reference, p.supplier].some((v) => (v ?? "").toString().toLowerCase().includes(term))),
+    );
+  }, [all, q, period, dueOnly]);
   const sum = rows.reduce(
     (a, p) => ({
       lines: a.lines + Number(p.lines || 0),
@@ -23,6 +37,17 @@ export function PurchaseList({ rows, showSupplier = true, onChanged }: { rows: P
   );
   return (
     <>
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        <div className="relative flex-1 min-w-48">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("shop.filters.search")} className={`${field} pl-9`} />
+        </div>
+        <PeriodSelect value={period} onChange={setPeriod} className={`${field} !w-auto`} />
+        <label className="flex items-center gap-1.5 text-sm">
+          <input type="checkbox" checked={dueOnly} onChange={(e) => setDueOnly(e.target.checked)} />
+          {t("shop.filters.dueOnly")}
+        </label>
+      </div>
       <div className={`${card} overflow-x-auto`}>
         <table className="w-full text-sm">
           <thead className="text-xs text-text-muted text-left">

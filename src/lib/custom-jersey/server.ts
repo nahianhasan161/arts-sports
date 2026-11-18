@@ -4,7 +4,7 @@ import { notify, type Template } from "@/lib/notifications";
 import { formatMoney, resolveLocale, translate, type Vars } from "@/i18n";
 import { DEFAULT_GATEWAY, getGateway } from "@/lib/payments/gateway";
 import { publicUrlFor } from "@/lib/media/storage";
-import { normalizePricing } from "./pricing";
+import { normalizeFabricTiers, normalizePricing } from "./pricing";
 import {
   DEFAULT_PRICING,
   orderTotal,
@@ -59,7 +59,7 @@ export async function loadPricing(): Promise<PricingConfig> {
 async function deliveryFees(): Promise<{ dhaka: number; outside: number }> {
   const { data } = await getServiceSupabase().rpc("checkout_settings");
   const s = (data ?? {}) as { delivery_fee_dhaka?: number; delivery_fee_outside?: number };
-  return { dhaka: Number(s.delivery_fee_dhaka ?? 60), outside: Number(s.delivery_fee_outside ?? 120) };
+  return { dhaka: Number(s.delivery_fee_dhaka ?? 70), outside: Number(s.delivery_fee_outside ?? 120) };
 }
 
 export async function loadConfig(includeInactive = false): Promise<CustomJerseyConfig> {
@@ -74,7 +74,7 @@ export async function loadConfig(includeInactive = false): Promise<CustomJerseyC
   if (f.error) throw new Error(explainDbError(f.error.message));
   if (t.error) throw new Error(explainDbError(t.error.message));
   return {
-    fabrics: (f.data ?? []).map((row) => ({ ...row, price_per_piece: Number(row.price_per_piece) })) as Fabric[],
+    fabrics: (f.data ?? []).map((row) => ({ ...row, price_per_piece: Number(row.price_per_piece), price_tiers: normalizeFabricTiers(row.price_tiers) })) as Fabric[],
     templates: (t.data ?? []) as JerseyTemplate[],
     pricing,
     delivery,

@@ -1,5 +1,6 @@
 "use client";
 
+import { PeriodSelect, inPeriod, type Period } from "@/components/admin/filters/period";
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
@@ -21,6 +22,7 @@ export function AdminPaymentsClient() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [providerFilter, setProviderFilter] = useState<string>("");
+  const [period, setPeriod] = useState<Period>("all");
 
   const limit = 25;
 
@@ -53,6 +55,7 @@ export function AdminPaymentsClient() {
   }
 
   const filteredPayments = payments.filter((p) => {
+    if (!inPeriod(p.created_at, period)) return false;
     if (search) {
       const s = search.toLowerCase();
       return p.id.toLowerCase().includes(s) || p.order_id.toLowerCase().includes(s);
@@ -122,6 +125,7 @@ export function AdminPaymentsClient() {
             className="w-full h-9 pl-10 pr-3 text-sm rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
+        <PeriodSelect value={period} onChange={setPeriod} className="h-9 px-3 text-sm rounded-lg border border-border-light bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary" />
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}

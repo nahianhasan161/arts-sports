@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, FileUp, LayoutGrid, ListOrdered, Palette, Printer, Search, Shirt, UserRound, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, LayoutGrid, ListOrdered, Palette, Printer, Search, Shirt, UserRound } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka, type PayMethod } from "@/lib/pos/types";
 import { advanceFor, estimate } from "@/lib/custom-jersey/pricing";
@@ -11,6 +11,9 @@ import { api, btnGhost, btnPrimary, field } from "../api";
 import { CustomTab } from "../CustomTab";
 import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "./parts";
 import { PaymentScreen, type Pay } from "./PaymentScreen";
+import { DesignRefs, MAX_REFS, type DesignRef } from "./DesignRefs";
+import type { DesignRow } from "@/lib/custom-jersey/designs";
+import { CustomerInput } from "@/components/admin/pickers";
 
 /** The custom-order API takes these (no "other"). */
 const METHODS: readonly PayMethod[] = ["cash", "card", "bkash", "nagad"];
@@ -57,7 +60,7 @@ export function CustomRegister() {
   const [typed, setTyped] = useState<string | null>(null);
   const [neededBy, setNeededBy] = useState("");
   const [notes, setNotes] = useState("");
-  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [files, setFiles] = useState<DesignRef[]>([]);
   const [uploading, setUploading] = useState(false);
   const [delivery, setDelivery] = useState<"pickup" | "delivery">("pickup");
   const [zone, setZone] = useState<"dhaka" | "outside">("dhaka");
@@ -72,6 +75,24 @@ export function CustomRegister() {
       if (!res.ok) return setError(res.error);
       setConfig(res.data);
       setFabricId((f) => f || res.data.fabrics[0]?.id || "");
+    });
+  }, []);
+
+  // Opened from the design catalogue with ?designs=a,b: those designs start on the slip.
+  useEffect(() => {
+    const ids = new URLSearchParams(window.location.search).get("designs");
+    if (!ids) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    void api<{ designs: DesignRow[] }>(`/api/admin/pos/designs?ids=${encodeURIComponent(ids)}`).then((res) => {
+      if (!res.ok) return setError(res.error);
+      setFiles((l) => [
+        ...l,
+        ...res.data.designs
+          .filter((d) => d.image_url && !l.some((r) => r.design_id === d.id))
+          .slice(0, MAX_REFS - l.length)
+          .map((d) => ({ path: d.image_url, name: d.title || d.caption || "design", mime: "image/*", size: 0, kind: "reference" as const, design_id: d.id, preview: d.image_url })),
+      ]);
+      setPane("slip");
     });
   }, []);
 
@@ -105,7 +126,7 @@ export function CustomRegister() {
   const est = useMemo(() => {
     if (!config || !fabric || sizedRoster.length === 0) return null;
     return estimate(
-      { fabricPrice: fabric.price_per_piece, quantity: sizedRoster.length, sleeve, collar, withShorts: extras.with_shorts, withNames: extras.with_names, withNumbers: extras.with_numbers, withLogo: extras.with_logo, roster: sizedRoster, neededBy: neededBy || null },
+      { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity: sizedRoster.length, sleeve, collar, withShorts: extras.with_shorts, withNames: extras.with_names, withNumbers: extras.with_numbers, withLogo: extras.with_logo, roster: sizedRoster, neededBy: neededBy || null },
       config.pricing
     );
   }, [config, fabric, sizedRoster, sleeve, collar, extras, neededBy]);
@@ -173,10 +194,10 @@ export function CustomRegister() {
     setCounts((c) => ({ ...c, [selected]: n }));
   }
 
-  async function upload(list: FileList | null) {
+  async function upload(list: FileList | File[] | null) {
     if (!list?.length) return;
     setUploading(true);
-    for (const file of Array.from(list).slice(0, 10 - files.length)) {
+    for (const file of Array.from(list).slice(0, MAX_REFS - files.length)) {
       const form = new FormData();
       form.append("file", file);
       form.append("kind", "design");
@@ -184,7 +205,7 @@ export function CustomRegister() {
         const res = await fetch("/api/custom-jersey/upload", { method: "POST", body: form });
         const json = await res.json();
         if (!res.ok) setError(json.error ?? t("shop.customNew.uploadFailed"));
-        else setFiles((f) => [...f, { path: json.path, name: json.name, mime: json.mime, size: json.size, kind: "design" }]);
+        else setFiles((f) => [...f, { path: json.path, name: json.name, mime: json.mime, size: json.size, kind: "design", preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null }]);
       } catch {
         setError(t("shop.customNew.uploadFailed"));
       }
@@ -232,7 +253,7 @@ export function CustomRegister() {
       roster: sizedRoster,
       needed_by: neededBy || null,
       notes,
-      files,
+      files: files.map((f): UploadedFile => ({ path: f.path, name: f.name, mime: f.mime, size: f.size, kind: f.kind, note: f.note, product_id: f.product_id })),
       delivery_method: delivery,
       delivery_zone: zone,
       delivery_address: address,
@@ -360,11 +381,11 @@ export function CustomRegister() {
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-on-surface-variant">{t("shop.customNew.phone")}</span>
-            <input autoFocus value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d]/g, "").slice(0, 11))} placeholder="01XXXXXXXXX" inputMode="numeric" className={`${field} h-11 text-base`} />
+            <CustomerInput autoFocus value={phone} onChange={(v) => setPhone(v.replace(/[^\d]/g, "").slice(0, 11))} onPick={(c) => { setPhone(c.phone); setName(c.name ?? ""); }} minChars={3} placeholder="01XXXXXXXXX" inputMode="numeric" className={`${field} h-11 text-base`} />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-on-surface-variant">{t("shop.customNew.name")}</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} className={`${field} h-11 text-base`} />
+            <CustomerInput value={name} onChange={setName} onPick={(c) => { setPhone(c.phone); setName(c.name ?? ""); }} className={`${field} h-11 text-base`} />
           </label>
           {(!/^01\d{9}$/.test(phone) || !name.trim()) && <p className="text-xs text-text-muted">{t("shop.customReg.needCustomer")}</p>}
           <button type="button" className={`${btnPrimary} h-11`} onClick={() => setPopup(null)}>
@@ -590,25 +611,10 @@ export function CustomRegister() {
       {popup === "customer" && customerDialog()}
 
       {popup === "design" && (
-        <Dialog title={t("shop.customNew.design")} onClose={() => setPopup(null)}>
+        <Dialog title={t("shop.customNew.design")} wide onClose={() => setPopup(null)}>
           <div className="flex flex-col gap-3">
             <textarea autoFocus value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} placeholder={t("shop.customNew.notesPlaceholder")} className={field} />
-            <label className={`${btnGhost} cursor-pointer h-11`}>
-              <FileUp className="w-4 h-4" /> {uploading ? t("shop.customNew.uploading") : t("shop.customNew.addFile")}
-              <input type="file" multiple accept="image/*,.pdf,.ai,.eps" className="hidden" onChange={(e) => void upload(e.target.files)} disabled={uploading} />
-            </label>
-            {files.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {files.map((f, i) => (
-                  <span key={f.path} className="inline-flex items-center gap-1 text-xs rounded bg-surface-subtle px-2 py-1">
-                    {f.name}
-                    <button type="button" onClick={() => setFiles((l) => l.filter((_, j) => j !== i))} aria-label={t("shop.common.remove")}>
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+            <DesignRefs refs={files} setRefs={setFiles} uploading={uploading} onUpload={(l) => void upload(l)} />
             <button type="button" className={`${btnPrimary} h-11`} onClick={() => setPopup(null)}>
               {t("shop.customNew.done")}
             </button>

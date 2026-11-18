@@ -128,18 +128,50 @@ async function createOrder(b: Record<string, unknown>, staffId: string) {
   const quantity = roster.length || Math.floor(Number(b.quantity));
   if (!Number.isFinite(quantity) || quantity < 1 || quantity > 2000) return bad("Quantity must be between 1 and 2000");
 
+  // Uploaded pictures (private design paths), catalogue picks and gallery designs. A catalogue
+  // pick sends only the product id; its picture is read from the product here.
+  const picked = (Array.isArray(b.files) ? b.files.slice(0, 10) : []) as Partial<UploadedFile>[];
+  const productIds = [...new Set(picked.map((f) => f.product_id).filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))];
+  const productImages = new Map<string, { title: string; image: string }>();
+  if (productIds.length) {
+    const { data } = await getServiceSupabase({ id: staffId }).from("products").select("id, title, images").in("id", productIds);
+    for (const p of data ?? []) {
+      const image = Array.isArray(p.images) && typeof p.images[0] === "string" ? (p.images[0] as string) : null;
+      if (image && /^https:\/\//.test(image)) productImages.set(p.id as string, { title: String(p.title ?? ""), image });
+    }
+  }
+  // Gallery design picks work the same way: only the id comes in.
+  const designIds = [...new Set(picked.map((f) => f.design_id).filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))];
+  const designImages = new Map<string, { title: string; image: string }>();
+  if (designIds.length) {
+    const { data } = await getServiceSupabase({ id: staffId }).from("custom_gallery").select("id, title, caption, image_url").in("id", designIds);
+    for (const d of data ?? []) {
+      const image = typeof d.image_url === "string" ? d.image_url : "";
+      if (/^https:\/\//.test(image)) designImages.set(d.id as string, { title: String(d.title ?? d.caption ?? ""), image });
+    }
+  }
   const files: UploadedFile[] = [];
-  for (const f of Array.isArray(b.files) ? b.files.slice(0, 10) : []) {
-    const file = f as Partial<UploadedFile>;
+  for (const file of picked) {
+    const note = text(file.note, 200) || undefined;
+    if (typeof file.design_id === "string") {
+      const design = designImages.get(file.design_id);
+      if (design) files.push({ path: design.image, name: design.title.slice(0, 120) || "design", mime: "image/*", size: 0, kind: "reference", design_id: file.design_id, note });
+      continue;
+    }
+    if (typeof file.product_id === "string") {
+      const product = productImages.get(file.product_id);
+      if (product) files.push({ path: product.image, name: product.title.slice(0, 120) || "catalogue", mime: "image/*", size: 0, kind: "reference", product_id: file.product_id, note });
+      continue;
+    }
     if (!isDesignPath(file.path)) continue;
-    files.push({ path: file.path, name: text(file.name, 120) || "file", mime: text(file.mime, 80), size: Number(file.size) || 0, kind: file.kind === "reference" ? "reference" : "design" });
+    files.push({ path: file.path, name: text(file.name, 120) || "file", mime: text(file.mime, 80), size: Number(file.size) || 0, kind: file.kind === "reference" ? "reference" : "design", note });
   }
   const notes = text(b.notes, 4000) || null;
   if (files.length === 0 && !notes) return bad("Add the design file, or write what the customer wants");
 
   const neededBy = /^\d{4}-\d{2}-\d{2}$/.test(text(b.needed_by, 10)) ? text(b.needed_by, 10) : null;
   const result = estimate(
-    { fabricPrice: fabric.price_per_piece, quantity, sleeve, collar, withShorts: b.with_shorts === true, withNames: b.with_names === true, withNumbers: b.with_numbers === true, withLogo: b.with_logo === true, roster: roster.length ? roster : undefined, neededBy },
+    { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity, sleeve, collar, withShorts: b.with_shorts === true, withNames: b.with_names === true, withNumbers: b.with_numbers === true, withLogo: b.with_logo === true, roster: roster.length ? roster : undefined, neededBy },
     config.pricing
   );
   if (result.tooSoon) return bad(`Too soon: the earliest is ${config.pricing.rush.min_days} days from today`);
@@ -192,7 +224,7 @@ async function createOrder(b: Record<string, unknown>, staffId: string) {
       delivery_address: address,
       delivery_charge: deliveryCharge,
       estimated_price: result.total,
-      estimate_breakdown: { ...result, fabric_price: fabric.price_per_piece },
+      estimate_breakdown: { ...result, fabric_price: fabric.price_per_piece, fabric_tiers: fabric.price_tiers ?? [] },
       ...(confirmNow ? { status: "approved", final_price: finalPrice, advance_amount: advance, approved_at: now, terms_accepted_at: now } : {}),
     })
     .select("id")

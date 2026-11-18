@@ -4,6 +4,7 @@ import React, { useState, useCallback } from "react";
 import { Search, Plus, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { formatTaka } from "@/lib/pricing";
+import { CustomerInput } from "@/components/admin/pickers";
 
 /**
  * Manual order entry.
@@ -128,7 +129,7 @@ export function ManualOrderForm({ onCreated }: { onCreated?: () => void }) {
   }, 0);
 
   const shippingFee =
-    subtotal >= 1500 || subtotal === 0 ? 0 : city === "dhaka" ? 60 : 120;
+    subtotal >= 1500 || subtotal === 0 ? 0 : city === "dhaka" ? 70 : 120;
   const total = subtotal + shippingFee;
   const paid = Number(amountPaid);
 
@@ -204,10 +205,11 @@ export function ManualOrderForm({ onCreated }: { onCreated?: () => void }) {
           <label className="text-xs font-semibold text-on-surface" htmlFor="mo-name">
             Customer name *
           </label>
-          <input
+          <CustomerInput
             id="mo-name"
             value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
+            onChange={setCustomerName}
+            onPick={(c) => { setCustomerName(c.name ?? ""); setCustomerPhone(c.phone); if (c.email) setCustomerEmail(c.email); }}
             className="h-9 px-3 text-sm rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
@@ -215,10 +217,12 @@ export function ManualOrderForm({ onCreated }: { onCreated?: () => void }) {
           <label className="text-xs font-semibold text-on-surface" htmlFor="mo-phone">
             Mobile *
           </label>
-          <input
+          <CustomerInput
             id="mo-phone"
             value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
+            onChange={setCustomerPhone}
+            onPick={(c) => { setCustomerName(c.name ?? ""); setCustomerPhone(c.phone); if (c.email) setCustomerEmail(c.email); }}
+            minChars={3}
             placeholder="01712345678"
             className="h-9 px-3 text-sm rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
           />
@@ -245,7 +249,7 @@ export function ManualOrderForm({ onCreated }: { onCreated?: () => void }) {
             onChange={(e) => setCity(e.target.value as "dhaka" | "outside")}
             className="h-9 px-3 text-sm rounded-lg border border-border-light bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <option value="dhaka">Dhaka Metro (৳ 60)</option>
+            <option value="dhaka">Dhaka Metro (৳ 70)</option>
             <option value="outside">Outside Dhaka (৳ 120)</option>
           </select>
         </div>

@@ -82,8 +82,15 @@ export interface Fabric {
   description_bn: string | null;
   image_url: string | null;
   price_per_piece: number;
+  /** Price per piece from `min` pieces upwards (sorted by min). Empty = use the % discount tiers. */
+  price_tiers?: FabricPriceTier[] | null;
   display_order: number;
   is_active: boolean;
+}
+
+export interface FabricPriceTier {
+  min: number;
+  price: number;
 }
 
 export interface JerseyTemplate {
@@ -145,6 +152,10 @@ export interface UploadedFile {
   kind: "design" | "reference" | "logo" | "preview";
   /** What the picture shows, written by the customer: "front", "back", "logo", ... */
   note?: string;
+  /** Set when staff picked a catalogue product as the reference; `path` is then that product's public image URL. */
+  product_id?: string;
+  /** Set when staff picked one of our gallery designs (custom_gallery); `path` is then its public image URL. */
+  design_id?: string;
 }
 
 export interface TemplateDesign {

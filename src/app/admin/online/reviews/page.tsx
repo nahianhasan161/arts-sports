@@ -36,6 +36,8 @@ export default function ReviewsAdminPage() {
   const [kind, setKind] = useState<Kind>("reviews");
   const [status, setStatus] = useState<Status | "all">("pending");
   const [items, setItems] = useState<Item[]>([]);
+  const [q, setQ] = useState("");
+  const [stars, setStars] = useState(0);
   const [replies, setReplies] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,14 @@ export default function ReviewsAdminPage() {
           {(["reviews", "questions"] as const).map((k) => (
             <button key={k} onClick={() => setKind(k)} className={`px-3 py-1.5 text-xs font-display uppercase font-bold rounded border ${kind === k ? "bg-primary text-primary-foreground border-primary" : "bg-surface-card border-border-light"}`}>{k}</button>
           ))}
-          <select value={status} onChange={(e) => setStatus(e.target.value as Status | "all")} className={`${field} ml-auto`} aria-label="Status">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or text" aria-label="Search" className={`${field} ml-auto`} />
+          {kind === "reviews" && (
+            <select value={stars} onChange={(e) => setStars(Number(e.target.value))} className={field} aria-label="Stars">
+              <option value={0}>Any stars</option>
+              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} ★</option>)}
+            </select>
+          )}
+          <select value={status} onChange={(e) => setStatus(e.target.value as Status | "all")} className={field} aria-label="Status">
             <option value="pending">Waiting</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
@@ -100,7 +109,9 @@ export default function ReviewsAdminPage() {
         </div>
 
         <ul className="space-y-3">
-          {items.map((i) => (
+          {items
+            .filter((i) => (!stars || i.rating === stars) && (!q.trim() || [i.author_name, i.body, i.question, i.answer, i.staff_reply].some((v) => (v ?? "").toLowerCase().includes(q.trim().toLowerCase()))))
+            .map((i) => (
             <li key={i.id} className="bg-surface-card rounded-xl border border-border-light p-4">
               <div className="flex items-center gap-2 text-xs text-text-muted flex-wrap">
                 <strong className="text-primary text-sm">{i.author_name}</strong>

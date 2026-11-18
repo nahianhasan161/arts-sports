@@ -53,6 +53,7 @@ export const en = {
     upload: {
       label: "Your design",
       hint: "JPG, PNG, PDF or AI/EPS. Up to 15 MB each, 10 files.",
+      pasteHint: "Or paste an image (Ctrl/⌘+V) or drag and drop files here.",
       add: "Add files",
       uploading: "Uploading…",
       remove: "Remove",
@@ -60,7 +61,14 @@ export const en = {
       notesPlaceholder: "Colours, where the logo goes, sponsor name, anything we should know",
       extraLabel: "Add pictures for your changes (optional)",
       notePlaceholder: "What is this picture? e.g. front side, back side, logo",
-      tags: { front: "Front side", back: "Back side", logo: "Logo", sleeve: "Sleeve", sponsor: "Sponsor", reference: "Reference" },
+      ourDesigns: "Pick from our designs",
+      ourDesignsTitle: "Our designs",
+      ourDesignsSearch: "Search by name",
+      ourDesignsEmpty: "No designs here yet.",
+      ourDesignsMore: "Show more",
+      ourDesignsDone: "Done",
+      ourDesignTag: "Our design",
+      tags: { front: "Front side", back: "Back side", collar: "Collar", logo: "Logo", sleeve: "Sleeve", sponsor: "Sponsor", reference: "Reference" },
     },
     template: {
       label: "Choose a design",
@@ -81,6 +89,7 @@ export const en = {
     fabric: {
       label: "Fabric",
       perPiece: "{price} per piece",
+      tier: "{n}+ pcs: {price} each",
     },
     options: {
       label: "Options",
@@ -263,7 +272,11 @@ export const en = {
       title: "Jerseys we made",
       subtitle: "Real kits made for real teams, shown with their permission.",
       empty: "Photos are coming soon.",
+      useThis: "Use this design",
       cta: "Start your own",
+      categories: {
+        all: "All",
+      },
     },
     account: {
       title: "My custom jerseys",

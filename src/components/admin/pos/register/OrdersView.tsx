@@ -8,6 +8,7 @@ import { REGISTER } from "@/components/admin/nav";
 import { api, dateTime } from "../api";
 import { Numpad, applyKey, type PadKey } from "./parts";
 import { SkeletonRows } from "@/components/ui/PageSkeleton";
+import { PeriodSelect, periodRange, type Period } from "@/components/admin/filters/period";
 
 interface Row {
   id: string;
@@ -28,6 +29,7 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
   const { t } = useT();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("all");
+  const [period, setPeriod] = useState<Period>("all");
   const [rows, setRows] = useState<Row[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<SaleDetail | null>(null);
@@ -38,12 +40,27 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const load = useCallback(async (term: string) => {
-    setRows(null);
-    const res = await api<{ sales: Row[] }>(`/api/admin/pos/sales?q=${encodeURIComponent(term.trim())}`);
-    setRows(res.ok ? res.data.sales : []);
-    if (!res.ok) setMsg({ ok: false, text: res.error });
-  }, []);
+  const salesUrl = useCallback(
+    (term: string) => {
+      const { from, to } = periodRange(period);
+      const p = new URLSearchParams({ q: term.trim() });
+      if (from) p.set("from", from);
+      if (to) p.set("to", to);
+      if (status !== "all") p.set("status", status);
+      return `/api/admin/pos/sales?${p}`;
+    },
+    [period, status],
+  );
+
+  const load = useCallback(
+    async (term: string) => {
+      setRows(null);
+      const res = await api<{ sales: Row[] }>(salesUrl(term));
+      setRows(res.ok ? res.data.sales : []);
+      if (!res.ok) setMsg({ ok: false, text: res.error });
+    },
+    [salesUrl],
+  );
 
   const open = useCallback(async (id: string) => {
     setSelected(id);
@@ -56,9 +73,10 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
     else setMsg({ ok: false, text: res.error });
   }, []);
 
+  // Date/status changes reload from the server (the search box reloads on Enter).
   useEffect(() => {
     let stop = false;
-    void api<{ sales: Row[] }>("/api/admin/pos/sales?q=").then((res) => {
+    void api<{ sales: Row[] }>(salesUrl(q)).then((res) => {
       if (stop) return;
       setRows(res.ok ? res.data.sales : []);
       if (!res.ok) setMsg({ ok: false, text: res.error });
@@ -66,9 +84,11 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
     return () => {
       stop = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesUrl]);
 
   const shown = useMemo(() => (rows ?? []).filter((r) => status === "all" || r.status === status), [rows, status]);
+  const shownTotal = useMemo(() => shown.reduce((sum, r) => sum + Number(r.total || 0) - Number(r.refunded_total || 0), 0), [shown]);
 
   const left = (i: SaleDetail["items"][number]) => i.quantity - (i.returned_quantity ?? 0);
   const unit = (i: SaleDetail["items"][number]) => (i.quantity ? Number(i.line_total) / i.quantity : 0);
@@ -128,6 +148,7 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("shop.register.searchOrders")} autoFocus className="w-full h-10 rounded-md bg-surface-card border border-border-light pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted focus:outline-none focus:border-primary" />
           </div>
+          <PeriodSelect value={period} onChange={setPeriod} className="h-10 rounded-md bg-surface-card border border-border-light px-2 text-sm text-on-surface" />
           <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="h-10 rounded-md bg-surface-card border border-border-light px-2 text-sm text-on-surface">
             {STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -135,7 +156,10 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
               </option>
             ))}
           </select>
-          <span className="hidden sm:flex items-center text-xs text-text-muted tabular-nums px-1">{shown.length}</span>
+          <span className="hidden sm:flex flex-col justify-center text-xs text-text-muted tabular-nums px-1 text-right leading-tight">
+            <span>{shown.length}</span>
+            <span className="font-semibold text-on-surface">{taka(shownTotal)}</span>
+          </span>
         </form>
         <div className="flex-1 overflow-y-auto">
           {rows === null ? (

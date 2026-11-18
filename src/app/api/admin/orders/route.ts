@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
     // The delivery rule, the same one the storefront derives inside its RPC.
     const FREE_THRESHOLD = 1500;
     const shippingFee =
-      subtotal >= FREE_THRESHOLD || subtotal === 0 ? 0 : city === "Outside Dhaka" ? 120 : 60;
+      subtotal >= FREE_THRESHOLD || subtotal === 0 ? 0 : city === "Outside Dhaka" ? 120 : 70;
     const totalAmount = Math.round((subtotal + shippingFee) * 100) / 100;
 
     if (!Number.isFinite(amountPaid) || amountPaid < 0) {

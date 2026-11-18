@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { PeriodSelect, inPeriod, type Period } from "@/components/admin/filters/period";
 import { AlertCircle, ArrowRight, CalendarClock, Search, Settings2, UserRound } from "lucide-react";
 import { OrderDrawer } from "@/components/admin/custom-orders/OrderDrawer";
 import { BOARD_COLUMNS, STATUS_LABEL, taka } from "@/components/admin/custom-orders/labels";
@@ -39,6 +40,8 @@ export default function CustomOrdersAdminPage() {
   const [view, setView] = useState<"board" | "list">("board");
   const [q, setQ] = useState("");
   const [mine, setMine] = useState("");
+  const [period, setPeriod] = useState<Period>("all");
+  const [rushOnly, setRushOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -59,7 +62,7 @@ export default function CustomOrdersAdminPage() {
   }, [load, q]);
 
   const staffName = useMemo(() => new Map(staff.map((s) => [s.id, s.name])), [staff]);
-  const visible = mine ? rows.filter((r) => r.assigned_to === mine) : rows;
+  const visible = rows.filter((r) => (!mine || r.assigned_to === mine) && inPeriod(r.created_at, period) && (!rushOnly || r.is_rush));
   const late = visible.filter((r) => isOverdue(r)).length;
   const boardMode = view === "board" && scope === "open";
 
@@ -121,6 +124,10 @@ export default function CustomOrdersAdminPage() {
           <option value="">Everyone</option>
           {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+        <PeriodSelect value={period} onChange={setPeriod} className={field} />
+        <label className="flex items-center gap-1.5 text-sm">
+          <input type="checkbox" checked={rushOnly} onChange={(e) => setRushOnly(e.target.checked)} /> Urgent only
+        </label>
         <select className={field} value={scope} onChange={(e) => setScope(e.target.value as typeof scope)} aria-label="Which orders">
           <option value="open">In progress</option>
           <option value="closed">Finished and closed</option>

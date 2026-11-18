@@ -8,18 +8,10 @@ import { estimate } from "@/lib/custom-jersey/pricing";
 import { PATTERNS, SPORTS, type Fabric, type JerseyTemplate, type PricingConfig } from "@/lib/custom-jersey/types";
 import { taka } from "@/components/admin/custom-orders/labels";
 
-interface GalleryItem {
-  id: string;
-  image_url: string;
-  caption: string | null;
-  is_published: boolean;
-  custom_order_id: string | null;
-}
 interface Setup {
   fabrics: Fabric[];
   templates: JerseyTemplate[];
   pricing: PricingConfig;
-  gallery: GalleryItem[];
 }
 
 const field = "px-2.5 py-1.5 text-sm bg-surface-subtle rounded border border-border-light";
@@ -36,7 +28,7 @@ const EXTRAS: { key: keyof PricingConfig["extras"]; label: string }[] = [
   { key: "polo_collar", label: "Polo collar" },
 ];
 
-async function uploadImage(file: File, kind: "fabric" | "gallery"): Promise<string> {
+async function uploadImage(file: File, kind: "fabric"): Promise<string> {
   const form = new FormData();
   form.append("file", file);
   form.append("kind", kind);
@@ -80,7 +72,7 @@ export default function CustomJerseySetupPage() {
     setTimeout(() => setSaved(null), 2000);
   };
 
-  async function save(entity: "fabric" | "template" | "gallery", body: Record<string, unknown>): Promise<boolean> {
+  async function save(entity: "fabric" | "template", body: Record<string, unknown>): Promise<boolean> {
     const res = await fetch("/api/admin/custom-jersey", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, ...body }) });
     if (!res.ok) {
       setError((await res.json().catch(() => ({}))).error ?? "Could not save");
@@ -125,7 +117,7 @@ export default function CustomJerseySetupPage() {
   const samples = sampleFabric
     ? [1, 5, 11, 21, 51].map((quantity) => ({
         quantity,
-        result: estimate({ fabricPrice: sampleFabric.price_per_piece, quantity, sleeve: "short", collar: "round", withShorts: false, withNames: true, withNumbers: true, withLogo: false }, pricing),
+        result: estimate({ fabricPrice: sampleFabric.price_per_piece, fabricTiers: sampleFabric.price_tiers, quantity, sleeve: "short", collar: "round", withShorts: false, withNames: true, withNumbers: true, withLogo: false }, pricing),
       }))
     : [];
 
@@ -134,7 +126,7 @@ export default function CustomJerseySetupPage() {
       <div>
         <Link href="/admin/online/custom-orders" className="inline-flex items-center gap-1 text-xs text-text-muted mb-2"><ArrowLeft className="w-3.5 h-3.5" /> Custom orders</Link>
         <h1 className="font-display text-xl uppercase font-bold text-primary mb-1">Custom jersey setup</h1>
-        <p className="text-sm text-text-muted">Fabrics, the price table, the designs customers can pick, and the gallery. The site shows these prices as an estimate; the final price is set on each order.</p>
+        <p className="text-sm text-text-muted">Fabrics, the price table and the design templates customers can pick. The site shows these prices as an estimate; the final price is set on each order.</p>
         {error && <div className="flex items-center gap-2 text-sm text-badge-discount bg-badge-discount/10 rounded-lg px-3 py-2 mt-3" role="alert"><AlertCircle className="w-4 h-4 shrink-0" /> {error}</div>}
       </div>
 
@@ -314,42 +306,14 @@ export default function CustomJerseySetupPage() {
         </form>
       </section>
 
-      {/* Gallery */}
+      {/* Designs live in their own catalogue now */}
       <section>
-        <h2 className={h2}>Gallery</h2>
+        <h2 className={h2}>Design catalogue</h2>
         <p className="text-sm text-text-muted mb-3">
-          Photos on <Link href="/custom-jersey/gallery" className="underline underline-offset-2">/custom-jersey/gallery</Link>. A customer&apos;s jersey is added from its order, and only when they agreed. Add your own sample photos here.
+          Our own designs, by category (Club jersey, Player Edition...), are managed on their own page. Customers see them on{" "}
+          <Link href="/custom-jersey/gallery" className="underline underline-offset-2">/custom-jersey/gallery</Link>.
         </p>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-          {setup.gallery.map((g) => (
-            <div key={g.id} className={`relative bg-surface-card rounded-lg border border-border-light overflow-hidden text-[11px] ${g.is_published ? "" : "opacity-50"}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={g.image_url} alt={g.caption ?? ""} className="w-full aspect-square object-cover" />
-              <div className="p-1.5 flex items-center gap-2">
-                <button className="underline underline-offset-2" onClick={() => save("gallery", { id: g.id, caption: g.caption, is_published: !g.is_published })}>{g.is_published ? "Hide" : "Show"}</button>
-                <button aria-label="Delete photo" className="ml-auto text-text-muted hover:text-badge-discount" onClick={() => remove("gallery", g.id, "this photo")}><Trash2 className="w-3.5 h-3.5" /></button>
-              </div>
-            </div>
-          ))}
-          <label className="aspect-square rounded-lg border-2 border-dashed border-border-light flex flex-col items-center justify-center gap-1 text-xs text-text-muted cursor-pointer hover:bg-surface-subtle">
-            <ImagePlus className="w-5 h-5" /> Add photo
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (!file) return;
-                try {
-                  await save("gallery", { image_path: await uploadImage(file, "gallery") });
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Upload failed");
-                }
-              }}
-            />
-          </label>
-        </div>
+        <Link href="/admin/online/designs" className={primary}><ImagePlus className="w-4 h-4" /> Open the design catalogue</Link>
       </section>
     </div>
   );

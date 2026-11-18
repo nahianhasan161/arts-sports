@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, MessageCircle, Phone } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { PeriodSelect, inPeriod, type Period } from "@/components/admin/filters/period";
+
+import { AlertCircle, MessageCircle, Phone, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Lead {
@@ -61,6 +63,14 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [q, setQ] = useState("");
+  const [period, setPeriod] = useState<Period>("all");
+  const shown = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return leads.filter(
+      (l) => inPeriod(l.created_at, period) && (!term || l.phone.includes(term) || (l.name ?? "").toLowerCase().includes(term) || l.items.some((i) => (i.title ?? "").toLowerCase().includes(term))),
+    );
+  }, [leads, q, period]);
 
   const load = useCallback(async (which: string) => {
     try {
@@ -126,14 +136,23 @@ export default function LeadsPage() {
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-48">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Phone, name or product" className="w-full h-9 pl-9 pr-3 text-sm rounded-lg border border-border-light bg-surface-card" />
+        </div>
+        <PeriodSelect value={period} onChange={setPeriod} className="h-9 px-3 text-sm rounded-lg border border-border-light bg-surface-card" />
+        <span className="text-xs text-text-muted">{shown.length}</span>
+      </div>
+
       <div className="grid gap-3">
         {loading &&
           Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
-        {!loading && leads.length === 0 && (
+        {!loading && shown.length === 0 && (
           <p className="p-6 text-center text-xs text-text-muted bg-surface-card border border-border-light rounded-xl">No leads here.</p>
         )}
         {!loading &&
-          leads.map((lead) => (
+          shown.map((lead) => (
             <div key={lead.id} className="bg-surface-card border border-border-light rounded-xl p-4 text-xs grid gap-3 md:grid-cols-[1fr_1fr_260px]">
               <div className="space-y-1">
                 <p className="text-sm font-bold">{lead.name || "No name"}</p>

@@ -9,11 +9,12 @@ import { explainDbError, loadConfig } from "@/lib/custom-jersey/server";
 import { PATTERNS, SPORTS } from "@/lib/custom-jersey/types";
 
 /**
- * Custom jersey setup: fabrics, the price table, design templates, gallery.
+ * Custom jersey setup: fabrics, the price table, design templates.
+ * (Gallery designs and their categories: /api/admin/custom-jersey/designs.)
  *
  * GET    everything, including switched-off rows
  * PUT    { pricing }                                   replace the price table
- * POST   { entity: "fabric" | "template" | "gallery", ...fields }   create, or update when id is given
+ * POST   { entity: "fabric" | "template", ...fields }   create, or update when id is given
  * DELETE ?entity=...&id=...
  */
 
@@ -23,10 +24,8 @@ const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").repla
 
 export async function GET() {
   try {
-    const { user: actor } = await requirePermission("custom_orders.manage");
-    const config = await loadConfig(true);
-    const { data: gallery } = await getServiceSupabase(actor).from("custom_gallery").select("*").order("display_order").order("created_at", { ascending: false }).limit(200);
-    return NextResponse.json({ ...config, gallery: gallery ?? [] });
+    await requirePermission("custom_orders.manage");
+    return NextResponse.json(await loadConfig(true));
   } catch (error) {
     if (error instanceof Error && /migration/.test(error.message)) return bad(error.message, 503);
     return handleAdminError(error);
@@ -96,16 +95,6 @@ export async function POST(request: Request) {
         is_active: b.is_active !== false,
       };
       if (!id) row.slug = slugify(`${sport}-${name}`) || crypto.randomUUID().slice(0, 8);
-    } else if (b.entity === "gallery") {
-      table = "custom_gallery";
-      row = {
-        caption: text(b.caption, 200) || null,
-        sport: SPORTS.find((s) => s === b.sport) ?? null,
-        is_published: b.is_published !== false,
-        display_order: Math.floor(Number(b.display_order)) || 0,
-      };
-      if (isStaffImagePath(b.image_path)) row.image_url = publicUrlFor(b.image_path);
-      else if (!id) return bad("Upload the photo first");
     } else {
       return bad("Unknown entity");
     }
@@ -124,10 +113,16 @@ export async function DELETE(request: Request) {
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     const entity = url.searchParams.get("entity");
-    const table = entity === "fabric" ? "custom_fabrics" : entity === "template" ? "jersey_templates" : entity === "gallery" ? "custom_gallery" : null;
+    const table = entity === "fabric" ? "custom_fabrics" : entity === "template" ? "jersey_templates" : null;
     if (!id || !table) return bad("entity and id are required");
     // Orders keep the fabric's name, so removing a fabric does not change old orders.
-    const { error } = await getServiceSupabase(actor).from(table).delete().eq("id", id);
+    // Its stock entries would be deleted with it (and the supplier due they make), so a fabric with stock stays.
+    const db = getServiceSupabase(actor);
+    if (entity === "fabric") {
+      const { count } = await db.from("fabric_moves").select("id", { count: "exact", head: true }).eq("fabric_id", id);
+      if (count) return bad("This fabric has stock entries (Fabric stock page), so it can't be deleted. Switch it off instead.", 409);
+    }
+    const { error } = await db.from(table).delete().eq("id", id);
     if (error) return bad(error.message, 500);
     return NextResponse.json({ ok: true });
   } catch (error) {

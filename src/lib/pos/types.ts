@@ -1,5 +1,7 @@
 /** Shapes shared by the POS screens and their API routes (no server code here). */
 
+import type { DesignCategoryRow, DesignRow } from "@/lib/custom-jersey/designs";
+
 export interface PosVariant {
   variant_id: string | null;
   label: string;
@@ -80,3 +82,53 @@ export interface SaleDetail {
 }
 
 export const taka = (n: number | string | null | undefined) => `৳${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(Number(n) || 0)}`;
+
+/* ---------------------------------------------------------------------------
+ * Register catalogue kept on the device (api/admin/pos/catalog + stock).
+ * The catalogue has no stock: stock comes from its own small, frequent call.
+ * ------------------------------------------------------------------------- */
+
+export interface CatalogVariant {
+  variant_id: string;
+  label: string;
+  sku: string | null;
+  barcode: string | null;
+}
+
+export interface CatalogProduct {
+  product_id: string;
+  title: string;
+  image: string | null;
+  price: number;
+  base_price: number;
+  category_id: string | null;
+  sub_category_id: string | null;
+  sku: string | null;
+  /** Active variants. Empty = the product is sold as one item (stock on the product). */
+  variants: CatalogVariant[];
+}
+
+export interface CatalogCategory {
+  id: string;
+  name: string;
+  image: string | null;
+}
+
+export interface PosCatalog {
+  /** Hash of the content: equal version = nothing changed. */
+  version: string;
+  products: CatalogProduct[];
+  categories: CatalogCategory[];
+  /** Published custom-jersey designs, gallery order (missing in copies saved before they were added). */
+  designs?: DesignRow[];
+  designCategories?: DesignCategoryRow[];
+}
+
+export interface PosStock {
+  showroom_id: string;
+  /** variant_id -> on the shelf minus what online orders hold. */
+  variants: Record<string, number>;
+  /** product_id -> stock, for products without variants. */
+  plain: Record<string, number>;
+  at: string;
+}

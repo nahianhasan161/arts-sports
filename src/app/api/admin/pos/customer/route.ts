@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/permissions";
+import { requireAnyPermission } from "@/lib/auth/permissions";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { normalizeBdPhone } from "@/lib/phone";
 import { explainPosError } from "@/lib/pos/server";
@@ -9,6 +9,7 @@ interface Suggestion {
   id: string;
   phone: string;
   name: string | null;
+  email: string | null;
   is_blacklisted: boolean;
   last_purchase_at: string | null;
 }
@@ -17,7 +18,7 @@ interface Suggestion {
 async function suggest(raw: string): Promise<Suggestion[]> {
   const db = getServiceSupabase();
   const q = raw.trim().slice(0, 60);
-  const cols = "id, phone, name, is_blacklisted";
+  const cols = "id, phone, name, email, is_blacklisted";
   let rows: Omit<Suggestion, "last_purchase_at">[] = [];
   if (!q) {
     const { data: recent } = await db.from("customer_stats").select("customer_id").not("last_purchase_at", "is", null).order("last_purchase_at", { ascending: false }).limit(8);
@@ -50,7 +51,7 @@ async function suggest(raw: string): Promise<Suggestion[]> {
 /** GET /api/admin/pos/customer?phone=01XXXXXXXXX — who this is, if they have bought before. */
 export async function GET(request: Request) {
   try {
-    const { user: actor } = await requirePermission("pos.use");
+    const { user: actor } = await requireAnyPermission("pos.use", "customers.view", "orders.manage");
     const params = new URL(request.url).searchParams;
     if (params.has("q")) return NextResponse.json({ customers: await suggest(params.get("q") ?? "") });
     const phone = normalizeBdPhone(params.get("phone"));

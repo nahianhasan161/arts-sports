@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
       order = await findOrder({ id });
     }
     const file = order?.files?.[index];
+    // A catalogue pick: its picture is a public product image, so just send them there.
+    if ((file?.product_id || file?.design_id) && /^https:\/\//.test(file.path)) return NextResponse.redirect(file.path, 302);
     if (!file || !isDesignPath(file.path)) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (!isStorageConfigured()) return NextResponse.json({ error: "Storage is not configured" }, { status: 503 });
 

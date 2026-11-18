@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, Check, FileText, Images, Loader2, Palette, Upload, X } from "lucide-react";
+import { usePasteDrop } from "./usePasteDrop";
+import { OurDesignsPicker, type GalleryDesign } from "./OurDesignsPicker";
 import { useT } from "@/i18n/client";
 import { formatMoney, localized, type MessageKey } from "@/i18n";
 import { Turnstile, TURNSTILE_ENABLED } from "@/components/checkout/Turnstile";
@@ -137,6 +139,19 @@ export function CustomJerseyForm() {
       .catch((err) => setLoadError(err instanceof Error && err.message ? err.message : "unavailable"));
   }, []);
 
+  // /custom-jersey?design=<id> (from the gallery's "Use this design") starts with that design picked.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("design");
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    fetch(`/api/custom-jersey/designs?ids=${id}`)
+      .then((r) => r.json())
+      .then((json) => {
+        const d = (json.designs ?? [])[0] as GalleryDesign | undefined;
+        if (d) setFiles((prev) => (prev.some((x) => x.design_id === d.id) ? prev : [...prev, designFile(d)]));
+      })
+      .catch(() => {});
+  }, []);
+
   const templates = useMemo(() => (config?.templates ?? []).filter((x) => x.sport === sport), [config, sport]);
   const template = templates.find((x) => x.id === templateId) ?? null;
   const fabric = config?.fabrics.find((f) => f.id === fabricId) ?? null;
@@ -151,7 +166,7 @@ export function CustomJerseyForm() {
     () =>
       config && fabric
         ? estimate(
-            { fabricPrice: fabric.price_per_piece, quantity, sleeve, collar, withShorts, withNames, withNumbers, withLogo, roster: activeRoster.length ? activeRoster : undefined, neededBy: neededBy || null },
+            { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity, sleeve, collar, withShorts, withNames, withNumbers, withLogo, roster: activeRoster.length ? activeRoster : undefined, neededBy: neededBy || null },
             config.pricing
           )
         : null,
@@ -160,13 +175,14 @@ export function CustomJerseyForm() {
   );
   const deliveryFee = !config || pickup ? 0 : zone === "dhaka" ? config.delivery.dhaka : config.delivery.outside;
 
-  const addFiles = async (list: FileList | null) => {
+  const addFiles = async (list: FileList | File[] | null) => {
     if (!list?.length) return;
     setUploading(true);
     setError(null);
     try {
       for (const file of Array.from(list).slice(0, 10 - files.length)) {
         const uploaded = await uploadFile(file, "design");
+        if (file.type.startsWith("image/")) previewUrls.set(uploaded.path, URL.createObjectURL(file));
         setFiles((prev) => [...prev, { path: uploaded.path, name: uploaded.name, mime: uploaded.mime, size: uploaded.size, kind: "design" }]);
       }
     } catch (err) {
@@ -447,6 +463,9 @@ export function CustomJerseyForm() {
                     </strong>
                     <span className="block text-xs text-text-muted">{localized(row, "description", locale)}</span>
                     <span className="block text-xs font-semibold text-primary mt-1 tabular-nums">{t("customJersey.fabric.perPiece", { price: money(f.price_per_piece) })}</span>
+                    {f.price_tiers?.length ? (
+                      <span className="block text-[11px] text-emerald-700 tabular-nums">{f.price_tiers.map((x) => t("customJersey.fabric.tier", { n: x.min, price: money(x.price) })).join(" · ")}</span>
+                    ) : null}
                   </span>
                 </button>
               );
@@ -594,62 +613,107 @@ export function CustomJerseyForm() {
   );
 }
 
-const FILE_TAGS = ["front", "back", "logo", "sleeve", "sponsor", "reference"] as const;
+function designFile(d: GalleryDesign): UploadedFile {
+  return { path: d.image_url, name: (d.title || d.caption || "design").slice(0, 120), mime: "image/*", size: 0, kind: "reference", design_id: d.id };
+}
 
-/** Upload box + one row per file, each with a note saying what the picture is. */
+const FILE_TAGS = ["front", "back", "collar", "sleeve", "logo", "sponsor", "reference"] as const;
+
+/** Local previews of the customer's own pictures (stored files are private, so no public URL). */
+const previewUrls = new Map<string, string>();
+
+/** Upload box + a card per file (picture, part chip, note), like the product cards. */
 function DesignFiles({ files, setFiles, uploading, onAdd }: {
   files: UploadedFile[];
   setFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
   uploading: boolean;
-  onAdd: (list: FileList | null) => void | Promise<void>;
+  onAdd: (list: FileList | File[] | null) => void | Promise<void>;
 }) {
   const { t } = useT();
+  const full = files.length >= 10;
+  const { dragging, dropProps } = usePasteDrop((list) => void onAdd(list), !uploading && !full);
+  const [picking, setPicking] = useState(false);
+  const pickedIds = new Set(files.map((f) => f.design_id).filter((id): id is string => !!id));
+  const toggleDesign = (d: GalleryDesign) =>
+    setFiles((prev) => (prev.some((x) => x.design_id === d.id) ? prev.filter((x) => x.design_id !== d.id) : prev.length >= 10 ? prev : [...prev, designFile(d)]));
   const setNote = (path: string, note: string) => setFiles((prev) => prev.map((x) => (x.path === path ? { ...x, note } : x)));
+  const remove = (path: string) => {
+    const url = previewUrls.get(path);
+    if (url) { URL.revokeObjectURL(url); previewUrls.delete(path); }
+    setFiles((prev) => prev.filter((x) => x.path !== path));
+  };
   return (
     <>
-      <label className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-border-light rounded-xl py-6 px-3 text-center cursor-pointer hover:bg-surface-subtle">
+      <label {...dropProps} className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-xl py-6 px-3 text-center ${dragging ? "border-primary bg-primary/10" : "border-border-light"} ${full ? "opacity-50" : "cursor-pointer hover:bg-surface-subtle"}`}>
         {uploading ? <Loader2 className="w-6 h-6 animate-spin text-text-muted" /> : <Upload className="w-6 h-6 text-text-muted" />}
         <span className="text-sm font-semibold">{uploading ? t("customJersey.upload.uploading") : t("customJersey.upload.add")}</span>
         <span className="text-xs text-text-muted">{t("customJersey.upload.hint")}</span>
-        <input type="file" multiple accept={DESIGN_ACCEPT} className="hidden" disabled={uploading || files.length >= 10} onChange={(e) => { void onAdd(e.target.files); e.target.value = ""; }} />
+        <span className="text-xs text-text-muted">{t("customJersey.upload.pasteHint")}</span>
+        <input type="file" multiple accept={DESIGN_ACCEPT} className="hidden" disabled={uploading || full} onChange={(e) => { void onAdd(e.target.files); e.target.value = ""; }} />
       </label>
+      <button type="button" onClick={() => setPicking(true)} className="h-10 px-4 rounded-lg border border-primary text-primary text-sm font-semibold inline-flex items-center justify-center gap-2 hover:bg-primary/10">
+        <Images className="w-4 h-4" />
+        {t("customJersey.upload.ourDesigns")}
+      </button>
+      {picking && <OurDesignsPicker pickedIds={pickedIds} canAdd={!full} onToggle={toggleDesign} onClose={() => setPicking(false)} />}
       {files.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {files.map((f) => (
-            <li key={f.path} className="flex flex-col gap-1.5 text-sm bg-surface-subtle rounded-lg px-3 py-2">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 shrink-0 text-text-muted" />
-                <span className="truncate flex-1">{f.name}</span>
-                <span className="text-xs text-text-muted tabular-nums">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
-                <button type="button" onClick={() => setFiles((prev) => prev.filter((x) => x.path !== f.path))} aria-label={t("customJersey.upload.remove")} className="text-text-muted hover:text-badge-discount">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {FILE_TAGS.map((tag) => {
-                  const label = t(`customJersey.upload.tags.${tag}`);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setNote(f.path, label)}
-                      className={`text-xs rounded-full border px-2.5 py-0.5 ${f.note === label ? "border-primary bg-primary text-white" : "border-border-light bg-surface-card hover:bg-surface-subtle"}`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              <input
-                className="w-full rounded-lg border border-border-light bg-surface-card px-3 h-9 text-sm"
-                value={f.note ?? ""}
-                maxLength={200}
-                onChange={(e) => setNote(f.path, e.target.value)}
-                placeholder={t("customJersey.upload.notePlaceholder")}
-                aria-label={t("customJersey.upload.notePlaceholder")}
-              />
-            </li>
-          ))}
+        <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {files.map((f) => {
+            const preview = f.design_id ? f.path : previewUrls.get(f.path);
+            const labels = FILE_TAGS.map((tag) => t(`customJersey.upload.tags.${tag}`));
+            const note = f.note ?? "";
+            const tagLabel = labels.find((l) => note === l || note.startsWith(`${l} — `));
+            const text = tagLabel ? note.slice(tagLabel.length).replace(/^ — /, "") : note;
+            const save = (part: string | undefined, body: string) => setNote(f.path, part ? (body ? `${part} — ${body}` : part) : body);
+            return (
+              <li key={f.path} className="flex flex-col rounded-xl overflow-hidden bg-surface-card border border-border-light shadow-sm">
+                <div className="relative aspect-square bg-surface-subtle">
+                  {preview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={preview} alt={f.note || f.name} className="absolute inset-0 w-full h-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-text-muted">
+                      <FileText className="w-8 h-8" />
+                      <span className="text-[11px] truncate max-w-full">{f.name}</span>
+                    </div>
+                  )}
+                  {f.design_id && (
+                    <span className="absolute bottom-2 left-2 rounded-md bg-primary text-primary-foreground px-2 py-0.5 text-[11px] font-semibold shadow-sm">
+                      {t("customJersey.upload.ourDesignTag")}
+                    </span>
+                  )}
+                  {tagLabel && (
+                    <span className="absolute top-2 right-2 rounded-md bg-surface-card/95 text-on-surface border border-border-light px-2 py-0.5 text-xs font-semibold shadow-sm">
+                      {tagLabel}
+                    </span>
+                  )}
+                  <button type="button" onClick={() => remove(f.path)} aria-label={t("customJersey.upload.remove")} className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-badge-discount">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5 p-2 border-b-[3px] border-accent-gold">
+                  <select
+                    className="w-full rounded-md border border-border-light bg-surface-card h-8 px-2 text-xs"
+                    value={tagLabel ?? ""}
+                    onChange={(e) => save(e.target.value || undefined, text)}
+                    aria-label={t("customJersey.upload.notePlaceholder")}
+                  >
+                    <option value="">—</option>
+                    {labels.map((label) => <option key={label} value={label}>{label}</option>)}
+                  </select>
+                  <textarea
+                    className="w-full rounded-md border border-border-light bg-surface-card px-2 py-1.5 text-sm resize-none"
+                    rows={2}
+                    value={text}
+                    maxLength={170}
+                    onChange={(e) => save(tagLabel, e.target.value)}
+                    placeholder={t("customJersey.upload.notePlaceholder")}
+                    aria-label={t("customJersey.upload.notePlaceholder")}
+                  />
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

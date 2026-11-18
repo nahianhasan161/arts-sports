@@ -58,6 +58,7 @@ export default function CatalogAdminPage() {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [q, setQ] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -92,7 +93,10 @@ export default function CatalogAdminPage() {
     else await load();
   }
 
-  const list = terms.filter((t) => t.type === tab);
+  const needle = q.trim().toLowerCase();
+  const hit = (...v: (string | null | undefined)[]) => !needle || v.some((x) => (x ?? "").toLowerCase().includes(needle));
+  const list = terms.filter((t) => t.type === tab && hit(t.name_en, t.name_bn, t.slug));
+  const shownCollections = collections.filter((c) => hit(c.title_en, c.title_bn, c.slug));
 
   return (
     <div className="p-space-base max-w-5xl">
@@ -113,6 +117,7 @@ export default function CatalogAdminPage() {
             {t === "collections" ? "Collections" : TYPE_LABEL[t]}
           </button>
         ))}
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or slug" aria-label="Search" className="ml-auto h-8 px-3 text-sm rounded border border-border-light bg-surface-card w-56" />
       </div>
 
       {tab !== "collections" && !term && (
@@ -179,7 +184,7 @@ export default function CatalogAdminPage() {
             <Plus className="w-4 h-4" /> Add collection
           </button>
           <ul className="divide-y divide-border-light bg-surface-card rounded-xl border border-border-light">
-            {collections.map((c) => (
+            {shownCollections.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-4 py-2.5">
                 <button className="flex-1 text-left" onClick={() => setCollection({ ...c, title_bn: c.title_bn ?? "", description_en: c.description_en ?? "", banner_url: c.banner_url ?? "", starts_at: toLocal(c.starts_at), ends_at: toLocal(c.ends_at) })}>
                   <span className="font-semibold text-sm">{c.title_en}</span>

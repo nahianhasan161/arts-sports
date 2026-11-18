@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, ShoppingBag, Store } from "lucide-react";
+import { ChevronDown, LogOut, ShoppingBag, Store } from "lucide-react";
 import { useT } from "@/i18n/client";
 import PageSkeleton from "@/components/ui/PageSkeleton";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
-import { BUY, OFFLINE, ONLINE, REGISTER } from "@/components/admin/nav";
+import { BUY, OFFLINE, OFFLINE_MENU_GROUP, ONLINE, REGISTER, type GroupId, type NavItem } from "@/components/admin/nav";
 import { useAdminAccess, useCurrentItem } from "@/components/admin/access";
 
 /**
@@ -49,14 +49,15 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
           </Link>
 
           <nav className="hidden lg:flex items-center gap-0.5 ml-4 min-w-0 flex-1">
-            {offlineItems.map((item) => {
-              const active = currentItem?.href === item.href;
-              return (
-                <Link key={item.id} href={item.href} aria-current={active ? "page" : undefined} className={`${item.id === "purchases" ? "ml-auto " : ""}px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${active ? "bg-white/10 text-white" : "text-rail-text/80 hover:bg-rail-hover hover:text-white"}`}>
-                  {t(`admin.nav.${item.id}.name`)}
+            {barEntries(offlineItems).map((entry) =>
+              "group" in entry ? (
+                <MenuGroup key={entry.group} group={entry.group} items={entry.items} currentHref={currentItem?.href} />
+              ) : (
+                <Link key={entry.id} href={entry.href} aria-current={currentItem?.href === entry.href ? "page" : undefined} className={`${entry.id === "purchases" ? "ml-auto " : ""}${barLink(currentItem?.href === entry.href)}`}>
+                  {t(`admin.nav.${entry.id}.name`)}
                 </Link>
-              );
-            })}
+              ),
+            )}
           </nav>
 
           <div className="ml-auto flex items-center gap-1.5">
@@ -105,6 +106,76 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
           {children}
         </div>
       </main>
+    </div>
+  );
+}
+
+type BarEntry = NavItem | { group: GroupId; items: NavItem[] };
+
+/** Bar order: plain items stay put; grouped ones collect at their group's first item. */
+function barEntries(items: NavItem[]): BarEntry[] {
+  const out: BarEntry[] = [];
+  const groups = new Map<GroupId, NavItem[]>();
+  for (const item of items) {
+    const g = OFFLINE_MENU_GROUP[item.id];
+    if (!g) {
+      out.push(item);
+      continue;
+    }
+    const list = groups.get(g);
+    if (list) list.push(item);
+    else {
+      const fresh = [item];
+      groups.set(g, fresh);
+      out.push({ group: g, items: fresh });
+    }
+  }
+  // A group with a single visible item is just a link.
+  return out.map((e) => ("group" in e && e.items.length === 1 ? e.items[0] : e));
+}
+
+function barLink(active: boolean) {
+  return `px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${active ? "bg-white/10 text-white" : "text-rail-text/80 hover:bg-rail-hover hover:text-white"}`;
+}
+
+function MenuGroup({ group, items, currentHref }: { group: GroupId; items: NavItem[]; currentHref?: string }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = items.some((i) => i.href === currentHref);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${barLink(active)} inline-flex items-center gap-1`}>
+        {t(`admin.groups.${group}`)}
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-50 min-w-[220px] rounded-xl border border-white/10 bg-rail p-1 shadow-xl">
+          {items.map((item) => {
+            const on = item.href === currentHref;
+            return (
+              <Link key={item.id} href={item.href} aria-current={on ? "page" : undefined} onClick={() => setOpen(false)} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${on ? "bg-white/10 text-white" : "text-rail-text/80 hover:bg-rail-hover hover:text-white"}`}>
+                <item.icon className="w-4 h-4" />
+                {t(`admin.nav.${item.id}.name`)}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

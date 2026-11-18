@@ -6,7 +6,7 @@ import { POS_METHODS, explainPosError, staffNames } from "@/lib/pos/server";
 import { bad, failed } from "@/lib/pos/http";
 
 /**
- * GET  /api/admin/pos/sales?q=<receipt no or phone>   recent shop sales
+ * GET  /api/admin/pos/sales?q=<receipt no or phone>&from=&to=&status=&staff=   recent shop sales
  *      (a cashier sees their own; pos.manage sees everyone's)
  * POST /api/admin/pos/sales                            ring up a sale
  */
@@ -14,14 +14,24 @@ export async function GET(request: Request) {
   try {
     const { user, supabase } = await requirePermission("pos.use");
     const db = getServiceSupabase(user);
-    const q = (new URL(request.url).searchParams.get("q") ?? "").trim().slice(0, 40);
+    const sp = new URL(request.url).searchParams;
+    const q = (sp.get("q") ?? "").trim().slice(0, 40);
+    const isoOrNull = (v: string | null) => (v && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : null);
+    const from = isoOrNull(sp.get("from"));
+    const to = isoOrNull(sp.get("to"));
+    const status = sp.get("status") ?? "";
+    const staff = sp.get("staff") ?? "";
     const { data: canManage } = await supabase.rpc("has_permission", { p_code: "pos.manage" });
 
+    const limit = from || status || staff ? 300 : 60;
     let query = db
       .from("pos_sales")
-      .select("id, receipt_no, customer_name, customer_phone, total, refunded_total, status, sold_by, created_at")
+      .select("id, receipt_no, customer_name, customer_phone, subtotal, discount_total, coupon_discount, total, refunded_total, status, sold_by, created_at")
       .order("created_at", { ascending: false })
-      .limit(60);
+      .limit(limit);
+    if (from) query = query.gte("created_at", from);
+    if (to) query = query.lt("created_at", to);
+    if (["completed", "partially_refunded", "refunded"].includes(status)) query = query.eq("status", status);
     if (q) {
       const phone = normalizeBdPhone(q);
       const safe = q.replace(/[%,()]/g, "");
@@ -30,11 +40,38 @@ export async function GET(request: Request) {
       query = id ? query.eq("id", id) : phone ? query.eq("customer_phone", phone) : query.ilike("receipt_no", `%${safe}%`);
     } else if (canManage !== true) {
       query = query.eq("sold_by", user.id);
+    } else if (/^[0-9a-f-]{36}$/i.test(staff)) {
+      query = query.eq("sold_by", staff);
     }
     const { data, error } = await query;
     if (error) return bad(explainPosError(error.message), 500);
-    const names = await staffNames(db, (data ?? []).map((s) => s.sold_by));
-    return NextResponse.json({ sales: (data ?? []).map((s) => ({ ...s, staff: s.sold_by ? names.get(s.sold_by) ?? "Staff" : "" })) });
+    const rows = data ?? [];
+    const ids = rows.map((s) => s.id);
+    // Per bill: how it was paid (charges by method) and how many pieces it had.
+    const [names, pays, items] = await Promise.all([
+      staffNames(db, rows.map((s) => s.sold_by)),
+      ids.length ? db.from("pos_payments").select("sale_id, type, method, amount").in("sale_id", ids) : Promise.resolve({ data: [] }),
+      ids.length ? db.from("pos_sale_items").select("sale_id, quantity").in("sale_id", ids) : Promise.resolve({ data: [] }),
+    ]);
+    const paid = new Map<string, Record<string, number>>();
+    for (const p of (pays.data ?? []) as { sale_id: string; type: string; method: string; amount: number }[]) {
+      if (p.type !== "charge") continue;
+      const m = paid.get(p.sale_id) ?? {};
+      m[p.method] = (m[p.method] ?? 0) + Number(p.amount || 0);
+      paid.set(p.sale_id, m);
+    }
+    const pieces = new Map<string, number>();
+    for (const i of (items.data ?? []) as { sale_id: string; quantity: number }[]) pieces.set(i.sale_id, (pieces.get(i.sale_id) ?? 0) + Number(i.quantity || 0));
+    return NextResponse.json({
+      sales: rows.map((s) => ({
+        ...s,
+        staff: s.sold_by ? names.get(s.sold_by) ?? "Staff" : "",
+        paid: paid.get(s.id) ?? {},
+        item_count: pieces.get(s.id) ?? 0,
+      })),
+      has_more: rows.length >= limit,
+      can_manage: canManage === true,
+    });
   } catch (error) {
     return failed(error);
   }

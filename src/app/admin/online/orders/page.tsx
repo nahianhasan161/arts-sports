@@ -7,6 +7,7 @@ import { Search, Package, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PaymentTransactionsTable } from "@/components/admin/payments/PaymentTransactionsTable";
 import { ManualOrderForm } from "@/components/admin/orders/ManualOrderForm";
+import { PeriodSelect, inPeriod, type Period } from "@/components/admin/filters/period";
 
 interface OrderItem {
   id: string;
@@ -65,6 +66,8 @@ export default function AdminOrders() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [period, setPeriod] = useState<Period>("all");
+  const [methodFilter, setMethodFilter] = useState<string>("all");
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   /** Whether the manual order form is open. */
@@ -101,16 +104,21 @@ export default function AdminOrders() {
       }
 
       let filtered = orderIdFromUrl ? data.data : data.data;
-      if (statusFilter !== "all") {
+      if (statusFilter.startsWith("confirm:")) {
+        const want = statusFilter.slice("confirm:".length);
+        filtered = (data.data as AdminOrderRow[]).filter((o) => o.confirmation_status === want);
+      } else if (statusFilter !== "all") {
         filtered = data.data.filter((o) => o.status === statusFilter);
       }
+      filtered = filtered.filter((o) => inPeriod(o.created_at, period) && (methodFilter === "all" || o.payment_method === methodFilter));
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         filtered = filtered.filter(
           (o) =>
             o.id.toLowerCase().includes(q) ||
             o.customer_name.toLowerCase().includes(q) ||
-            (o.customer_email ?? "").toLowerCase().includes(q)
+            (o.customer_email ?? "").toLowerCase().includes(q) ||
+            (o.customer_phone ?? "").includes(q)
         );
       }
 
@@ -129,7 +137,7 @@ export default function AdminOrders() {
     const timer = setTimeout(fetchOrders, 500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, period, methodFilter]);
 
   const updateOrderStatus = async (id: string, status: string) => {
     setUpdatingId(id);
@@ -177,13 +185,20 @@ export default function AdminOrders() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             type="text"
-            placeholder="Search orders..."
+            placeholder="Order ID, name, phone or email"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-9 pl-9 pr-3 text-sm border border-border-light rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/20 transition-colors"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <PeriodSelect value={period} onChange={setPeriod} className="h-9 px-3 text-sm border border-border-light rounded-lg bg-surface-card" />
+          <select value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)} aria-label="Payment" className="h-9 px-3 text-sm border border-border-light rounded-lg bg-surface-card">
+            <option value="all">All payments</option>
+            <option value="cod">Cash on delivery</option>
+            <option value="bkash">bKash</option>
+            <option value="nagad">Nagad</option>
+          </select>
           <div className="relative">
             <select
               value={statusFilter}

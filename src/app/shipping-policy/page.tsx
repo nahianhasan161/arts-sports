@@ -3,7 +3,7 @@ import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
 export const metadata = {
   title: "Shipping Policy",
   description:
-    "Arts Sports delivery charges and timelines: ৳60 inside Dhaka, ৳120 nationwide, free over ৳1,500, dispatch times and how to track an order.",
+    "Arts Sports delivery charges and timelines: ৳70 inside Dhaka, ৳120 nationwide, free over ৳1,500, dispatch times and how to track an order.",
 };
 
 export default function ShippingPolicyPage() {
@@ -16,7 +16,7 @@ export default function ShippingPolicyPage() {
         <div className="flex flex-col gap-2">
           <div className="flex justify-between border-b border-border-light pb-2">
             <span className="text-text-muted">Inside Dhaka Metro</span>
-            <span className="font-semibold">৳ 60</span>
+            <span className="font-semibold">৳ 70</span>
           </div>
           <div className="flex justify-between border-b border-border-light pb-2">
             <span className="text-text-muted">Outside Dhaka (all 64 districts)</span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { PeriodSelect, inPeriod, type Period } from "@/components/admin/filters/period";
 import React from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
@@ -20,6 +21,7 @@ export function AdminCancellationsClient() {
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("");
   const [typeFilter, setTypeFilter] = React.useState<string>("");
+  const [period, setPeriod] = React.useState<Period>("all");
 
   const limit = 25;
 
@@ -81,6 +83,7 @@ export function AdminCancellationsClient() {
   };
 
   const filteredCancellations = cancellations.filter((c) => {
+    if (!inPeriod(c.created_at, period)) return false;
     if (search) {
       const s = search.toLowerCase();
       return c.id.toLowerCase().includes(s) || c.order_id.toLowerCase().includes(s);
@@ -120,6 +123,7 @@ export function AdminCancellationsClient() {
             className="w-full h-9 pl-10 pr-3 text-sm rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
+        <PeriodSelect value={period} onChange={setPeriod} className="h-9 px-3 text-sm rounded-lg border border-border-light bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary" />
         <select
           value={statusFilter}
           onChange={(e) => {

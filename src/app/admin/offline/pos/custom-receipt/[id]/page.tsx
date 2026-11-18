@@ -1,14 +1,16 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 import { useT } from "@/i18n/client";
 import PageSkeleton from "@/components/ui/PageSkeleton";
-import { config } from "@/lib/config";
 import { taka } from "@/lib/pos/types";
 import { STATUS_LABEL } from "@/components/admin/custom-orders/labels";
-import { api, btnPrimary, dateTime } from "@/components/admin/pos/api";
+import { api, btnGhost, btnPrimary, dateTime } from "@/components/admin/pos/api";
 import { QrCode } from "@/components/admin/pos/Codes";
+import { Lines, ReceiptShop } from "@/components/admin/pos/ReceiptShop";
+import { useReceiptSettings } from "@/components/admin/pos/useReceiptSettings";
+import { CopyImageButton } from "@/components/admin/pos/CopyImageButton";
 import type { CounterOrder } from "@/components/admin/pos/CustomTab";
 
 /**
@@ -19,9 +21,11 @@ import type { CounterOrder } from "@/components/admin/pos/CustomTab";
  */
 export default function CustomReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const imgRef = useRef<HTMLDivElement>(null);
   const { t } = useT();
   const [order, setOrder] = useState<CounterOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const rs = useReceiptSettings();
 
   useEffect(() => {
     void api<{ orders: CounterOrder[] }>(`/api/admin/pos/custom?id=${encodeURIComponent(id)}`).then((res) => {
@@ -32,7 +36,7 @@ export default function CustomReceiptPage({ params }: { params: Promise<{ id: st
   }, [id]);
 
   if (error) return <p className="text-sm text-badge-discount">{error}</p>;
-  if (!order) return <PageSkeleton variant="receipt" label={t("shop.common.loading")} />;
+  if (!order || !rs) return <PageSkeleton variant="receipt" label={t("shop.common.loading")} />;
 
   const due = Math.max(0, order.total - order.paid);
   const date = order.due_date ?? order.needed_by;
@@ -40,11 +44,9 @@ export default function CustomReceiptPage({ params }: { params: Promise<{ id: st
   const copy = (title: string) => (
     <div className="text-black text-[12px]">
       <div className="flex justify-between items-start gap-3">
-        <div>
-          <p className="font-bold text-xl">{config.app.name}</p>
-          <p>{config.business.phone}</p>
+        <ReceiptShop s={rs}>
           <p className="mt-2 font-semibold">{t("shop.receipt.customTitle")}</p>
-        </div>
+        </ReceiptShop>
         <div className="text-right">
           <p className="uppercase tracking-wide text-[10px] border border-black px-1.5 py-0.5 inline-block">{title}</p>
           <p className="font-bold text-lg mt-1">{order.order_number}</p>
@@ -76,18 +78,23 @@ export default function CustomReceiptPage({ params }: { params: Promise<{ id: st
           <p className="text-[10px] max-w-[110px]">{t("shop.receipt.scanToTrack")}</p>
         </div>
       </div>
-      <p className="mt-2 text-[10px]">{t("shop.receipt.customTerms")}</p>
+      <Lines className="mt-2 text-[10px]" text={rs.custom_terms || t("shop.receipt.customTerms")} />
+      {rs.footer && <Lines className="text-center mt-1" text={rs.footer} />}
     </div>
   );
 
   return (
     <div>
-      <button className={`${btnPrimary} print:hidden mb-4`} onClick={() => window.print()}>
-        <Printer className="w-4 h-4" /> {t("shop.common.print")}
-      </button>
+      <div className="print:hidden flex gap-2 mb-4">
+        <button className={btnPrimary} onClick={() => window.print()}>
+          <Printer className="w-4 h-4" /> {t("shop.common.print")}
+        </button>
+        <CopyImageButton target={imgRef} fileName={`custom-receipt-${id}`} className={btnGhost} />
+        <CopyImageButton mode="download" target={imgRef} fileName={`custom-receipt-${id}`} className={btnGhost} />
+      </div>
       <style>{`@media print { @page { size: A4; margin: 10mm; } body { background: #fff !important; } }`}</style>
       <div className="bg-white w-full max-w-[190mm] p-4 print:p-0 mx-auto print:mx-0">
-        {copy(t("shop.receipt.customerCopy"))}
+        <div ref={imgRef} className="bg-white">{copy(t("shop.receipt.customerCopy"))}</div>
         <div className="my-5 border-t border-dashed border-black relative">
           <span className="absolute -top-2 left-4 bg-white px-1 text-[10px] text-black">✂ {t("shop.receipt.cut")}</span>
         </div>

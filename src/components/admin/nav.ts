@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, Tag, Users, Palette, Ruler, Percent, Ticket, Shield, Images,
   CreditCard, RotateCcw, AlertCircle, KeyRound, History, PhoneCall, Settings2, Truck, Trophy,
   MessageSquareText, Shirt, Store, Boxes, Contact, LifeBuoy, Building2, ScanBarcode, SlidersHorizontal,
-  Receipt, Wallet, PackagePlus, Handshake,
+  Receipt, Wallet, PackagePlus, Handshake, Layers, Sticker, Factory,
 } from "lucide-react";
 import type { AdminMessages } from "@/i18n/messages/admin.en";
 
@@ -59,7 +59,11 @@ export const NAV: NavGroup[] = [
     id: "customJersey",
     items: [
       { id: "customOrders", href: `${ONLINE}/custom-orders`, icon: Shirt, perm: "custom_orders.manage" },
+      { id: "customDesigns", href: `${ONLINE}/designs`, icon: Images, perm: "custom_orders.manage" },
       { id: "customSetup", href: `${ONLINE}/custom-jersey`, icon: SlidersHorizontal, perm: "custom_orders.manage" },
+      { id: "fabricStock", href: `${ONLINE}/fabric-stock`, icon: Layers, perm: "inventory.manage" },
+      { id: "accessoryStock", href: `${ONLINE}/accessory-stock`, icon: Sticker, perm: "inventory.manage" },
+      { id: "production", href: `${ONLINE}/production`, icon: Factory, perm: "inventory.manage" },
     ],
   },
   {
@@ -109,15 +113,33 @@ export const OFFLINE_NAV: NavItem[] = [
   { id: "pos", href: REGISTER, icon: ScanBarcode, perm: "pos.use" },
   { id: "shopOrders", href: `${OFFLINE}/orders`, icon: Receipt, perm: "pos.use" },
   { id: "shopCustom", href: `${OFFLINE}/custom-jersey`, icon: Shirt, perm: "pos.use" },
+  { id: "customDesigns", href: `${OFFLINE}/designs`, icon: Images, perm: "custom_orders.manage" },
   { id: "cash", href: `${OFFLINE}/cash`, icon: Wallet, perm: "pos.use" },
   { id: "products", href: `${OFFLINE}/products`, icon: Package },
   { id: "inventory", href: `${OFFLINE}/inventory`, icon: Boxes, perm: "inventory.manage" },
   { id: "suppliers", href: `${OFFLINE}/suppliers`, icon: Handshake, perm: "inventory.manage" },
+  { id: "fabricStock", href: `${OFFLINE}/fabric-stock`, icon: Layers, perm: "inventory.manage" },
+  { id: "accessoryStock", href: `${OFFLINE}/accessory-stock`, icon: Sticker, perm: "inventory.manage" },
+  { id: "production", href: `${OFFLINE}/production`, icon: Factory, perm: "inventory.manage" },
   { id: "customers", href: `${OFFLINE}/customers`, icon: Contact, perm: "customers.view" },
   { id: "branches", href: `${OFFLINE}/branches`, icon: Building2, perm: "settings.manage" },
+  { id: "receiptSettings", href: `${OFFLINE}/receipt-settings`, icon: Receipt, perm: "settings.manage" },
   { id: "shopHelp", href: `${OFFLINE}/help`, icon: LifeBuoy, open: true },
   { id: "purchases", href: BUY, icon: PackagePlus, perm: "inventory.manage" },
 ];
+
+/** Shop top bar: these items sit inside a dropdown instead of the bar itself. */
+export const OFFLINE_MENU_GROUP: Partial<Record<NavId, GroupId>> = {
+  shopCustom: "customJersey",
+  customDesigns: "customJersey",
+  products: "stock",
+  inventory: "stock",
+  suppliers: "stock",
+  customers: "more",
+  branches: "more",
+  receiptSettings: "more",
+  shopHelp: "more",
+};
 
 /** The menu item a path belongs to: an exact match first, then the longest parent. */
 export function findItem(items: NavItem[], pathname: string): NavItem | undefined {

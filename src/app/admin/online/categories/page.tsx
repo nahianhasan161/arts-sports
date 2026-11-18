@@ -23,6 +23,10 @@ export default function AdminCategories() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [q, setQ] = useState("");
+  const needle = q.trim().toLowerCase();
+  const matches = (c: Category): boolean => !needle || c.name.toLowerCase().includes(needle) || c.slug.includes(needle) || (c.children ?? []).some(matches);
+  const shownCategories = categories.filter(matches);
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -126,6 +130,7 @@ export default function AdminCategories() {
         <h2 className="font-display text-xl font-bold text-primary">
           Categories
         </h2>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search categories" aria-label="Search" className="ml-auto mr-2 h-9 px-3 text-sm rounded-lg border border-border-light bg-surface-card w-56" />
         <button
           onClick={openCreateModal}
           className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary-container transition-colors"
@@ -184,7 +189,7 @@ export default function AdminCategories() {
                     </td>
                   </tr>
                 ))
-              ) : categories.length === 0 ? (
+              ) : shownCategories.length === 0 ? (
                 <tr>
                   <td
                     colSpan={4}
@@ -194,7 +199,7 @@ export default function AdminCategories() {
                   </td>
                 </tr>
               ) : (
-                categories.map((category) => (
+                shownCategories.map((category) => (
                   <CategoryRow
                     key={category.id}
                     category={category}

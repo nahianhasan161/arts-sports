@@ -78,6 +78,20 @@ export async function requirePermission(permission: Permission): Promise<Permiss
   return { user, supabase };
 }
 
+/** Like requirePermission, but any one of the listed permissions is enough. */
+export async function requireAnyPermission(...permissions: Permission[]): Promise<PermissionContext> {
+  let last: unknown;
+  for (const p of permissions) {
+    try {
+      return await requirePermission(p);
+    } catch (error) {
+      if (!(error instanceof AdminAuthError) || error.status !== 403) throw error;
+      last = error;
+    }
+  }
+  throw last ?? new AdminAuthError(403, "Not allowed.");
+}
+
 /** The signed-in person's permissions, for showing or hiding UI. Empty when signed out. */
 export async function getMyPermissions(): Promise<Permission[]> {
   const supabase = await sessionClient();

@@ -1,11 +1,12 @@
-import { DEFAULT_PRICING, type Collar, type PricingConfig, type RosterRow, type Sleeve } from "./types";
+import { DEFAULT_PRICING, type Collar, type FabricPriceTier, type PricingConfig, type RosterRow, type Sleeve } from "./types";
 
 /**
  * The estimate shown on the site, and stored with the order. The same
  * function runs in the browser (live, as the customer types) and on the
  * server (which never trusts the browser's number).
  *
- *   price = fabric price per piece, less the quantity discount
+ *   price = fabric price per piece for that quantity (the fabric's own price
+ *           tiers when it has them, else the base price less the % discount)
  *         + extras per piece (name, number, logo, full sleeve, shorts, polo collar)
  *         + rush charge when it is needed sooner than the normal lead time
  *
@@ -14,6 +15,8 @@ import { DEFAULT_PRICING, type Collar, type PricingConfig, type RosterRow, type 
 
 export interface EstimateInput {
   fabricPrice: number;
+  /** The fabric's own price by quantity. When set, the % discount tiers are not used. */
+  fabricTiers?: FabricPriceTier[] | null;
   quantity: number;
   sleeve: Sleeve;
   collar: Collar;
@@ -86,6 +89,27 @@ export function normalizePricing(raw: unknown): PricingConfig {
   };
 }
 
+/** Clean, sorted fabric price tiers (min >= 2, price >= 0, one per min). */
+export function normalizeFabricTiers(raw: unknown): FabricPriceTier[] {
+  if (!Array.isArray(raw)) return [];
+  const byMin = new Map<number, number>();
+  for (const t of raw.slice(0, 20)) {
+    const min = Math.floor(Number((t as FabricPriceTier)?.min));
+    const price = Number((t as FabricPriceTier)?.price);
+    if (Number.isFinite(min) && min >= 2 && min <= 100000 && Number.isFinite(price) && price >= 0 && price <= 1_000_000) byMin.set(min, price);
+  }
+  return [...byMin.entries()].sort((a, b) => a[0] - b[0]).map(([min, price]) => ({ min, price }));
+}
+
+/** Price per piece of a fabric for this many pieces, from its own tiers (null when it has none). */
+export function fabricTierPrice(base: number, tiers: FabricPriceTier[] | null | undefined, quantity: number): number | null {
+  const list = normalizeFabricTiers(tiers);
+  if (!list.length) return null;
+  let price = base;
+  for (const t of list) if (quantity >= t.min) price = t.price;
+  return price;
+}
+
 export function discountFor(quantity: number, pricing: PricingConfig): number {
   let percent = 0;
   for (const tier of pricing.tiers) if (quantity >= tier.min) percent = tier.discount_percent;
@@ -105,8 +129,17 @@ export function estimate(input: EstimateInput, pricing: PricingConfig): Estimate
   const fullSleeves =
     rosterCount > 0 ? input.roster!.filter((r) => r.sleeve === "full").length : input.sleeve === "full" ? quantity : 0;
 
-  const discountPercent = discountFor(quantity, pricing);
-  const unitFabricPrice = round(input.fabricPrice * (1 - discountPercent / 100));
+  const tierPrice = fabricTierPrice(input.fabricPrice, input.fabricTiers, quantity);
+  let discountPercent: number;
+  let unitFabricPrice: number;
+  if (tierPrice !== null) {
+    unitFabricPrice = round(tierPrice);
+    // Shown as "x% quantity discount" when the tier price is below the base price.
+    discountPercent = input.fabricPrice > 0 && unitFabricPrice < input.fabricPrice ? Math.round((1 - unitFabricPrice / input.fabricPrice) * 100) : 0;
+  } else {
+    discountPercent = discountFor(quantity, pricing);
+    unitFabricPrice = round(input.fabricPrice * (1 - discountPercent / 100));
+  }
 
   const lines: EstimateLine[] = [{ key: "fabric", quantity, unit: unitFabricPrice, amount: unitFabricPrice * quantity }];
   const add = (key: EstimateLine["key"], on: boolean, unit: number, count = quantity) => {

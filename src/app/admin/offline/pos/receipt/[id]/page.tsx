@@ -1,13 +1,15 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { Printer } from "lucide-react";
 import { useT } from "@/i18n/client";
 import PageSkeleton from "@/components/ui/PageSkeleton";
-import { config } from "@/lib/config";
 import { taka, type PayMethod, type SaleDetail } from "@/lib/pos/types";
 import { api, btnGhost, btnPrimary, dateTime } from "@/components/admin/pos/api";
 import { QrCode } from "@/components/admin/pos/Codes";
+import { Lines, ReceiptShop } from "@/components/admin/pos/ReceiptShop";
+import { useReceiptSettings } from "@/components/admin/pos/useReceiptSettings";
+import { CopyImageButton } from "@/components/admin/pos/CopyImageButton";
 
 /**
  * A shop receipt (roadmap 4.2).
@@ -18,10 +20,12 @@ import { QrCode } from "@/components/admin/pos/Codes";
  */
 export default function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const imgRef = useRef<HTMLDivElement>(null);
   const { t } = useT();
   const [data, setData] = useState<SaleDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [thermal, setThermal] = useState(false);
+  const rs = useReceiptSettings();
 
   useEffect(() => {
     const timer = setTimeout(() => setThermal(new URLSearchParams(window.location.search).get("size") === "thermal"), 0);
@@ -30,7 +34,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   }, [id]);
 
   if (error) return <p className="text-sm text-badge-discount">{error}</p>;
-  if (!data) return <PageSkeleton variant="receipt" label={t("shop.common.loading")} />;
+  if (!data || !rs) return <PageSkeleton variant="receipt" label={t("shop.common.loading")} />;
 
   const { sale, items, payments } = data;
   const qr = `${window.location.origin}/admin/offline/orders?receipt=${sale.id}`;
@@ -39,11 +43,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   const copy = (title: string) => (
     <div className={`text-black ${thermal ? "text-[11px] leading-snug" : "text-[12px]"}`}>
       <div className="flex justify-between items-start gap-3">
-        <div>
-          <p className={`font-bold ${thermal ? "text-base" : "text-xl"}`}>{config.app.name}</p>
-          <p>{data.showroom?.name}{data.showroom?.address ? `, ${data.showroom.address}` : ""}</p>
-          <p>{config.business.phone}</p>
-        </div>
+        <ReceiptShop s={rs} branch={data.showroom} small={thermal} />
         <div className="text-right">
           <p className="uppercase tracking-wide text-[10px] border border-black px-1.5 py-0.5 inline-block">{title}</p>
           <p className="font-bold mt-1">{t("shop.receipt.no", { no: sale.receipt_no })}</p>
@@ -83,7 +83,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
       <div className="flex justify-between gap-4 mt-2">
         <div className="flex items-start gap-2">
           <QrCode value={qr} size={thermal ? 64 : 76} />
-          <p className="text-[10px] max-w-[150px]">{t("shop.receipt.returnPolicy")}</p>
+          <Lines className="text-[10px] max-w-[150px]" text={rs.terms || t("shop.receipt.returnPolicy")} />
         </div>
         <dl className="min-w-[45%]">
           {[
@@ -103,7 +103,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           ))}
         </dl>
       </div>
-      <p className="text-center mt-2">{t("shop.receipt.thanks")}</p>
+      <Lines className="text-center mt-2" text={rs.footer || t("shop.receipt.thanks")} />
     </div>
   );
 
@@ -116,10 +116,12 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
         <button className={btnGhost} onClick={() => setThermal((v) => !v)}>
           {thermal ? t("shop.pos.printA4") : t("shop.pos.printThermal")}
         </button>
+        <CopyImageButton target={imgRef} fileName={`receipt-${id}`} className={btnGhost} />
+        <CopyImageButton mode="download" target={imgRef} fileName={`receipt-${id}`} className={btnGhost} />
       </div>
       <style>{`@media print { @page { size: ${thermal ? "80mm auto" : "A4"}; margin: ${thermal ? "3mm" : "10mm"}; } body { background: #fff !important; } }`}</style>
       <div className={`bg-white ${thermal ? "w-[72mm] p-1" : "w-full max-w-[190mm] p-4 print:p-0"} mx-auto print:mx-0`}>
-        {copy(t("shop.receipt.customerCopy"))}
+        <div ref={imgRef} className="bg-white">{copy(t("shop.receipt.customerCopy"))}</div>
         {!thermal && (
           <>
             <div className="my-5 border-t border-dashed border-black relative">

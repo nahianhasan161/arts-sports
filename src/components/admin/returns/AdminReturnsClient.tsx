@@ -1,5 +1,6 @@
 "use client";
 
+import { PeriodSelect, inPeriod, type Period } from "@/components/admin/filters/period";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Package, Plus } from "lucide-react";
@@ -58,6 +59,7 @@ export function AdminReturnsClient() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [period, setPeriod] = useState<Period>("all");
   const limit = 25;
 
   /** The return whose detail panel is open. */
@@ -186,6 +188,7 @@ export function AdminReturnsClient() {
   };
 
   const filteredReturns = returns.filter((r) => {
+    if (!inPeriod(r.created_at, period)) return false;
     if (search) {
       const s = search.toLowerCase();
       return r.id.toLowerCase().includes(s) || r.order_id.toLowerCase().includes(s);
@@ -207,6 +210,7 @@ export function AdminReturnsClient() {
             className="w-full h-9 pl-10 pr-3 text-sm rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
+        <PeriodSelect value={period} onChange={setPeriod} className="h-9 px-3 text-sm rounded-lg border border-border-light bg-surface-card focus:outline-none focus:ring-1 focus:ring-primary" />
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}

@@ -13,7 +13,7 @@ export interface CheckoutSettings {
 }
 
 export const DEFAULT_CHECKOUT_SETTINGS: CheckoutSettings = {
-  delivery_fee_dhaka: 60,
+  delivery_fee_dhaka: 70,
   delivery_fee_outside: 120,
   free_delivery_over: 1500,
   cod_min_advance: 120,

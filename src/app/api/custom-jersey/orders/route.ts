@@ -75,10 +75,25 @@ export async function POST(request: NextRequest) {
   const fabric = config.fabrics.find((f) => f.id === b.fabric_id);
   if (!fabric) return bad("Choose a fabric");
 
-  // Files: only paths this site generated are accepted.
+  // Files: only paths this site generated are accepted. A pick from our design gallery
+  // sends only its id; the picture is read from custom_gallery (published rows only).
+  const picked = (Array.isArray(b.files) ? b.files.slice(0, 10) : []) as Partial<UploadedFile>[];
+  const designIds = [...new Set(picked.map((f) => f.design_id).filter((id): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)))];
+  const designImages = new Map<string, { title: string; image: string }>();
+  if (designIds.length) {
+    const { data } = await getServiceSupabase().from("custom_gallery").select("id, title, caption, image_url").eq("is_published", true).in("id", designIds);
+    for (const d of data ?? []) {
+      const image = typeof d.image_url === "string" ? d.image_url : "";
+      if (/^https:\/\//.test(image)) designImages.set(d.id as string, { title: String(d.title ?? d.caption ?? ""), image });
+    }
+  }
   const files: UploadedFile[] = [];
-  for (const f of Array.isArray(b.files) ? b.files.slice(0, 10) : []) {
-    const file = f as Partial<UploadedFile>;
+  for (const file of picked) {
+    if (typeof file.design_id === "string") {
+      const picture = designImages.get(file.design_id);
+      if (picture) files.push({ path: picture.image, name: picture.title.slice(0, 120) || "design", mime: "image/*", size: 0, kind: "reference", design_id: file.design_id, note: text(file.note, 200) || undefined });
+      continue;
+    }
     if (!isDesignPath(file.path)) continue;
     files.push({
       path: file.path,
@@ -126,7 +141,7 @@ export async function POST(request: NextRequest) {
   const withNumbers = b.with_numbers === true;
   const result = estimate(
     {
-      fabricPrice: fabric.price_per_piece,
+      fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers,
       quantity,
       sleeve,
       collar,
@@ -199,7 +214,7 @@ export async function POST(request: NextRequest) {
       delivery_address: address,
       delivery_charge: pickup ? 0 : zone === "dhaka" ? config.delivery.dhaka : config.delivery.outside,
       estimated_price: result.total,
-      estimate_breakdown: { ...result, fabric_price: fabric.price_per_piece },
+      estimate_breakdown: { ...result, fabric_price: fabric.price_per_piece, fabric_tiers: fabric.price_tiers ?? [] },
       gallery_consent: b.gallery_consent === true,
     })
     .select("id")

@@ -5,6 +5,7 @@ import { useT } from "@/i18n/client";
 import { taka } from "@/lib/pos/types";
 import { api, btnPrimary, card, field } from "@/components/admin/pos/api";
 import type { Showroom, StockRow, Supplier } from "./types";
+import { SupplierPicker } from "@/components/admin/pickers";
 
 const REASONS = ["count", "damaged", "lost", "found", "other"] as const;
 
@@ -72,16 +73,7 @@ export function Worksheet({ mode, rows, suppliers, showrooms, showroomId, onDone
       <div className="grid sm:grid-cols-3 gap-2">
         {mode === "receive" && (
           <>
-            <select value={supplier} onChange={(e) => setSupplier(e.target.value)} className={field}>
-              <option value="">{t("shop.stock.noSupplier")}</option>
-              {suppliers
-                .filter((s) => s.is_active)
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-            </select>
+            <SupplierPicker className={field} suppliers={suppliers.filter((s) => s.is_active)} value={supplier} onChange={setSupplier} placeholder={t("shop.stock.noSupplier")} />
             <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder={t("shop.stock.reference")} className={field} />
           </>
         )}

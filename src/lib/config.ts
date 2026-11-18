@@ -28,7 +28,7 @@ export const config = {
 
   shipping: {
     freeThreshold: 1500,
-    dhakaFee: 60,
+    dhakaFee: 70,
     outsideDhakaFee: 120,
   },
 

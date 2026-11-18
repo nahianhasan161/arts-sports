@@ -21,6 +21,7 @@ import { methodKey, purchaseNo, SUPPLIER_PAY_METHODS, type PurchaseRow, type Sup
 import { SupplierForm } from "./SupplierForm";
 import { PurchaseList } from "./PurchaseList";
 import { NewCategory, NewProduct } from "./QuickAdd";
+import { searchLocal, useCatalogIndex } from "@/lib/pos/catalog-store";
 
 interface Line {
   variant_id: string;
@@ -64,11 +65,24 @@ export function PurchaseScreen() {
   const [showrooms, setShowrooms] = useState<Showroom[]>([]);
   const [showroomId, setShowroomId] = useState("");
 
-  const [categories, setCategories] = useState<{ id: string; name: string; image?: string | null }[]>([]);
+  const [serverCategories, setCategories] = useState<{ id: string; name: string; image?: string | null }[]>([]);
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
-  const [products, setProducts] = useState<PosProduct[] | null>(null);
-  const [hasMore, setHasMore] = useState(false);
+  const [serverProducts, setProducts] = useState<PosProduct[] | null>(null);
+  const [serverHasMore, setHasMore] = useState(false);
+  // The catalogue kept on this device (same copy as the register). Once it and
+  // this shop's stock are here, the grid, search and scans run locally.
+  const { catalog, index, check: checkCatalog, loadStock } = useCatalogIndex(showroomId);
+  const indexRef = useRef(index);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+  const haveIndex = index !== null;
+  const [localView, setLocalView] = useState({ term: "", cat: "", count: PAGE });
+  const localAll = useMemo(() => (index ? searchLocal(index, localView.term, localView.cat).products : null), [index, localView.term, localView.cat]);
+  const products = localAll ? localAll.slice(0, localView.count) : serverProducts;
+  const hasMore = localAll ? localAll.length > localView.count : serverHasMore;
+  const categories = catalog ? catalog.categories : serverCategories;
   const [picking, setPicking] = useState<PosProduct | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const request = useRef(0);
@@ -214,6 +228,23 @@ export function PurchaseScreen() {
     async (term: string, submitted: boolean) => {
       if (!showroomId) return;
       const mine = ++request.current;
+      const local = indexRef.current;
+      if (haveIndex && local) {
+        const found = searchLocal(local, term, category);
+        if (submitted && found.scanned) {
+          const product = found.products.find((p) => p.variants.some((v) => v.variant_id === found.scanned));
+          const variant = product?.variants.find((v) => v.variant_id === found.scanned);
+          if (product && variant) {
+            addLine(product, variant);
+            setQ("");
+            searchRef.current?.focus();
+            return;
+          }
+        }
+        // A scan the device copy doesn't know (just added): ask the server below.
+        if (!(submitted && term && !found.products.length)) return setLocalView({ term, cat: category, count: PAGE });
+        void checkCatalog();
+      }
       const res = await api<Listing>(listUrl(term, category, 0));
       if (mine !== request.current) return;
       if (!res.ok) return setError(res.error);
@@ -235,7 +266,8 @@ export function PurchaseScreen() {
       setProducts(res.data.products);
       setHasMore(!term && Boolean(res.data.has_more));
     },
-    [showroomId, category, listUrl, addLine]
+    // haveIndex: when the device copy first arrives, the search runs again on it.
+    [showroomId, category, listUrl, addLine, checkCatalog, haveIndex]
   );
 
   useEffect(() => {
@@ -245,6 +277,7 @@ export function PurchaseScreen() {
   }, [q, load]);
 
   async function loadMore() {
+    if (localAll) return setLocalView((v) => ({ ...v, count: v.count + PAGE }));
     if (!products) return;
     const res = await api<Listing>(listUrl("", category, products.length));
     if (!res.ok) return setError(res.error);
@@ -304,6 +337,7 @@ export function PurchaseScreen() {
     const detail = await api<{ purchase: { receipt_no: number | null; id: string } }>(`/api/admin/purchases?id=${encodeURIComponent(res.data.id)}`);
     const no = detail.ok ? purchaseNo(detail.data.purchase) : "";
     setDone({ id: res.data.id, no, supplierId, total: payable });
+    void loadStock(showroomId); // the shop's stock went up
     toast(t("shop.purchase.savedToast", { no }), "success");
     void loadSuppliers();
   }
@@ -450,6 +484,8 @@ export function PurchaseScreen() {
                       else void document.documentElement.requestFullscreen?.().catch(() => {});
                     } else if (tile.id === "reload") {
                       void loadSuppliers();
+                      void checkCatalog(true);
+                      void loadStock(showroomId);
                       void load(q.trim(), true);
                     } else if ("open" in tile && tile.open) window.open(tile.id, "_blank");
                     else router.push(tile.id);
@@ -840,6 +876,7 @@ export function PurchaseScreen() {
             setPopup(null);
             gotCategories.current = false;
             setView("buy");
+            void checkCatalog();
             void load(q.trim(), false);
           }}
         />
@@ -852,6 +889,7 @@ export function PurchaseScreen() {
             onSaved={() => {
               setPopup(null);
               gotCategories.current = false;
+              void checkCatalog();
               void load(q.trim(), false);
             }}
           />
