@@ -24,10 +24,6 @@ const STAFF_KINDS = ["mockup", "gallery", "fabric"];
 
 export async function POST(request: NextRequest) {
   try {
-    const limit = checkRateLimit(request, "customUpload");
-    if (!limit.allowed) {
-      return NextResponse.json({ error: "Too many uploads. Try again in a minute." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
-    }
     if (!isStorageConfigured()) return NextResponse.json({ error: "File upload is not available right now" }, { status: 503 });
 
     const form = await request.formData();
@@ -35,7 +31,15 @@ export async function POST(request: NextRequest) {
     const file = form.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "No file provided" }, { status: 400 });
     if (!CUSTOMER_KINDS.includes(kind) && !STAFF_KINDS.includes(kind)) return NextResponse.json({ error: "Unknown kind" }, { status: 400 });
+    // Staff kinds need the permission and skip the per-minute limit (adding a catalogue of designs
+    // is many files at once); the customer kinds keep it.
     if (STAFF_KINDS.includes(kind)) await requirePermission("custom_orders.manage");
+    else {
+      const limit = checkRateLimit(request, "customUpload");
+      if (!limit.allowed) {
+        return NextResponse.json({ error: "Too many uploads. Try again in a minute." }, { status: 429, headers: { "Retry-After": String(limit.retryAfter) } });
+      }
+    }
 
     const privateFile = kind === "design" || kind === "reference";
     const max = privateFile ? MAX_DESIGN_BYTES : MAX_IMAGE_BYTES;

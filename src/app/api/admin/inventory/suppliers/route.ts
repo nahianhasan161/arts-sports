@@ -1,3 +1,4 @@
+import { supplierCategories } from "@/lib/pos/purchase-types";
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -9,7 +10,7 @@ import { auditFor, listPayments, listPurchases } from "@/lib/pos/purchases";
  * GET  /api/admin/inventory/suppliers            suppliers, what each has for us, and what we owe each
  * GET  /api/admin/inventory/suppliers?id=        one supplier: details, balance, purchases, payments,
  *                                                and the change history (who changed what, from the audit log)
- * POST { action: "save", id?, name, contact_person, phone, alt_phone, email, address,
+ * POST { action: "save", id?, categories?: SupplierCategory[], name, contact_person, phone, alt_phone, email, address,
  *        payment_info, notes, lead_days, opening_due, is_active }   (fields left out are kept)
  *      { action: "delete", id }   a supplier with purchases or payments is turned off instead
  *      { action: "stock", supplier_id, rows: [{ code, quantity, unit_cost }] }
@@ -89,12 +90,18 @@ export async function POST(request: Request) {
       // so the short form in the Stock page does not wipe them.
       const extra: [string, number][] = [["contact_person", 120], ["alt_phone", 30], ["email", 160], ["payment_info", 500]];
       for (const [key, max] of extra) if (key in b) row[key] = text(b[key], max) || null;
+      // Categories (20261119120000): only written when sent, so older forms and a DB without the column keep working.
+      if (Array.isArray(b.categories)) row.categories = supplierCategories(b.categories);
       if ("opening_due" in b) {
         const due = b.opening_due === "" || b.opening_due === null ? 0 : Number(b.opening_due);
         if (!Number.isFinite(due)) return bad("The old due is not a number");
         row.opening_due = Math.round(due * 100) / 100;
       }
-      const res = b.id ? await db.from("suppliers").update(row).eq("id", String(b.id)).select("id").single() : await db.from("suppliers").insert(row).select("id").single();
+      let res = b.id ? await db.from("suppliers").update(row).eq("id", String(b.id)).select("id").single() : await db.from("suppliers").insert(row).select("id").single();
+      if (res.error && "categories" in row && /categories/.test(res.error.message) && /does not exist|schema cache|Could not find/i.test(res.error.message)) {
+        delete row.categories;
+        res = b.id ? await db.from("suppliers").update(row).eq("id", String(b.id)).select("id").single() : await db.from("suppliers").insert(row).select("id").single();
+      }
       if (res.error) return bad(explainPosError(res.error.message), 500);
       return NextResponse.json({ ok: true, id: res.data.id });
     }

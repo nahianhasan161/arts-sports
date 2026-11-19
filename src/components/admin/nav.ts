@@ -132,6 +132,10 @@ export const OFFLINE_NAV: NavItem[] = [
 export const OFFLINE_MENU_GROUP: Partial<Record<NavId, GroupId>> = {
   shopCustom: "customJersey",
   customDesigns: "customJersey",
+  // Making custom jerseys: fabric, accessories and production batches sit with them, so the bar fits.
+  fabricStock: "customJersey",
+  accessoryStock: "customJersey",
+  production: "customJersey",
   products: "stock",
   inventory: "stock",
   suppliers: "stock",

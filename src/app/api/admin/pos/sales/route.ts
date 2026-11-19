@@ -138,6 +138,16 @@ export async function POST(request: Request) {
     if (error) return bad(explainPosError(error.message), 400);
 
     if (typeof b.held_id === "string" && b.held_id) await db.from("pos_held_bills").delete().eq("id", b.held_id);
+
+    // Home-delivery address: kept on the sale and on the customer. The columns come with
+    // 20261119120000; before that migration these updates fail quietly and the sale stands.
+    const address = typeof b.customer_address === "string" ? b.customer_address.trim().slice(0, 500) : "";
+    const saleId = (data as { sale_id?: string } | null)?.sale_id;
+    if (address && saleId) {
+      await db.from("pos_sales").update({ customer_address: address }).eq("id", saleId);
+      const phone = normalizeBdPhone(typeof b.customer_phone === "string" ? b.customer_phone : "");
+      if (phone) await db.from("customers").update({ address }).eq("phone", phone);
+    }
     return NextResponse.json(data);
   } catch (error) {
     return failed(error);

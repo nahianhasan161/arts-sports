@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/lib/theme";
 import { useAdminAccess } from "@/components/admin/access";
-import { ArrowLeft, EllipsisVertical, History, Menu, PauseCircle, Plus, Printer, ScanLine, Search, Shirt, Ticket, Trash2, Upload, X, ShoppingCart, LayoutGrid, LifeBuoy, Monitor, Moon, Sun, Download, Banknote, RotateCw, ChevronLeft, KeyRound, UserRound } from "lucide-react";
+import { ArrowLeft, Coins, EllipsisVertical, MapPin, Minus, Phone, History, Menu, PauseCircle, Plus, Printer, ScanLine, Search, Shirt, Ticket, Trash2, Upload, X, ShoppingCart, LayoutGrid, LifeBuoy, Monitor, Moon, Sun, Download, Banknote, RotateCw, ChevronLeft, KeyRound, UserRound } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { useConfirm } from "@/components/ui/confirm";
 import PageSkeleton, { SkeletonRows, SkeletonTiles } from "@/components/ui/PageSkeleton";
@@ -26,13 +26,14 @@ import { searchLocal, useCatalogIndex } from "@/lib/pos/catalog-store";
 interface Held {
   id: string;
   label: string;
-  payload: { lines: CartLine[]; phone: string; name: string; billDiscount: string; coupon: string };
+  payload: { lines: CartLine[]; phone: string; name: string; address?: string; billDiscount: string; coupon: string };
 }
 
 interface KnownCustomer {
   id: string;
   name: string | null;
   marketing_consent: boolean;
+  address?: string | null;
   is_blacklisted: boolean;
   stats: { total_spent: number; last_purchase_at: string | null } | null;
 }
@@ -90,7 +91,7 @@ interface Draft {
   selected: string | null;
   phone: string;
   name: string;
-  consent: boolean;
+  address: string;
   coupon: string;
   couponOff: { code: string; amount: number } | null;
   billDiscount: string;
@@ -128,6 +129,8 @@ export function Register() {
   const [picking, setPicking] = useState<PosProduct | null>(null);
 
   const [lines, setLines] = useState<CartLine[]>([]);
+  // The bill line swiped open (shows + / − / delete).
+  const [swiped, setSwiped] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("qty");
   // What has been typed on the pad for the selected line, so "1" then "2" gives 12.
@@ -142,7 +145,8 @@ export function Register() {
   // The list filters by what is typed in the phone box (or the name box when phone is empty).
   const custQuery = phone.trim() || name.trim();
   const [suggestions, setSuggestions] = useState<{ q: string; list: CustomerSuggestion[] } | null>(null);
-  const [consent, setConsent] = useState(false);
+  // For home delivery: kept with the sale and on the customer.
+  const [address, setAddress] = useState("");
   const [coupon, setCoupon] = useState("");
   const [couponOff, setCouponOff] = useState<{ code: string; amount: number } | null>(null);
   const [billDiscount, setBillDiscount] = useState("");
@@ -488,7 +492,7 @@ export function Register() {
       if (cancelled || !res.ok) return;
       setLookup({ phone, customer: res.data.customer });
       if (res.data.customer?.name) setName((n) => n || res.data.customer?.name || "");
-      if (res.data.customer?.marketing_consent) setConsent(true);
+      if (res.data.customer?.address) setAddress((a) => a || res.data.customer?.address || "");
     });
     return () => {
       cancelled = true;
@@ -505,6 +509,15 @@ export function Register() {
   }, [lines, couponOff, billDiscount]);
   const overLimit = !canManage && totals.manual > (totals.subtotal * maxDiscount) / 100 + 0.001;
 
+  // Stock: the newest count on this device (refreshed after each sale), else what it was when added.
+  const liveStock = useMemo(() => (index ? new Map<string, number>(index.all.flatMap((p) => p.variants.map((v): [string, number] => [`${p.product_id}:${v.variant_id ?? ""}`, v.available]))) : null), [index]);
+  const stockOf = (l: CartLine) => liveStock?.get(l.key) ?? l.available;
+  const overStock = lines.filter((l) => l.quantity > stockOf(l));
+  const stockBlock = overStock.length ? t("shop.register.overStock", { items: overStock.map((l) => `${l.title}${l.label ? ` (${l.label})` : ""}: ${stockOf(l)}`).join(", ") }) : null;
+  // Paisa: the bill discount that makes the total a whole taka.
+  const paisa = Math.round((totals.total - Math.floor(totals.total)) * 100) / 100;
+  const roundOff = () => setBillDiscount(String(Math.round(((Number(billDiscount) || 0) + paisa) * 100) / 100));
+
   function reset() {
     setLines([]);
     setSelected(null);
@@ -513,7 +526,7 @@ export function Register() {
     setPhone("");
     setName("");
     setLookup(null);
-    setConsent(false);
+    setAddress("");
     setCoupon("");
     setCouponOff(null);
     setBillDiscount("");
@@ -562,8 +575,8 @@ export function Register() {
     setTyped({ key: line.key, mode, text });
   }
 
-  const snapshot = (): Draft => ({ no: orderNo, lines, selected, phone, name, consent, coupon, couponOff, billDiscount, note, heldId });
-  const isEmpty = () => !lines.length && !phone && !name && !note;
+  const snapshot = (): Draft => ({ no: orderNo, lines, selected, phone, name, address, coupon, couponOff, billDiscount, note, heldId });
+  const isEmpty = () => !lines.length && !phone && !name && !address && !note;
 
   function load(d: Draft) {
     reset();
@@ -571,7 +584,7 @@ export function Register() {
     setSelected(d.selected);
     setPhone(d.phone);
     setName(d.name);
-    setConsent(d.consent);
+    setAddress(d.address ?? "");
     setCoupon(d.coupon);
     setCouponOff(d.couponOff);
     setBillDiscount(d.billDiscount);
@@ -672,7 +685,7 @@ export function Register() {
 
   async function hold() {
     if (!lines.length) return;
-    const res = await api("/api/admin/pos/held", { label: name || phone || "", payload: { lines, phone, name, billDiscount, coupon } });
+    const res = await api("/api/admin/pos/held", { label: name || phone || "", payload: { lines, phone, name, address, billDiscount, coupon } });
     if (!res.ok) return setError(res.error);
     if (heldId) await api(`/api/admin/pos/held?id=${heldId}`, undefined, "DELETE");
     reset();
@@ -684,6 +697,7 @@ export function Register() {
     setLines(h.payload.lines ?? []);
     setPhone(h.payload.phone ?? "");
     setName(h.payload.name ?? "");
+    setAddress(h.payload.address ?? "");
     setBillDiscount(h.payload.billDiscount ?? "");
     setCoupon(h.payload.coupon ?? "");
     setHeldId(h.id);
@@ -750,8 +764,21 @@ export function Register() {
     void loadHeld();
   }
 
+  async function askRemove(l: CartLine) {
+    setSwiped(null);
+    const ok = await confirm({ title: t("shop.register.removeAsk"), description: `${l.title}${l.label ? ` · ${l.label}` : ""} × ${l.quantity}`, confirmText: t("shop.register.removeLine"), danger: true });
+    if (ok) removeLine(l.key);
+  }
+
   function goToPay() {
     setError(null);
+    if (stockBlock) {
+      setSelected(overStock[0].key);
+      setMode("qty");
+      setTyped(null);
+      setPane("bill");
+      return setError(stockBlock);
+    }
     // The usual case is cash for the exact amount: one tap on Validate finishes it.
     setPays([{ method: "cash", amount: String(totals.total), reference: "" }]);
     setScreen("pay");
@@ -765,7 +792,7 @@ export function Register() {
       payments: pays.map((p) => ({ method: p.method, amount: Number(p.amount) || 0, reference: p.reference })),
       customer_phone: phone,
       customer_name: name,
-      marketing_consent: consent,
+      customer_address: address,
       coupon_code: couponOff ? couponOff.code : "",
       bill_discount: Number(billDiscount) || 0,
       note,
@@ -805,67 +832,88 @@ export function Register() {
   const customerLabel = name || phone || t("shop.register.customer");
   const selectedLine = lines.find((l) => l.key === selected);
 
+  const phoneOk = /^01\d{9}$/.test(phone.replace(/\D/g, ""));
   const customerDialog = popup === "customer" && (
-    <Dialog title={t("shop.register.customer")} onClose={() => setPopup(null)}>
-      <div className="flex flex-col gap-3">
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("shop.pos.customerPhone")} className={`${field} py-3 text-base`} inputMode="tel" autoFocus />
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("shop.pos.customerName")} className={`${field} py-3 text-base`} />
-        <div className="flex flex-col max-h-56 overflow-y-auto rounded-md border border-border-light divide-y divide-border-light">
-          {!custQuery.trim() && <div className="px-3 py-1.5 text-xs font-semibold text-text-muted bg-surface-subtle">{t("shop.register.recentCustomers")}</div>}
-          {suggestions?.q === custQuery.trim() ? (
-            suggestions.list.length ? (
-              suggestions.list.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    setPhone(c.phone);
-                    setName(c.name ?? "");
-                  }}
-                  className={`flex items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-surface-container ${c.phone === phone ? "bg-primary/10" : ""}`}
-                >
-                  <span className="min-w-0">
-                    <span className="block font-semibold text-on-surface truncate">{c.name || c.phone}</span>
-                    <span className="block text-xs text-text-muted">{c.phone}</span>
-                  </span>
-                  {c.is_blacklisted && <span className="text-xs text-badge-discount font-semibold shrink-0">{t("shop.pos.blacklisted")}</span>}
-                </button>
-              ))
-            ) : (
-              <div className="px-3 py-3 text-sm text-text-muted">{t("shop.register.noCustomerFound")}</div>
-            )
-          ) : (
-            <div className="px-3 py-3 text-sm text-text-muted">{t("shop.common.loading")}</div>
+    <Dialog title={t("shop.register.customer")} wide onClose={() => setPopup(null)}>
+      <div className="grid gap-4 md:grid-cols-[1fr_15rem]">
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-on-surface-variant">{t("shop.register.custPhone")}</span>
+            <span className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01XXXXXXXXX" className={`${field} h-12 pl-9 text-base tabular-nums w-full`} inputMode="tel" autoFocus />
+            </span>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-on-surface-variant">{t("shop.register.custName")}</span>
+            <span className="relative">
+              <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("shop.pos.customerName")} className={`${field} h-12 pl-9 text-base w-full`} />
+            </span>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-on-surface-variant">{t("shop.register.custAddress")}</span>
+            <span className="relative">
+              <MapPin className="absolute left-3 top-3 w-4 h-4 text-text-muted" />
+              <textarea value={address} onChange={(e) => setAddress(e.target.value.slice(0, 500))} rows={2} placeholder={t("shop.register.custAddressHint")} className={`${field} pl-9 py-2.5 text-base w-full resize-none`} />
+            </span>
+          </label>
+          {phoneOk && (
+            <p
+              className={`text-sm rounded-md px-3 py-2 ${
+                known?.is_blacklisted ? "bg-badge-discount/10 text-badge-discount font-semibold" : known ? "bg-emerald-600/10 text-emerald-700 dark:text-emerald-400" : "bg-surface-subtle text-text-muted"
+              }`}
+            >
+              {known ? (known.is_blacklisted ? t("shop.pos.blacklisted") : t("shop.pos.returning", { amount: taka(known.stats?.total_spent ?? 0) })) : t("shop.pos.newCustomer")}
+            </p>
           )}
+          <p className="text-xs text-text-muted">{t("shop.register.customerShared")}</p>
         </div>
-        {phone.replace(/\D/g, "").length >= 11 && (
-          <div className="text-sm flex flex-col gap-2">
-            {known ? (
-              <span className={known.is_blacklisted ? "text-badge-discount font-semibold" : "text-emerald-600"}>{known.is_blacklisted ? t("shop.pos.blacklisted") : t("shop.pos.returning", { amount: taka(known.stats?.total_spent ?? 0) })}</span>
+        <div className="flex flex-col min-h-0">
+          <div className="px-1 pb-1.5 text-xs font-semibold text-text-muted">{custQuery.trim() ? t("shop.register.matches") : t("shop.register.recentCustomers")}</div>
+          <div className="flex flex-col max-h-72 overflow-y-auto rounded-md border border-border-light divide-y divide-border-light">
+            {suggestions?.q === custQuery.trim() ? (
+              suggestions.list.length ? (
+                suggestions.list.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setPhone(c.phone);
+                      setName(c.name ?? "");
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-container ${c.phone === phone ? "bg-primary/10" : ""}`}
+                  >
+                    <span className="w-8 h-8 shrink-0 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">{(c.name || "#").trim().slice(0, 1).toUpperCase()}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-on-surface truncate">{c.name || c.phone}</span>
+                      <span className="block text-xs text-text-muted tabular-nums">{c.phone}</span>
+                    </span>
+                    {c.is_blacklisted && <span className="text-xs text-badge-discount font-semibold shrink-0">{t("shop.pos.blacklisted")}</span>}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-3 text-sm text-text-muted">{t("shop.register.noCustomerFound")}</div>
+              )
             ) : (
-              <span className="text-text-muted">{t("shop.pos.newCustomer")}</span>
+              <div className="px-3 py-3 text-sm text-text-muted">{t("shop.common.loading")}</div>
             )}
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              {t("shop.pos.consent")}
-            </label>
           </div>
-        )}
-        <p className="text-xs text-text-muted">{t("shop.register.customerShared")}</p>
-        <div className="flex gap-2">
+        </div>
+        <div className="md:col-span-2 flex gap-2">
           <button
             type="button"
-            className={`${btnGhost} flex-1`}
+            className={`${btnGhost} flex-1 h-11`}
             onClick={() => {
               setPhone("");
               setName("");
+              setAddress("");
               setLookup(null);
-              setConsent(false);
             }}
           >
             {t("shop.sales.walkIn")}
           </button>
-          <button type="button" className={`${btnPrimary} flex-1`} onClick={() => setPopup(null)}>
+          <button type="button" className={`${btnPrimary} flex-1 h-11`} onClick={() => setPopup(null)}>
             {t("shop.register.done")}
           </button>
         </div>
@@ -978,7 +1026,7 @@ export function Register() {
           </div>
         </div>
       ) : screen === "pay" ? (
-        <PaymentScreen total={totals.total} pays={pays} setPays={setPays} customerLabel={customerLabel} onCustomer={() => setPopup("customer")} onBack={() => setScreen("bill")} onValidate={complete} busy={busy} error={error} blocked={overLimit ? t("shop.pos.discountLimit", { percent: maxDiscount }) : null} />
+        <PaymentScreen total={totals.total} pays={pays} setPays={setPays} customerLabel={customerLabel} onCustomer={() => setPopup("customer")} onBack={() => setScreen("bill")} onValidate={complete} busy={busy} error={error} blocked={stockBlock ?? (overLimit ? t("shop.pos.discountLimit", { percent: maxDiscount }) : null)} />
       ) : (
         <div className="flex-1 min-h-0 flex">
           {/* The bill */}
@@ -991,40 +1039,27 @@ export function Register() {
                 </div>
               ) : (
                 <ul>
-                  {lines.map((l) => {
-                    const active = l.key === selected;
-                    const off = lineDiscount(l);
-                    return (
-                      <li key={l.key}>
-                        <button
-                          type="button"
-                          className={`w-full text-left px-3 py-2 text-sm ${active ? "bg-primary/10" : "hover:bg-surface-subtle"}`}
-                          onClick={() => {
-                            setSelected(l.key);
-                            setTyped(null);
-                          }}
-                        >
-                          <span className="flex items-baseline gap-3">
-                            <b className="tabular-nums text-on-surface">{l.quantity}</b>
-                            <span className="flex-1 min-w-0 truncate text-on-surface">{l.title}</span>
-                            <b className="whitespace-nowrap tabular-nums text-on-surface">{taka(Math.max(0, l.price * l.quantity - off))}</b>
-                          </span>
-                          {(l.label || off > 0 || l.quantity > l.available) && (
-                            <span className="block text-xs text-text-muted mt-0.5 pl-6">
-                              {l.label}
-                              {off > 0 && (
-                                <span className="text-emerald-600">
-                                  {l.label && " · "}
-                                  {l.pct != null ? `${l.pct}% ` : ""}−{taka(off)} ({t("shop.register.price")} {taka(l.price)})
-                                </span>
-                              )}
-                              {l.quantity > l.available && <span className="text-badge-discount font-semibold"> · {t("shop.pos.left", { n: l.available })}</span>}
-                            </span>
-                          )}
-                        </button>
-                      </li>
-                    );
-                  })}
+                  {lines.map((l) => (
+                    <BillLine
+                      key={l.key}
+                      line={l}
+                      stock={stockOf(l)}
+                      active={l.key === selected}
+                      open={swiped === l.key}
+                      setOpen={(on) => setSwiped(on ? l.key : null)}
+                      onSelect={() => {
+                        setSelected(l.key);
+                        setTyped(null);
+                      }}
+                      onQty={(n) => {
+                        setTyped(null);
+                        setSelected(l.key);
+                        if (n < 1) return void askRemove(l);
+                        setLine(l.key, { quantity: n });
+                      }}
+                      onRemove={() => void askRemove(l)}
+                    />
+                  ))}
                 </ul>
               )}
             </div>
@@ -1037,7 +1072,13 @@ export function Register() {
                   <span className="font-bold">{t("shop.register.total")} <span className="text-xs font-normal text-text-muted">· {t("shop.register.pieces", { n: totals.pieces })}</span></span>
                   <span className="text-lg font-bold tabular-nums">{taka(totals.total)}</span>
                 </p>
+                {paisa > 0 && (
+                  <button type="button" onClick={roundOff} className="mt-1 ml-auto flex items-center gap-1 rounded-md border border-dashed border-accent-gold/70 px-2 py-1 text-xs font-semibold text-on-surface hover:bg-accent-gold/10" title={t("shop.register.roundOffHint")}>
+                    <Coins className="w-3.5 h-3.5 text-accent-gold" /> {t("shop.register.roundOff", { amount: taka(paisa) })}
+                  </button>
+                )}
               </div>
+              {stockBlock && <p className="text-xs text-badge-discount font-semibold">{stockBlock}</p>}
               {overLimit && <p className="text-xs text-badge-discount">{t("shop.pos.discountLimit", { percent: maxDiscount })}</p>}
               {error && <p className="text-sm text-badge-discount bg-badge-discount/10 rounded p-2">{error}</p>}
               {notice && (
@@ -1305,7 +1346,14 @@ export function Register() {
             {couponOff && <p className="text-sm text-emerald-600">{t("shop.pos.couponOff", { code: couponOff.code })}: −{taka(couponOff.amount)}</p>}
             <label className="text-sm font-semibold flex flex-col gap-1">
               {t("shop.pos.billDiscount")}
-              <input value={billDiscount} onChange={(e) => setBillDiscount(e.target.value)} className={`${field} font-normal`} inputMode="decimal" />
+              <span className="flex gap-2">
+                <input value={billDiscount} onChange={(e) => setBillDiscount(e.target.value)} className={`${field} font-normal flex-1`} inputMode="decimal" />
+                {paisa > 0 && (
+                  <button type="button" className={btnGhost} onClick={roundOff} title={t("shop.register.roundOffHint")}>
+                    <Coins className="w-4 h-4" /> {t("shop.register.roundOff", { amount: taka(paisa) })}
+                  </button>
+                )}
+              </span>
             </label>
             {!canManage && <p className="text-xs text-text-muted">{t("shop.pos.discountLimit", { percent: maxDiscount })}</p>}
             <label className="text-sm font-semibold flex flex-col gap-1">
@@ -1430,5 +1478,98 @@ export function Register() {
         </Dialog>
       )}
     </div>
+  );
+}
+
+/**
+ * One bill line. Swipe it to the right (finger or mouse) to show + and − (one
+ * piece more / less) and delete, which asks first. A line with more pieces
+ * than the shop has is red, and Payment stays closed until it is fixed.
+ */
+function BillLine({ line: l, stock, active, open, setOpen, onSelect, onQty, onRemove }: {
+  line: CartLine;
+  stock: number;
+  active: boolean;
+  open: boolean;
+  setOpen: (on: boolean) => void;
+  onSelect: () => void;
+  onQty: (n: number) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useT();
+  const WIDTH = 112;
+  const start = useRef<{ x: number; y: number; base: number } | null>(null);
+  const moved = useRef(false);
+  const [drag, setDrag] = useState<number | null>(null);
+  const off = lineDiscount(l);
+  const over = l.quantity > stock;
+  const shift = drag ?? (open ? WIDTH : 0);
+
+  return (
+    <li className={`relative overflow-hidden border-l-4 ${over ? "border-badge-discount bg-badge-discount/10" : "border-transparent"}`}>
+      <div className="absolute inset-y-0 left-0 flex" style={{ width: WIDTH }} aria-hidden={!open}>
+        <div className="flex flex-col w-14">
+          <button type="button" tabIndex={open ? 0 : -1} onClick={() => onQty(l.quantity + 1)} className="flex-1 flex items-center justify-center bg-emerald-600 text-white active:opacity-80" aria-label="+1">
+            <Plus className="w-5 h-5" />
+          </button>
+          <button type="button" tabIndex={open ? 0 : -1} onClick={() => onQty(l.quantity - 1)} className="flex-1 flex items-center justify-center bg-amber-500 text-white active:opacity-80" aria-label="-1">
+            <Minus className="w-5 h-5" />
+          </button>
+        </div>
+        <button type="button" tabIndex={open ? 0 : -1} onClick={onRemove} className="w-14 flex items-center justify-center bg-badge-discount text-white active:opacity-80" aria-label={t("shop.register.removeLine")}>
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </div>
+      <button
+        type="button"
+        style={{ transform: `translateX(${shift}px)`, transition: drag === null ? "transform 150ms ease-out" : "none", touchAction: "pan-y" }}
+        className={`relative w-full text-left px-3 py-2 text-sm ${over ? "bg-badge-discount/10" : active ? "bg-primary/10" : "bg-surface-card hover:bg-surface-subtle"}`}
+        onPointerDown={(e) => {
+          start.current = { x: e.clientX, y: e.clientY, base: open ? WIDTH : 0 };
+          moved.current = false;
+        }}
+        onPointerMove={(e) => {
+          const s = start.current;
+          if (!s) return;
+          const dx = e.clientX - s.x;
+          if (!moved.current && (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(e.clientY - s.y))) return;
+          if (!moved.current) e.currentTarget.setPointerCapture(e.pointerId);
+          moved.current = true;
+          setDrag(Math.max(0, Math.min(WIDTH, s.base + dx)));
+        }}
+        onPointerUp={() => {
+          if (moved.current && drag !== null) setOpen(drag > WIDTH / 2);
+          start.current = null;
+          setDrag(null);
+        }}
+        onPointerCancel={() => {
+          start.current = null;
+          setDrag(null);
+        }}
+        onClick={() => {
+          if (moved.current) return void (moved.current = false);
+          if (open) return setOpen(false);
+          onSelect();
+        }}
+      >
+        <span className="flex items-baseline gap-3">
+          <b className={`tabular-nums ${over ? "text-badge-discount" : "text-on-surface"}`}>{l.quantity}</b>
+          <span className="flex-1 min-w-0 truncate text-on-surface">{l.title}</span>
+          <b className="whitespace-nowrap tabular-nums text-on-surface">{taka(Math.max(0, l.price * l.quantity - off))}</b>
+        </span>
+        {(l.label || off > 0 || over) && (
+          <span className="block text-xs text-text-muted mt-0.5 pl-6">
+            {l.label}
+            {off > 0 && (
+              <span className="text-emerald-600">
+                {l.label && " · "}
+                {l.pct != null ? `${l.pct}% ` : ""}−{taka(off)} ({t("shop.register.price")} {taka(l.price)})
+              </span>
+            )}
+            {over && <span className="text-badge-discount font-semibold"> · {stock > 0 ? t("shop.register.onlyLeft", { n: stock }) : t("shop.register.soldOut")}</span>}
+          </span>
+        )}
+      </button>
+    </li>
   );
 }

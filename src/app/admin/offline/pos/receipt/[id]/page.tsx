@@ -54,6 +54,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
         {t("shop.receipt.servedBy", { name: sale.staff })}
         {(sale.customer_name || sale.customer_phone) && ` · ${t("shop.receipt.customer", { name: [sale.customer_name, sale.customer_phone].filter(Boolean).join(" ") })}`}
       </p>
+      {sale.customer_address && <p className="mt-0.5">{t("shop.receipt.address", { address: sale.customer_address })}</p>}
 
       <table className="w-full mt-2 border-t border-b border-black">
         <thead>

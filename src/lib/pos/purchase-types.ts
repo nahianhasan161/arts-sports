@@ -3,6 +3,14 @@
 export const SUPPLIER_PAY_METHODS = ["cash", "bkash", "nagad", "bank", "card", "other"] as const;
 export type SupplierPayMethod = (typeof SUPPLIER_PAY_METHODS)[number];
 
+/** What a supplier sells us; one supplier can have several (20261119120000). */
+export const SUPPLIER_CATEGORIES = ["products", "fabric", "accessories", "printing", "garments"] as const;
+export type SupplierCategory = (typeof SUPPLIER_CATEGORIES)[number];
+
+/** The known categories in a stored list (unknown values dropped). */
+export const supplierCategories = (v: unknown): SupplierCategory[] =>
+  Array.isArray(v) ? SUPPLIER_CATEGORIES.filter((c) => v.includes(c)) : [];
+
 export interface SupplierFull {
   id: string;
   name: string;
@@ -16,6 +24,8 @@ export interface SupplierFull {
   lead_days: number;
   opening_due: number;
   is_active: boolean;
+  /** Missing before 20261119120000. Empty = not tagged (shown in every picker). */
+  categories?: string[];
   created_at?: string;
 }
 

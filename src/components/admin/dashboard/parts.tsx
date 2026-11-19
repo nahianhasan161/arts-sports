@@ -90,3 +90,53 @@ export function WeekBars({ week, locale, labels }: { week: { day: string; websit
     </div>
   );
 }
+
+export type RangeSlot = { day: string; website: number; shop: number; orders: number };
+
+/**
+ * Sales for any date range as stacked bars (website below, shop on top).
+ * `day` is "YYYY-MM-DD", or "YYYY-MM" when `monthly`. Many bars scroll sideways.
+ */
+export function RangeBars({ series, monthly, locale, labels }: { series: RangeSlot[]; monthly: boolean; locale: Locale; labels: { website: string; shop: string; orders: string } }) {
+  const max = Math.max(1, ...series.map((d) => d.website + d.shop));
+  const loc = locale === "bn" ? "bn-BD" : "en-GB";
+  const dense = series.length > 14;
+  const label = (d: string) => {
+    const date = new Date(monthly ? `${d}-01T00:00:00Z` : `${d}T00:00:00Z`);
+    if (monthly) return date.toLocaleDateString(loc, { month: "short", year: "2-digit", timeZone: "UTC" });
+    if (series.length <= 7) return date.toLocaleDateString(loc, { weekday: "short", timeZone: "UTC" });
+    return date.toLocaleDateString(loc, { day: "numeric", month: "short", timeZone: "UTC" });
+  };
+  const every = dense ? Math.ceil(series.length / 10) : 1;
+  return (
+    <div>
+      <div className="overflow-x-auto -mx-1 px-1">
+        <div className="flex items-end gap-1 sm:gap-2 h-48" style={{ minWidth: dense ? series.length * 14 : undefined }}>
+          {series.map((d, i) => {
+            const total = d.website + d.shop;
+            return (
+              <div key={d.day} className="group relative flex-1 flex flex-col items-center gap-1 h-full min-w-0">
+                {!dense && <span className="text-[10px] text-text-muted truncate max-w-full">{total > 0 ? formatMoney(Math.round(total), locale) : ""}</span>}
+                <div className="flex-1 w-full flex flex-col justify-end gap-0.5">
+                  {d.shop > 0 && <div className="w-full rounded-t bg-emerald-500" style={{ height: `${(d.shop / max) * 100}%` }} />}
+                  {d.website > 0 && <div className={`w-full bg-blue-500 ${d.shop > 0 ? "" : "rounded-t"}`} style={{ height: `${(d.website / max) * 100}%` }} />}
+                  {total === 0 && <div className="w-full h-0.5 bg-border-light" />}
+                </div>
+                <span className="text-[10px] sm:text-[11px] text-text-muted whitespace-nowrap h-4">{i % every === 0 ? label(d.day) : ""}</span>
+                <div className="pointer-events-none absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10 hidden group-hover:block whitespace-nowrap rounded-lg border border-border-light bg-surface-card px-2.5 py-1.5 text-[11px] shadow-lg">
+                  <p className="font-semibold text-on-surface">{label(d.day)}</p>
+                  <p className="text-blue-600">{labels.website}: {formatMoney(Math.round(d.website), locale)} · {labels.orders}: {num(d.orders, locale)}</p>
+                  <p className="text-emerald-600">{labels.shop}: {formatMoney(Math.round(d.shop), locale)}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-4 text-xs text-text-muted">
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500" />{labels.website}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />{labels.shop}</span>
+      </div>
+    </div>
+  );
+}

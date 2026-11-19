@@ -189,7 +189,8 @@ export async function GET(request: Request) {
     const [batches, totals, suppliers, rates] = await Promise.all([
       db.from("production_batches").select("id, batch_number, title, status, created_at, done_at").order("created_at", { ascending: false }).limit(100),
       db.from("production_batch_totals").select("*"),
-      db.from("suppliers").select("id, name, phone").eq("is_active", true).order("name"),
+      // "*": categories come with 20261119120000.
+      db.from("suppliers").select("*").eq("is_active", true).order("name"),
       loadRates(db),
     ]);
     const err = batches.error ?? totals.error ?? suppliers.error;

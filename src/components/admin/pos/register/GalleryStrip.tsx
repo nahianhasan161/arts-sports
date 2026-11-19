@@ -38,10 +38,12 @@ export function GalleryStrip({ picked, onToggle, onMore }: { picked: Set<string>
   }, [device?.designs, category]);
 
   const cats = device?.designCategories ?? server?.categories ?? [];
+  const deviceDesigns = device?.designs;
+  const serverDesigns = server?.designs;
   const designs = useMemo(() => {
-    if (!device?.designs) return server?.designs ?? [];
-    return device.designs.filter((d) => !category || (category === OTHER_CATEGORY ? !d.category || d.category === OTHER_CATEGORY : d.category === category));
-  }, [device?.designs, server?.designs, category]);
+    if (!deviceDesigns) return serverDesigns ?? [];
+    return deviceDesigns.filter((d) => !category || (category === OTHER_CATEGORY ? !d.category || d.category === OTHER_CATEGORY : d.category === category));
+  }, [deviceDesigns, serverDesigns, category]);
   const list = designs.filter((d) => d.image_url).slice(0, shown);
   const more = designs.length > shown || Boolean(!device?.designs && server?.more);
 

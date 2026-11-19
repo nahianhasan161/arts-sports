@@ -248,7 +248,7 @@ function MoveForm({ action, itemId, suppliers, onDone, onError }: { action: Acti
       {action === "purchase" && (
         <>
           <label className={`${lbl} col-span-2`}>{t("shop.fabricStock.supplier")}
-            <SupplierPicker className={field} suppliers={suppliers} value={v.supplier_id ?? ""} onChange={(id) => setV((o) => ({ ...o, supplier_id: id }))} placeholder={t("shop.fabricStock.noSupplier")} />
+            <SupplierPicker category="accessories" className={field} suppliers={suppliers} value={v.supplier_id ?? ""} onChange={(id) => setV((o) => ({ ...o, supplier_id: id }))} placeholder={t("shop.fabricStock.noSupplier")} />
           </label>
           <label className={lbl}>{t("shop.accessoryStock.qty")}<input required type="number" step={1} min={1} className={field} value={v.qty ?? ""} onChange={set("qty")} /></label>
           <label className={lbl}>{t("shop.accessoryStock.costPerPc")}<input required type="number" step="0.01" min={0} className={field} value={v.cost_per_pc ?? ""} onChange={set("cost_per_pc")} /></label>

@@ -14,6 +14,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { ProductFormModal } from "@/components/admin/products/ProductFormModal";
+import { LIST_VIEWS, Thumb, UpdatedAgo, ViewToggle, type ListView } from "@/components/admin/list/ViewBits";
+import { useUrlState } from "@/lib/url-state";
 import { flattenCategoryTree } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -104,6 +106,7 @@ export default function AdminProducts() {
   // What the search box holds, and what has been sent to the server. Searching
   // on every keystroke fires a query per character; this waits for a pause.
   const [searchDraft, setSearchDraft] = useState("");
+  const [view, setView] = useUrlState<ListView>("view", "list", { fromUrl: (v) => (LIST_VIEWS.includes(v as ListView) ? (v as ListView) : null) });
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -363,9 +366,12 @@ export default function AdminProducts() {
           )}
         </button>
 
+        <div className="ml-auto">
+          <ViewToggle value={view} onChange={setView} />
+        </div>
         <button
           onClick={openCreateModal}
-          className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary-container transition-colors ml-auto"
+          className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary-container transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add Product
@@ -577,6 +583,45 @@ export default function AdminProducts() {
 
       {/* Table */}
       <div className="bg-surface-card border border-border-light rounded-xl overflow-hidden">
+        {view === "cards" ? (
+          loading ? (
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3 p-3">
+              {Array.from({ length: 8 }).map((_, i) => <li key={i}><Skeleton className="h-60 rounded-lg" /></li>)}
+            </ul>
+          ) : products.length === 0 ? (
+            <p className="text-center py-12 text-text-muted text-sm">{total === 0 && activeFilterCount > 0 ? "No products match these filters." : "No products yet."}</p>
+          ) : (
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-3 p-3">
+              {products.map((product) => {
+                const stock = product.stock || 0;
+                return (
+                  <li key={product.id} className="group relative flex flex-col rounded-lg border border-border-light bg-surface-card overflow-hidden hover:border-primary/40">
+                    <button type="button" onClick={() => openEditModal(product)} className="text-left flex flex-col flex-1" aria-label={`Edit ${product.title}`}>
+                      <span className="relative block aspect-square">
+                        <Thumb src={product.images?.[0]} className="absolute inset-0 w-full h-full" />
+                        <span className={`absolute top-1.5 left-1.5 inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_STYLES[product.status ?? "draft"]}`}>{product.status ?? "draft"}</span>
+                        <span className={`absolute top-1.5 right-1.5 min-w-7 px-1.5 h-6 text-xs rounded-full flex items-center justify-center font-semibold ${stock > LOW_STOCK ? "bg-green-100 text-green-700" : stock > 0 ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"}`}>{stock}</span>
+                      </span>
+                      <span className="p-2.5 flex flex-col gap-0.5 flex-1">
+                        <span className="text-sm font-medium text-on-surface line-clamp-2">{product.title}</span>
+                        <span className="text-xs text-text-muted truncate">{product.category || "—"}</span>
+                        <span className="text-sm font-semibold text-on-surface tabular-nums">৳ {Number(product.price || 0).toLocaleString("en-US")}</span>
+                        <span className="text-xs mt-auto pt-1"><UpdatedAgo at={product.updated_at} inline /></span>
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmId(product.id)}
+                      className="absolute bottom-2 right-2 p-1.5 rounded bg-surface-card/90 text-text-muted hover:text-badge-discount opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      aria-label={`Remove ${product.title}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-surface-subtle">
@@ -790,14 +835,8 @@ export default function AdminProducts() {
                       </span>
                     </td>
 
-                    <td className="px-4 py-3 text-sm text-text-muted whitespace-nowrap">
-                      {product.updated_at
-                        ? new Date(product.updated_at).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "—"}
+                    <td className="px-4 py-3 text-sm whitespace-nowrap">
+                      <UpdatedAgo at={product.updated_at} />
                     </td>
 
                     <td className="px-4 py-3 text-center">
@@ -824,6 +863,7 @@ export default function AdminProducts() {
             </tbody>
           </table>
         </div>
+        )}
 
         {/* Pagination */}
         {pages > 1 && (

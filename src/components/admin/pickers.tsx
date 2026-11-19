@@ -144,13 +144,15 @@ export interface SupplierOption {
   id: string;
   name: string;
   phone?: string | null;
+  /** What they sell (20261119120000); empty / missing = not tagged. */
+  categories?: string[] | null;
 }
 
 /**
  * Pick a supplier by typing part of the name or phone. Replaces a plain
  * <select>, which gets hard to use once the list is long.
  */
-export function SupplierPicker({ suppliers, value, onChange, placeholder, className, id }: { suppliers: SupplierOption[]; value: string; onChange: (id: string) => void; placeholder?: string; className?: string; id?: string }) {
+export function SupplierPicker({ suppliers, value, onChange, placeholder, className, id, category }: { suppliers: SupplierOption[]; value: string; onChange: (id: string) => void; placeholder?: string; className?: string; id?: string; /** Show suppliers of this kind (and untagged ones); typing a name still finds the others. */ category?: string }) {
   const { t } = useT();
   const listId = useId();
   const box = useRef<HTMLInputElement>(null);
@@ -162,8 +164,12 @@ export function SupplierPicker({ suppliers, value, onChange, placeholder, classN
     const term = q.trim().toLowerCase();
     const digits = term.replace(/\D/g, "");
     const all = term ? suppliers.filter((s) => s.name.toLowerCase().includes(term) || (digits.length >= 3 && (s.phone ?? "").replace(/\D/g, "").includes(digits))) : suppliers;
-    return all.slice(0, 50);
-  }, [suppliers, q]);
+    if (!category) return all.slice(0, 50);
+    const fits = (s: SupplierOption) => !s.categories?.length || s.categories.includes(category);
+    // Without a search only the right kind; with one, the right kind first.
+    const sorted = term ? [...all.filter(fits), ...all.filter((s) => !fits(s))] : all.filter(fits);
+    return sorted.slice(0, 50);
+  }, [suppliers, q, category]);
 
   const pick = (s: SupplierOption) => {
     onChange(s.id);

@@ -11,7 +11,8 @@ import { BUY, OFFLINE, OFFLINE_MENU_GROUP, ONLINE, REGISTER, type GroupId, type 
 import { useAdminAccess, useCurrentItem } from "@/components/admin/access";
 
 /**
- * The shop app. A dark bar across the top carries the menu, so the page
+ * The shop app. A dark bar across the top carries the menu (wide screens;
+ * below xl it is a row that scrolls sideways, so it never spills over), so the page
  * gets the full width; the register and the receipts (everything under
  * /admin/offline/pos) take the whole screen without it.
  */
@@ -48,7 +49,7 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
             </span>
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-0.5 ml-4 min-w-0 flex-1">
+          <nav className="hidden xl:flex items-center gap-0.5 ml-4 min-w-0 flex-1">
             {barEntries(offlineItems).map((entry) =>
               "group" in entry ? (
                 <MenuGroup key={entry.group} group={entry.group} items={entry.items} currentHref={currentItem?.href} />
@@ -70,7 +71,7 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
             <LanguageToggle tone="dark" />
             <ThemeToggle tone="dark" />
             {userName && (
-              <span className="hidden md:flex items-center gap-2 pl-2 border-l border-white/10">
+              <span className="hidden 2xl:flex items-center gap-2 pl-2 border-l border-white/10">
                 <span className="w-8 h-8 rounded-full bg-accent-gold/20 text-accent-gold flex items-center justify-center text-sm font-bold uppercase">{userName.slice(0, 1)}</span>
                 <span className="text-sm font-medium text-white max-w-[120px] truncate">{userName}</span>
               </span>
@@ -82,7 +83,7 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
         </div>
 
         {/* Phones and tablets: the same menu as a row that scrolls sideways (arrows for mouse users). */}
-        <ScrollRow className="lg:hidden" activeKey={currentItem?.href}>
+        <ScrollRow className="xl:hidden" activeKey={currentItem?.href}>
           {offlineItems.map((item) => {
             const active = currentItem?.href === item.href;
             return (

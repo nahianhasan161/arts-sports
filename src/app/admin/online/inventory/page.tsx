@@ -10,6 +10,8 @@ import { Suppliers } from "@/components/admin/inventory/Suppliers";
 import { Labels } from "@/components/admin/inventory/Labels";
 import { ItemHistory } from "@/components/admin/inventory/ItemHistory";
 import type { Showroom, StockRow, Supplier } from "@/components/admin/inventory/types";
+import { LIST_VIEWS, Thumb, ViewToggle, type ListView } from "@/components/admin/list/ViewBits";
+import { useUrlState } from "@/lib/url-state";
 
 const TABS = ["stock", "receive", "count", "transfer", "labels", "suppliers", "history"] as const;
 type Tab = (typeof TABS)[number];
@@ -44,6 +46,7 @@ export default function InventoryPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [historyOf, setHistoryOf] = useState<string | null>(null);
+  const [view, setView] = useUrlState<ListView>("view", "list", { fromUrl: (v) => (LIST_VIEWS.includes(v as ListView) ? (v as ListView) : null) });
 
   const load = useCallback(async () => {
     const res = await api<{ rows: StockRow[]; showrooms: Showroom[]; showroom_id: string }>(`/api/admin/inventory?q=${encodeURIComponent(q)}&low=${lowOnly ? 1 : 0}&showroom_id=${encodeURIComponent(showroomId)}`);
@@ -84,6 +87,12 @@ export default function InventoryPage() {
   const supplierName = useMemo(() => new Map(suppliers.map((s) => [s.id, s.name])), [suppliers]);
   const chosen = useMemo(() => [...picked.values()], [picked]);
   const lowCount = rows.filter((r) => r.low).length;
+  // Cards view: one card per product with its sizes.
+  const byProduct = useMemo(() => {
+    const m = new Map<string, StockRow[]>();
+    for (const r of rows) m.set(r.product_id, [...(m.get(r.product_id) ?? []), r]);
+    return [...m.values()];
+  }, [rows]);
 
   const toggle = (r: StockRow) =>
     setPicked((current) => {
@@ -147,8 +156,67 @@ export default function InventoryPage() {
             <button className={`${lowOnly ? btnPrimary : btnGhost}`} onClick={() => setLowOnly((v) => !v)}>
               <AlertTriangle className="w-4 h-4" /> {t("shop.stock.lowOnly")} {lowCount > 0 && `(${lowCount})`}
             </button>
+            <div className="ml-auto">
+              <ViewToggle value={view} onChange={setView} />
+            </div>
           </div>
           <p className="text-xs text-text-muted">{t("shop.stock.pickHint")}</p>
+          {view === "cards" ? (
+            loading ? (
+              <p className="text-sm text-text-muted">{t("shop.common.loading")}</p>
+            ) : byProduct.length === 0 ? (
+              <p className="text-sm text-text-muted">{t("shop.common.none")}</p>
+            ) : (
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+                {byProduct.map((list) => {
+                  const first = list[0];
+                  const total = list.reduce((n, r) => n + r.quantity, 0);
+                  const low = list.some((r) => r.low);
+                  const allPicked = list.every((r) => picked.has(r.variant_id));
+                  return (
+                    <li key={first.product_id} className={`${card} overflow-hidden flex flex-col ${list.every((r) => !r.is_active) ? "opacity-50" : ""} ${allPicked ? "ring-2 ring-primary" : ""}`}>
+                      <button
+                        type="button"
+                        className="relative block aspect-[4/3] text-left"
+                        onClick={() => setPicked((cur) => { const next = new Map(cur); for (const r of list) { if (allPicked) next.delete(r.variant_id); else next.set(r.variant_id, r); } return next; })}
+                        title={t("shop.stock.pickAll")}
+                      >
+                        <Thumb src={first.image} className="absolute inset-0 w-full h-full" />
+                        <span className={`absolute top-1.5 right-1.5 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${low ? "bg-badge-discount text-white" : "bg-surface-card/90 text-on-surface"}`}>
+                          {total}{low && <AlertTriangle className="w-3 h-3 inline ml-1 -mt-0.5" />}
+                        </span>
+                      </button>
+                      <div className="p-2.5 flex flex-col gap-2 flex-1">
+                        <div className="flex items-start gap-1">
+                          <span className="text-sm font-medium text-on-surface line-clamp-2 flex-1">{first.title}</span>
+                          <button className="text-text-muted hover:text-primary shrink-0 p-0.5" onClick={() => setHistoryOf(first.variant_id)} title={t("shop.history.item")} aria-label={t("shop.history.item")}>
+                            <History className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {list.map((r) => {
+                            const on = picked.has(r.variant_id);
+                            return (
+                              <button
+                                key={r.variant_id}
+                                type="button"
+                                onClick={() => toggle(r)}
+                                onDoubleClick={() => setHistoryOf(r.variant_id)}
+                                title={`${r.barcode ?? r.sku ?? ""}${r.cost_price === null ? "" : ` · ${taka(r.cost_price)}`}`}
+                                className={`h-7 px-2 rounded-md border text-xs inline-flex items-center gap-1 ${on ? "border-primary bg-primary/10 text-on-surface font-semibold" : r.low ? "border-badge-discount/50 text-badge-discount" : "border-border-light text-on-surface-variant hover:bg-surface-subtle"}`}
+                              >
+                                {r.label || "—"} <b className="tabular-nums">{r.quantity}</b>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          ) : (
           <div className={`${card} overflow-x-auto`}>
             <table className="w-full text-sm">
               <thead className="text-xs text-text-muted text-left">
@@ -208,6 +276,7 @@ export default function InventoryPage() {
               </tbody>
             </table>
           </div>
+          )}
         </>
       )}
 

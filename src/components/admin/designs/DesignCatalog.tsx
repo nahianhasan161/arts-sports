@@ -9,18 +9,28 @@ import { MAX_DESIGN_IMAGES, OTHER_CATEGORY, categoryName, designImages, type Des
 import { DesignSlideshow } from "./DesignSlideshow";
 import { readUrlParam, useUrlState, writeUrlParams } from "@/lib/url-state";
 import { api, btnGhost, btnPrimary, field } from "@/components/admin/pos/api";
+import { optimizeImageFile } from "@/lib/media/client-optimize";
 
 const URL_ = "/api/admin/custom-jersey/designs";
 
+/**
+ * Pictures are made smaller in the browser first (like product photos): phone
+ * photos are often over the 5 MB limit for gallery pictures, which made uploads fail.
+ * The error names the file, so staff know which one to fix.
+ */
 async function uploadImage(file: File): Promise<string> {
+  const small = await optimizeImageFile(file, { maxWidth: 2400, maxHeight: 2400, quality: 0.85 }).catch(() => file);
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", small, small.name || file.name);
   form.append("kind", "gallery");
-  const res = await fetch("/api/custom-jersey/upload", { method: "POST", body: form });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error ?? "Upload failed");
+  const res = await fetch("/api/custom-jersey/upload", { method: "POST", body: form }).catch(() => null);
+  const json = res ? await res.json().catch(() => ({})) : {};
+  if (!res?.ok) throw new Error(`${file.name}: ${json.error ?? "Upload failed"}`);
   return json.path as string;
 }
+
+/** An empty design for the "new design" editor. */
+const newDesign = (category: string): DesignRow => ({ id: "", image_url: "", images: [], title: "", caption: null, category, is_published: true, display_order: 0 });
 
 const onlyImages = (list: FileList | File[] | null) => [...(list ?? [])].filter((f) => f.type.startsWith("image/"));
 
@@ -47,7 +57,7 @@ export function DesignCatalog() {
   const [editing, setEditingRaw] = useState<DesignRow | null>(null);
   const [catForm, setCatFormRaw] = useState<Partial<DesignCategoryRow> & { isNew?: boolean } | null>(null);
   // Open modals get a link: ?design=<id> for the editor, ?edit_category=<slug|new> for the category form.
-  const setEditing = useCallback((d: DesignRow | null) => { setEditingRaw(d); writeUrlParams({ design: d?.id ?? null }); }, []);
+  const setEditing = useCallback((d: DesignRow | null) => { setEditingRaw(d); writeUrlParams({ design: d?.id || null }); }, []);
   const setCatForm = useCallback((c: (Partial<DesignCategoryRow> & { isNew?: boolean }) | null) => {
     setCatFormRaw(c);
     writeUrlParams({ edit_category: c ? (c.isNew ? "new" : c.slug ?? null) : null });
@@ -303,12 +313,23 @@ export function DesignCatalog() {
           })}
           {!q && (
             <li>
-              <label className={`w-full h-52 rounded-md border-2 border-dashed border-accent-gold/60 text-accent-gold hover:bg-accent-gold/10 flex flex-col items-center justify-center gap-1 text-sm font-semibold text-center px-2 ${uploading ? "opacity-60" : "cursor-pointer"}`}>
-                {uploading ? <Loader2 className="w-7 h-7 animate-spin" /> : <Plus className="w-8 h-8" />}
-                {uploading ? t("shop.designs.uploading", { done: uploading.done, of: uploading.of }) : t("shop.designs.addDesigns")}
-                <span className="text-[11px] font-normal">{t("shop.designs.into", { name: current ? categoryName(current, locale) : label(OTHER_CATEGORY) })}</span>
-                <input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" disabled={!!uploading} onChange={(e) => { void upload(e.target.files); e.target.value = ""; }} />
-              </label>
+              <div className="w-full h-52 rounded-md border-2 border-dashed border-accent-gold/60 flex flex-col overflow-hidden">
+                <button
+                  type="button"
+                  disabled={!!uploading}
+                  onClick={() => setEditing(newDesign(cat || OTHER_CATEGORY))}
+                  className="flex-1 text-accent-gold hover:bg-accent-gold/10 flex flex-col items-center justify-center gap-1 text-sm font-semibold text-center px-2 disabled:opacity-60"
+                >
+                  {uploading ? <Loader2 className="w-7 h-7 animate-spin" /> : <Plus className="w-8 h-8" />}
+                  {uploading ? t("shop.designs.uploading", { done: uploading.done, of: uploading.of }) : t("shop.designs.newDesign")}
+                  <span className="text-[11px] font-normal">{t("shop.designs.into", { name: current ? categoryName(current, locale) : label(OTHER_CATEGORY) })}</span>
+                </button>
+                <label className={`border-t border-dashed border-accent-gold/60 py-2 text-[11px] font-semibold text-accent-gold text-center hover:bg-accent-gold/10 ${uploading ? "opacity-60" : "cursor-pointer"}`} title={t("shop.designs.bulkHint")}>
+                  <ImagePlus className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                  {t("shop.designs.addDesigns")}
+                  <input type="file" multiple accept="image/*" className="hidden" disabled={!!uploading} onChange={(e) => { void upload(e.target.files); e.target.value = ""; }} />
+                </label>
+              </div>
             </li>
           )}
           {loadingMore && Array.from({ length: 4 }).map((_, k) => <li key={`sk${k}`} aria-hidden className="h-52 rounded-md bg-surface-subtle animate-pulse" />)}
@@ -390,7 +411,8 @@ function DesignEditor({ design, cats, locale, onClose, onSave, onDelete, onShow 
 }) {
   const { t } = useT();
   const [d, setD] = useState<DesignRow>({ ...design, category: design.category ?? OTHER_CATEGORY });
-  const [pics, setPics] = useState<Pic[]>(() => designImages(design).map((src) => ({ src })));
+  const isNew = !design.id;
+  const [pics, setPics] = useState<Pic[]>(() => (isNew ? [] : designImages(design).filter(Boolean).map((src) => ({ src }))));
   const [sel, setSel] = useState(0);
   const [adding, setAdding] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -425,7 +447,7 @@ function DesignEditor({ design, cats, locale, onClose, onSave, onDelete, onShow 
   const shown = pics[Math.min(sel, pics.length - 1)];
 
   return (
-    <Modal title={t("shop.designs.editDesign")} onClose={onClose}>
+    <Modal title={isNew ? t("shop.designs.newDesign") : t("shop.designs.editDesign")} onClose={onClose}>
       <div className="grid sm:grid-cols-2 gap-4">
         <div {...dropProps} className={`flex flex-col gap-2 rounded-lg ${dragging ? "ring-2 ring-accent-gold" : ""}`}>
           <div className="relative w-full aspect-square bg-surface-subtle rounded-lg overflow-hidden">
@@ -461,7 +483,7 @@ function DesignEditor({ design, cats, locale, onClose, onSave, onDelete, onShow 
               <li>
                 <label className="w-full aspect-square rounded border-2 border-dashed border-accent-gold/60 text-accent-gold hover:bg-accent-gold/10 flex items-center justify-center cursor-pointer" title={t("shop.designs.addImages")}>
                   <ImagePlus className="w-5 h-5" />
-                  <input type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { void add(e.target.files); e.target.value = ""; }} />
+                  <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => { void add(e.target.files); e.target.value = ""; }} />
                 </label>
               </li>
             )}
@@ -492,10 +514,16 @@ function DesignEditor({ design, cats, locale, onClose, onSave, onDelete, onShow 
         </div>
       </div>
       <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border-light">
-        <button type="button" onClick={onDelete} className={`${btnGhost} h-10 text-badge-discount`}><Trash2 className="w-4 h-4" /> {t("shop.common.delete")}</button>
-        <Link href={`/admin/offline/custom-jersey?designs=${design.id}`} className={`${btnGhost} h-10 ml-auto`}>
-          <Shirt className="w-4 h-4" /> {t("shop.designs.makeJersey")}
-        </Link>
+        {isNew ? (
+          <span className="ml-auto" />
+        ) : (
+          <>
+            <button type="button" onClick={onDelete} className={`${btnGhost} h-10 text-badge-discount`}><Trash2 className="w-4 h-4" /> {t("shop.common.delete")}</button>
+            <Link href={`/admin/offline/custom-jersey?designs=${design.id}`} className={`${btnGhost} h-10 ml-auto`}>
+              <Shirt className="w-4 h-4" /> {t("shop.designs.makeJersey")}
+            </Link>
+          </>
+        )}
         <button type="button" onClick={onClose} className={`${btnGhost} h-10`}>{t("shop.common.cancel")}</button>
         <button type="button" disabled={busy || adding > 0 || pics.length === 0} onClick={async () => { setBusy(true); await onSave(d, pics.map((p) => p.path ?? p.src)); setBusy(false); }} className={`${btnPrimary} h-10`}>
           {busy && <Loader2 className="w-4 h-4 animate-spin" />} {t("shop.designs.save")}

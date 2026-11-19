@@ -377,7 +377,11 @@ export function PurchaseScreen() {
         ))}
       </select>
     ) : null;
-  const shownSuppliers = suppliers.filter((s) => (s.is_active || s.id === supplierId) && (!supplierQ.trim() || `${s.name} ${s.phone ?? ""}`.toLowerCase().includes(supplierQ.trim().toLowerCase())));
+  // Product suppliers (and untagged ones) first; fabric/print/garments-only suppliers last.
+  const sellsProducts = (x: SupplierFull) => !x.categories?.length || x.categories.includes("products");
+  const shownSuppliers = suppliers
+    .filter((s) => (s.is_active || s.id === supplierId) && (!supplierQ.trim() || `${s.name} ${s.phone ?? ""}`.toLowerCase().includes(supplierQ.trim().toLowerCase())))
+    .sort((x, y) => Number(sellsProducts(y)) - Number(sellsProducts(x)));
   const money = (v: string, set: (v: string) => void, label: string) => (
     <label className="text-sm flex items-center justify-between gap-3">
       <span>{label}</span>

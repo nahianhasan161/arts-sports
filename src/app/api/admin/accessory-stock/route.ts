@@ -51,7 +51,8 @@ export async function GET(request: Request) {
     const [items, stock, suppliers, moves] = await Promise.all([
       db.from("custom_accessories").select("id, name_en, name_bn, kind, per_jersey, low_stock_pcs, is_active, display_order").order("display_order").order("name_en"),
       db.from("accessory_stock").select("*"),
-      db.from("suppliers").select("id, name, phone").eq("is_active", true).order("name"),
+      // "*": categories come with 20261119120000.
+      db.from("suppliers").select("*").eq("is_active", true).order("name"),
       movesQ,
     ]);
     const err = items.error ?? stock.error ?? suppliers.error ?? moves.error;

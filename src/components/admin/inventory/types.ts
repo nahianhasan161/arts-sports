@@ -3,6 +3,8 @@ export interface StockRow {
   product_id: string;
   title: string;
   label: string;
+  /** The product's first picture (cards view). */
+  image?: string | null;
   sku: string | null;
   barcode: string | null;
   stock: number;

@@ -73,7 +73,7 @@ export function Worksheet({ mode, rows, suppliers, showrooms, showroomId, onDone
       <div className="grid sm:grid-cols-3 gap-2">
         {mode === "receive" && (
           <>
-            <SupplierPicker className={field} suppliers={suppliers.filter((s) => s.is_active)} value={supplier} onChange={setSupplier} placeholder={t("shop.stock.noSupplier")} />
+            <SupplierPicker category="products" className={field} suppliers={suppliers.filter((s) => s.is_active)} value={supplier} onChange={setSupplier} placeholder={t("shop.stock.noSupplier")} />
             <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder={t("shop.stock.reference")} className={field} />
           </>
         )}

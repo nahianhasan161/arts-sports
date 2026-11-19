@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     const db = getServiceSupabase(actor);
     const { data: customer, error } = await db
       .from("customers")
-      .select("id, phone, name, tags, marketing_consent, is_blacklisted, notes")
+      .select("*") // includes `address` once 20261119120000 is applied
       .eq("phone", phone)
       .maybeSingle();
     if (error) return bad(explainPosError(error.message), 500);

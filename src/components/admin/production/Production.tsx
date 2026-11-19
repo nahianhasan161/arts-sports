@@ -297,7 +297,7 @@ function BatchView({ id, onBack }: { id: string; onBack: () => void }) {
           <h2 className={h2}>{t("shop.production.printing")}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
             <label className={`${lbl} col-span-2`}>{t("shop.production.printShop")}
-              <SupplierSelect suppliers={data.suppliers} value={draft.print_supplier_id} onChange={(v) => edit({ print_supplier_id: v })} />
+              <SupplierSelect category="printing" suppliers={data.suppliers} value={draft.print_supplier_id} onChange={(v) => edit({ print_supplier_id: v })} />
             </label>
             <label className={`${lbl} col-span-2`}>{t("shop.production.basis")}
               <select className={field} value={draft.print_basis} onChange={(e) => edit({ print_basis: e.target.value as PrintBasis })}>
@@ -327,7 +327,7 @@ function BatchView({ id, onBack }: { id: string; onBack: () => void }) {
           <h2 className={h2}>{t("shop.production.garments")}</h2>
           <div className="flex flex-wrap items-end gap-3">
             <label className={`${lbl} flex-1 min-w-48`}>{t("shop.production.garmentsFactory")}
-              <SupplierSelect suppliers={data.suppliers} value={draft.garments_supplier_id} onChange={(v) => edit({ garments_supplier_id: v })} />
+              <SupplierSelect category="garments" suppliers={data.suppliers} value={draft.garments_supplier_id} onChange={(v) => edit({ garments_supplier_id: v })} />
             </label>
             <div className="text-sm font-semibold pb-2">{t("shop.production.garmentsTotal", { amount: taka(garments) })}</div>
           </div>
@@ -366,10 +366,10 @@ function BatchView({ id, onBack }: { id: string; onBack: () => void }) {
   );
 }
 
-function SupplierSelect({ suppliers, value, onChange }: { suppliers: Supplier[]; value: string; onChange: (v: string) => void }) {
+function SupplierSelect({ suppliers, value, onChange, category }: { suppliers: Supplier[]; value: string; onChange: (v: string) => void; category: "printing" | "garments" }) {
   const { t } = useT();
   return (
-    <SupplierPicker className={field} suppliers={suppliers} value={value} onChange={onChange} placeholder={t("shop.production.chooseSupplier")} />
+    <SupplierPicker category={category} className={field} suppliers={suppliers} value={value} onChange={onChange} placeholder={t("shop.production.chooseSupplier")} />
   );
 }
 

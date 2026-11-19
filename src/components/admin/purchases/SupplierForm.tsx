@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useT } from "@/i18n/client";
 import { api, btnGhost, btnPrimary, field } from "@/components/admin/pos/api";
-import type { SupplierFull } from "@/lib/pos/purchase-types";
+import { SUPPLIER_CATEGORIES, supplierCategories, type SupplierCategory, type SupplierFull } from "@/lib/pos/purchase-types";
 
 type Draft = Record<"name" | "contact_person" | "phone" | "alt_phone" | "email" | "address" | "payment_info" | "notes" | "lead_days" | "opening_due", string> & { is_active: boolean };
 
@@ -25,6 +25,7 @@ const toDraft = (s?: SupplierFull | null): Draft => ({
 export function SupplierForm({ supplier, onSaved, onCancel }: { supplier?: SupplierFull | null; onSaved: (id: string) => void; onCancel?: () => void }) {
   const { t } = useT();
   const [d, setD] = useState<Draft>(() => toDraft(supplier));
+  const [cats, setCats] = useState<SupplierCategory[]>(() => supplierCategories(supplier?.categories));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setD({ ...d, [k]: e.target.value });
@@ -32,7 +33,7 @@ export function SupplierForm({ supplier, onSaved, onCancel }: { supplier?: Suppl
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const res = await api<{ id: string }>("/api/admin/inventory/suppliers", { action: "save", id: supplier?.id, ...d, lead_days: Number(d.lead_days) || 0 });
+    const res = await api<{ id: string }>("/api/admin/inventory/suppliers", { action: "save", id: supplier?.id, ...d, categories: cats, lead_days: Number(d.lead_days) || 0 });
     setBusy(false);
     if (!res.ok) return setError(res.error);
     setError(null);
@@ -46,6 +47,26 @@ export function SupplierForm({ supplier, onSaved, onCancel }: { supplier?: Suppl
         {t("shop.supplier.name")} *
         <input value={d.name} onChange={set("name")} className={field} required autoFocus={!supplier} />
       </label>
+      <div className={`${label} sm:col-span-2`}>
+        {t("shop.supplier.categories")}
+        <div className="flex flex-wrap gap-1.5">
+          {SUPPLIER_CATEGORIES.map((c) => {
+            const on = cats.includes(c);
+            return (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setCats((l) => (on ? l.filter((x) => x !== c) : [...l, c]))}
+                className={`h-8 px-3 rounded-full border text-xs font-semibold ${on ? "border-primary bg-primary/10 text-on-surface" : "border-border-light bg-surface-card text-on-surface-variant hover:bg-surface-subtle"}`}
+              >
+                {on ? "✓ " : ""}{t(`shop.supplier.category.${c}`)}
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-[11px]">{t("shop.supplier.categoriesHint")}</span>
+      </div>
       <label className={label}>
         {t("shop.supplier.contactPerson")}
         <input value={d.contact_person} onChange={set("contact_person")} className={field} />

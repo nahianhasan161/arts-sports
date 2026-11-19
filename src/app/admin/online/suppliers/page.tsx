@@ -8,7 +8,7 @@ import { useT } from "@/i18n/client";
 import { taka } from "@/lib/pos/types";
 import { api, btnPrimary, card, dateTime, field } from "@/components/admin/pos/api";
 import { Sheet, SupplierForm } from "@/components/admin/purchases/SupplierForm";
-import type { SupplierBalance, SupplierFull } from "@/lib/pos/purchase-types";
+import { SUPPLIER_CATEGORIES, supplierCategories, type SupplierBalance, type SupplierFull } from "@/lib/pos/purchase-types";
 
 /** Every supplier with what we bought, paid and still owe. */
 export default function SuppliersPage() {
@@ -17,6 +17,7 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<SupplierFull[]>([]);
   const [balances, setBalances] = useState<Map<string, SupplierBalance>>(new Map());
   const [q, setQ] = useState("");
+  const [kind, setKind] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,8 +37,12 @@ export default function SuppliersPage() {
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return suppliers.filter((s) => !term || [s.name, s.phone, s.alt_phone, s.contact_person].some((v) => v?.toLowerCase().includes(term)));
-  }, [suppliers, q]);
+    return suppliers.filter(
+      (s) =>
+        (!term || [s.name, s.phone, s.alt_phone, s.contact_person].some((v) => v?.toLowerCase().includes(term))) &&
+        (!kind || (kind === "none" ? !supplierCategories(s.categories).length : supplierCategories(s.categories).includes(kind as never)))
+    );
+  }, [suppliers, q, kind]);
   const totalDue = [...balances.values()].reduce((s, b) => s + Math.max(0, b.due), 0);
 
   return (
@@ -47,6 +52,11 @@ export default function SuppliersPage() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("shop.supplier.search")} className={`${field} pl-9`} />
         </div>
+        <select value={kind} onChange={(e) => setKind(e.target.value)} className={`${field} !w-auto`} aria-label={t("shop.supplier.categories")}>
+          <option value="">{t("shop.supplier.allCategories")}</option>
+          {SUPPLIER_CATEGORIES.map((c) => <option key={c} value={c}>{t(`shop.supplier.category.${c}`)}</option>)}
+          <option value="none">{t("shop.supplier.untagged")}</option>
+        </select>
         <button className={btnPrimary} onClick={() => setAdding(true)}>
           <Plus className="w-4 h-4" /> {t("shop.supplier.add")}
         </button>
@@ -89,6 +99,9 @@ export default function SuppliersPage() {
                       {s.name}
                     </Link>
                     {!s.is_active && <span className="ml-2 text-xs text-text-muted">({t("shop.supplier.inactive")})</span>}
+                    {supplierCategories(s.categories).map((c) => (
+                      <span key={c} className="ml-1.5 inline-block rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 py-0.5 align-middle">{t(`shop.supplier.category.${c}`)}</span>
+                    ))}
                     <span className="block text-xs text-text-muted">
                       {[s.contact_person, b?.last_purchase_at ? t("shop.supplier.lastPurchase", { date: dateTime(b.last_purchase_at) }) : t("shop.supplier.never")].filter(Boolean).join(" · ")}
                     </span>

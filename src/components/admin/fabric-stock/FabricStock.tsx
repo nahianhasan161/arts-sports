@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka } from "@/lib/pos/types";
-import { api, btnGhost, btnPrimary, card, dateTime, field } from "@/components/admin/pos/api";
+import { api, btnGhost, btnPrimary, card, field } from "@/components/admin/pos/api";
+import { dhakaDay } from "@/components/admin/filters/period";
+import { FabricHistory } from "./FabricHistory";
 import { SUPPLIER_PAY_METHODS } from "@/lib/pos/purchase-types";
 import { WASTAGE_REASONS, piecesFor, type FabricMove, type FabricWithStock } from "@/lib/custom-jersey/fabric-stock";
 import { SupplierPicker, type SupplierOption } from "@/components/admin/pickers";
@@ -25,25 +27,24 @@ export default function FabricStock() {
   const { t, locale } = useT();
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>("");
+  // Bumped after every change so the history reloads.
+  const [reloadKey, setReloadKey] = useState(0);
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await api<Data>(`/api/admin/fabric-stock${filter ? `?fabric_id=${encodeURIComponent(filter)}` : ""}`);
+    // Only the fabrics and suppliers are used here; FabricHistory asks for the entries itself.
+    const res = await api<Data>("/api/admin/fabric-stock?from=2999-01-01");
     if (!res.ok) return setError(res.error);
     setError(null);
     setData(res.data);
-  }, [filter]);
+    setReloadKey((k) => k + 1);
+  }, []);
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
 
   const name = (f: { name_en: string; name_bn: string | null }) => (locale === "bn" && f.name_bn) || f.name_en;
-  const fabricName = (id: string) => {
-    const f = data?.fabrics.find((x) => x.id === id);
-    return f ? name(f) : "—";
-  };
 
   async function undo(m: FabricMove) {
     const reason = prompt(t("shop.fabricStock.undoReason"));
@@ -85,42 +86,7 @@ export default function FabricStock() {
         </div>
       )}
 
-      {data && (
-        <section>
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <h2 className="font-display text-lg uppercase font-bold text-primary">{t("shop.fabricStock.history")}</h2>
-            <select className={`${field} !w-auto ml-auto`} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={t("shop.fabricStock.allFabrics")}>
-              <option value="">{t("shop.fabricStock.allFabrics")}</option>
-              {data.fabrics.map((f) => <option key={f.id} value={f.id}>{name(f)}</option>)}
-            </select>
-          </div>
-          <div className={`${card} divide-y divide-border-light`}>
-            {data.moves.length === 0 && <p className="p-3 text-sm text-text-muted">{t("shop.fabricStock.empty")}</p>}
-            {data.moves.map((m) => {
-              const supplier = m.supplier_id ? data.suppliers.find((s) => s.id === m.supplier_id)?.name : null;
-              return (
-                <div key={m.id} className={`p-3 text-sm flex flex-wrap items-baseline gap-x-3 gap-y-1 ${m.voided_at ? "opacity-50" : ""}`}>
-                  <span className="text-xs text-text-muted w-36 shrink-0">{dateTime(m.created_at)}</span>
-                  <span className="font-semibold">{t(`shop.fabricStock.kinds.${m.kind}`)}{m.reason ? ` · ${t(`shop.fabricStock.reasons.${m.reason}`)}` : ""}</span>
-                  <span className={m.voided_at ? "line-through" : ""}>{fabricName(m.fabric_id)}</span>
-                  <span className={`tabular-nums font-semibold ${m.kg > 0 ? "text-green-600 dark:text-green-400" : "text-badge-discount"} ${m.voided_at ? "line-through" : ""}`}>{m.kg > 0 ? "+" : "−"}{kgFmt(Math.abs(m.kg))} kg</span>
-                  {m.pieces ? <span className="text-text-muted">{m.pieces} {t("shop.fabricStock.pieces")}</span> : null}
-                  {m.kind === "purchase" && m.cost_per_kg !== null && <span className="text-text-muted">{taka(m.cost_per_kg)}/kg · {taka(m.total_cost ?? 0)}</span>}
-                  {supplier && <span className="text-text-muted">{supplier}</span>}
-                  {m.order_number && <span className="text-text-muted">{m.order_number}</span>}
-                  {m.note && <span className="text-text-muted italic">{m.note}</span>}
-                  {m.staff && <span className="text-xs text-text-muted">{t("shop.fabricStock.by", { name: m.staff })}</span>}
-                  {m.voided_at ? (
-                    <span className="text-xs text-badge-discount ml-auto">{t("shop.fabricStock.undone", { reason: m.void_reason ?? "" })}</span>
-                  ) : (
-                    <button className="text-xs underline underline-offset-2 ml-auto text-text-muted hover:text-badge-discount" onClick={() => undo(m)}>{t("shop.fabricStock.undo")}</button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {data && <FabricHistory fabrics={data.fabrics} suppliers={data.suppliers} name={name} reloadKey={reloadKey} onUndo={undo} />}
     </div>
   );
 }
@@ -303,7 +269,7 @@ function FabricCard({ fabric: f, name, suppliers, onSaved, onError }: { fabric: 
 
 function MoveForm({ action, fabricId, kgPerPiece, suppliers, onDone, onError }: { action: Action; fabricId: string; kgPerPiece: number | null; suppliers: SupplierOption[]; onDone: () => Promise<void>; onError: (e: string | null) => void }) {
   const { t } = useT();
-  const [v, setV] = useState<Record<string, string>>({ method: "cash", reason: action === "wastage" ? "cutting" : "" });
+  const [v, setV] = useState<Record<string, string>>({ method: "cash", reason: action === "wastage" ? "cutting" : "", date: dhakaDay(0) });
   const [fromDrawer, setFromDrawer] = useState(false);
   const [busy, setBusy] = useState(false);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV((o) => ({ ...o, [k]: e.target.value }));
@@ -326,7 +292,7 @@ function MoveForm({ action, fabricId, kgPerPiece, suppliers, onDone, onError }: 
       {action === "purchase" && (
         <>
           <label className={`${lbl} col-span-2`}>{t("shop.fabricStock.supplier")}
-            <SupplierPicker className={field} suppliers={suppliers} value={v.supplier_id ?? ""} onChange={(id) => setV((o) => ({ ...o, supplier_id: id }))} placeholder={t("shop.fabricStock.noSupplier")} />
+            <SupplierPicker category="fabric" className={field} suppliers={suppliers} value={v.supplier_id ?? ""} onChange={(id) => setV((o) => ({ ...o, supplier_id: id }))} placeholder={t("shop.fabricStock.noSupplier")} />
           </label>
           <label className={lbl}>{t("shop.fabricStock.kgLabel")}<input required type="number" step="0.001" min={0.001} className={field} value={v.kg ?? ""} onChange={set("kg")} /></label>
           <label className={lbl}>{t("shop.fabricStock.costPerKg")}<input required type="number" step="0.01" min={0} className={field} value={v.cost_per_kg ?? ""} onChange={set("cost_per_kg")} /></label>
@@ -367,7 +333,10 @@ function MoveForm({ action, fabricId, kgPerPiece, suppliers, onDone, onError }: 
         <label className={`${lbl} col-span-2`}>{t("shop.fabricStock.adjustKg")}<input required type="number" step="0.001" className={field} value={v.kg ?? ""} onChange={set("kg")} /></label>
       )}
 
-      <label className={`${lbl} col-span-2`}>{action === "adjust" ? t("shop.fabricStock.noteRequired") : t("shop.fabricStock.note")}
+      <label className={lbl}>{action === "purchase" ? t("shop.fabricStock.purchaseDate") : t("shop.fabricStock.date")}
+        <input required type="date" max={dhakaDay(0)} className={field} value={v.date ?? ""} onChange={set("date")} />
+      </label>
+      <label className={lbl}>{action === "adjust" ? t("shop.fabricStock.noteRequired") : t("shop.fabricStock.note")}
         <input required={action === "adjust"} className={field} value={v.note ?? ""} onChange={set("note")} />
       </label>
       <button type="submit" disabled={busy} className={`${btnPrimary} col-span-2`}>{busy ? t("shop.fabricStock.saving") : t("shop.fabricStock.save")}</button>

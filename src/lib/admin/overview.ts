@@ -49,3 +49,28 @@ export async function shopSalesSince(db: SupabaseClient, since: Date) {
   if (error) return [];
   return (data ?? []).map((s) => ({ showroom_id: s.showroom_id as string, net: Number(s.total) - Number(s.refunded_total), created_at: s.created_at as string }));
 }
+
+/** UTC instant where the Bangladesh day "2026-11-14" starts. */
+export function dhakaKeyStart(key: string): Date {
+  return new Date(new Date(`${key}T00:00:00Z`).getTime() - DHAKA_OFFSET_MS);
+}
+
+/**
+ * Empty chart slots from `from` to `to` (Bangladesh day keys, inclusive):
+ * one per day up to 62 days, else one per month ("2026-11").
+ */
+export function emptyRange(from: string, to: string): { slots: { day: string; website: number; shop: number; orders: number }[]; monthly: boolean } {
+  const days = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+  const monthly = days > 62;
+  const slots: { day: string; website: number; shop: number; orders: number }[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < days; i++) {
+    const key = new Date(Date.parse(`${from}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10);
+    const slot = monthly ? key.slice(0, 7) : key;
+    if (!seen.has(slot)) {
+      seen.add(slot);
+      slots.push({ day: slot, website: 0, shop: 0, orders: 0 });
+    }
+  }
+  return { slots, monthly };
+}

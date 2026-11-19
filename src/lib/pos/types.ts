@@ -50,6 +50,8 @@ export interface SaleDetail {
     receipt_no: string;
     customer_name: string | null;
     customer_phone: string | null;
+    /** Home-delivery address (20261119120000); missing on older rows. */
+    customer_address?: string | null;
     subtotal: number;
     discount_total: number;
     coupon_code: string | null;

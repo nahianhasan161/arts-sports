@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ShoppingCart, Banknote, Store, Clock, RotateCcw, Shirt, MessageSquareText, Boxes, PackagePlus, ScanBarcode, LifeBuoy, CheckCircle2 } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { formatMoney } from "@/i18n";
 import { api } from "@/components/admin/pos/api";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Stat, TaskRow, QuickLink, WeekBars, panel, num } from "@/components/admin/dashboard/parts";
+import { Stat, TaskRow, QuickLink, RangeBars, type RangeSlot, panel, num } from "@/components/admin/dashboard/parts";
 
 interface Overview {
   orders_today: number;
@@ -19,7 +20,11 @@ interface Overview {
   pending_reviews: number;
   low_stock: number;
   products: number;
-  week: { day: string; website: number; shop: number }[];
+  from: string;
+  to: string;
+  monthly: boolean;
+  series: RangeSlot[];
+  range: { orders: number; website: number; shop: number; cancelled: number };
   recent: { id: string; customer_name: string | null; total_amount: number; status: string; created_at: string }[];
 }
 
@@ -30,15 +35,46 @@ const statusTone: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
+/** Today as a Bangladesh day key, and `n` days back. */
+function dhakaKey(daysAgo = 0) {
+  return new Date(Date.now() + 6 * 3_600_000 - daysAgo * 86_400_000).toISOString().slice(0, 10);
+}
+
 /** The website dashboard: today's numbers, then what is waiting, then shortcuts. */
-export default function AdminDashboard() {
+export default function AdminDashboardPage() {
+  return (
+    <Suspense>
+      <AdminDashboard />
+    </Suspense>
+  );
+}
+
+function AdminDashboard() {
   const { t, locale } = useT();
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState(false);
+  const router = useRouter();
+  const params = useSearchParams();
+  const today = dhakaKey();
+  const from = params.get("from") || dhakaKey(6);
+  const to = params.get("to") || today;
+  const setRange = (f: string, tt: string) => {
+    const q = new URLSearchParams(params.toString());
+    q.set("from", f);
+    q.set("to", tt);
+    router.replace(`?${q.toString()}`, { scroll: false });
+  };
+  const quick = [
+    { key: "admin.dash.q7", f: dhakaKey(6) },
+    { key: "admin.dash.q30", f: dhakaKey(29) },
+    { key: "admin.dash.qMonth", f: `${today.slice(0, 7)}-01` },
+    { key: "admin.dash.q90", f: dhakaKey(89) },
+    { key: "admin.dash.qYear", f: `${today.slice(0, 4)}-01-01` },
+  ] as const;
 
   useEffect(() => {
     let alive = true;
-    void api<Overview>("/api/admin/overview").then((res) => {
+    void api<Overview>(`/api/admin/overview?from=${from}&to=${to}`).then((res) => {
       if (!alive) return;
       if (res.ok) setData(res.data);
       else setError(true);
@@ -46,7 +82,7 @@ export default function AdminDashboard() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [from, to]);
 
   if (error) return <p className="rounded-xl bg-badge-discount/10 border border-badge-discount/30 p-4 text-sm text-badge-discount">{t("admin.dash.error")}</p>;
 
@@ -109,13 +145,51 @@ export default function AdminDashboard() {
         </section>
       </div>
 
-      <div className="grid lg:grid-cols-5 gap-6">
-        <section className={`${panel} p-4 sm:p-5 lg:col-span-2`}>
-          <h2 className="text-base font-bold text-primary">{t("admin.dash.week")}</h2>
-          <p className="text-xs text-text-muted mb-4">{t("admin.dash.weekHint")}</p>
-          <WeekBars week={data.week} locale={locale} labels={{ website: t("admin.dash.website"), shop: t("admin.dash.shop") }} />
-        </section>
+      <section className={`${panel} p-4 sm:p-5`}>
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-base font-bold text-primary">{t("admin.dash.range")}</h2>
+            <p className="text-xs text-text-muted">{t(data.monthly ? "admin.dash.rangeHintMonthly" : "admin.dash.rangeHint")}</p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-wrap gap-1">
+              {quick.map((q) => {
+                const on = from === q.f && to === today;
+                return (
+                  <button key={q.key} type="button" onClick={() => setRange(q.f, today)} className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${on ? "border-accent-gold bg-accent-gold text-white" : "border-border-light text-on-surface hover:border-accent-gold"}`}>
+                    {t(q.key)}
+                  </button>
+                );
+              })}
+            </div>
+            <label className="text-xs text-text-muted">
+              {t("admin.dash.from")}
+              <input type="date" value={from} max={to} onChange={(e) => e.target.value && setRange(e.target.value, to)} className="block mt-0.5 rounded-lg border border-border-light bg-surface-card px-2 py-1 text-sm text-on-surface" />
+            </label>
+            <label className="text-xs text-text-muted">
+              {t("admin.dash.to")}
+              <input type="date" value={to} min={from} max={today} onChange={(e) => e.target.value && setRange(from, e.target.value)} className="block mt-0.5 rounded-lg border border-border-light bg-surface-card px-2 py-1 text-sm text-on-surface" />
+            </label>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          {([
+            { k: "admin.dash.rangeTotal", v: formatMoney(Math.round(data.range.website + data.range.shop), locale), sub: "" },
+            { k: "admin.dash.rangeWebsite", v: formatMoney(Math.round(data.range.website), locale), sub: "" },
+            { k: "admin.dash.rangeShop", v: formatMoney(Math.round(data.range.shop), locale), sub: "" },
+            { k: "admin.dash.rangeOrders", v: num(data.range.orders, locale), sub: data.range.cancelled > 0 ? t("admin.dash.cancelledN", { n: num(data.range.cancelled, locale) }) : "" },
+          ] as const).map((x) => (
+            <div key={x.k} className="rounded-xl bg-surface-subtle px-3 py-2.5">
+              <p className="text-xs text-text-muted">{t(x.k)}</p>
+              <p className="text-lg font-bold text-primary">{x.v}</p>
+              {x.sub && <p className="text-[11px] text-text-muted">{x.sub}</p>}
+            </div>
+          ))}
+        </div>
+        <RangeBars series={data.series} monthly={data.monthly} locale={locale} labels={{ website: t("admin.dash.website"), shop: t("admin.dash.shop"), orders: t("admin.dash.ordersShort") }} />
+      </section>
 
+      <div className="grid gap-6">
         <section className={`${panel} p-4 sm:p-5 lg:col-span-3`}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-bold text-primary">{t("admin.dash.recent")}</h2>

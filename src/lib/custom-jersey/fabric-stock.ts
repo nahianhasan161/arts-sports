@@ -42,8 +42,19 @@ export interface FabricMove {
   note: string | null;
   staff: string | null;
   created_at: string;
+  /** The day it happened (YYYY-MM-DD); staff may back-date a purchase. */
+  move_date: string;
   voided_at: string | null;
   void_reason: string | null;
+}
+
+export interface FabricTotals {
+  bought_kg: number;
+  bought_cost: number;
+  used_kg: number;
+  wasted_kg: number;
+  adjust_kg: number;
+  count: number;
 }
 
 /** Pieces one kg makes, or how many pieces the stock is enough for. */
