@@ -20,8 +20,19 @@ export type Fit = "men" | "boys";
 export const FITS: Fit[] = ["men", "boys"];
 
 export type Sleeve = "short" | "full";
+/**
+ * The jersey type: "round" = T-shirt (no collar), "polo" = polo (with a collar).
+ * "v" (V neck) is kept for old orders; new orders choose T-shirt or polo, and a
+ * picture tagged "collar" shows the exact neck/collar when the design doesn't.
+ */
 export type Collar = "round" | "v" | "polo";
+/** The two choices offered for new orders. */
+export const JERSEY_TYPES = ["round", "polo"] as const;
 export type Source = "upload" | "template" | "ai";
+
+/** How the logo is made. "print" is printed with the jersey (free by default); the others cost extra. */
+export const LOGO_TYPES = ["print", "dtf", "silicon", "embroidery"] as const;
+export type LogoType = (typeof LOGO_TYPES)[number];
 
 export const STATUSES = [
   "submitted",
@@ -108,8 +119,18 @@ export interface JerseyTemplate {
 export interface PricingConfig {
   /** Discount on the fabric price from `min` pieces upwards. Sorted by min. */
   tiers: { min: number; discount_percent: number }[];
-  /** Taka per piece. */
-  extras: { name: number; number: number; logo: number; full_sleeve: number; shorts: number; polo_collar: number };
+  /** Taka per piece. Names and numbers are free (0); a 0 price shows as "free". */
+  extras: {
+    name: number;
+    number: number;
+    full_sleeve: number;
+    shorts: number;
+    polo_collar: number;
+    logo_print: number;
+    logo_dtf: number;
+    logo_silicon: number;
+    logo_embroidery: number;
+  };
   /** Needed sooner than normal_days: +percent. Nothing sooner than min_days. */
   rush: { normal_days: number; min_days: number; percent: number };
   advance_percent: number;
@@ -124,7 +145,8 @@ export const DEFAULT_PRICING: PricingConfig = {
     { min: 21, discount_percent: 15 },
     { min: 51, discount_percent: 20 },
   ],
-  extras: { name: 30, number: 30, logo: 40, full_sleeve: 60, shorts: 250, polo_collar: 50 },
+  // Placeholder prices except name/number (free) and printed logo (free); set the real ones on the Jersey prices page.
+  extras: { name: 0, number: 0, full_sleeve: 60, shorts: 250, polo_collar: 50, logo_print: 0, logo_dtf: 40, logo_silicon: 40, logo_embroidery: 40 },
   rush: { normal_days: 7, min_days: 3, percent: 20 },
   advance_percent: 30,
   free_revisions: 2,
@@ -150,7 +172,7 @@ export interface UploadedFile {
   mime: string;
   size: number;
   kind: "design" | "reference" | "logo" | "preview";
-  /** What the picture shows, written by the customer: "front", "back", "logo", ... */
+  /** What the picture shows: a part tag in the writer's language ("Collar" / "কলার", see customJersey.upload.tags) and/or a note. */
   note?: string;
   /** Set when staff picked a catalogue product as the reference; `path` is then that product's public image URL. */
   product_id?: string;
@@ -174,6 +196,8 @@ export interface CustomJerseyConfig {
   pricing: PricingConfig;
   delivery: { dhaka: number; outside: number };
   onlinePayment: boolean;
+  /** Shop details for "pick up from the shop" (Receipt settings); null when no address is set. */
+  pickup?: { name: string; address: string; phone: string; hours: string; map: { link: string; embed: string } | null } | null;
 }
 
 /** What the customer's page and the admin drawer both read. */
@@ -239,6 +263,19 @@ export interface CustomOrderDetail {
     paid_at: string | null;
   }[];
 }
+
+/**
+ * How the order's logo is made: kept in estimate_breakdown.logoType (next to the
+ * logo price it decided). Null = no logo; old orders with a logo and no type = "print"
+ * is not assumed, they return null with `with_logo` still true.
+ */
+export function logoTypeOf(o: { with_logo?: boolean; estimate_breakdown?: Record<string, unknown> | null }): LogoType | null {
+  const v = o.estimate_breakdown?.logoType;
+  return o.with_logo && typeof v === "string" && (LOGO_TYPES as readonly string[]).includes(v) ? (v as LogoType) : null;
+}
+
+/** "polo" for a polo collar, else "round" (T-shirt; old V-neck orders count as T-shirt). */
+export const jerseyTypeOf = (collar: Collar | string | null | undefined): (typeof JERSEY_TYPES)[number] => (collar === "polo" ? "polo" : "round");
 
 /** Total the customer owes: the final price plus delivery. */
 export function orderTotal(o: Pick<CustomOrderDetail, "final_price" | "delivery_charge">): number {

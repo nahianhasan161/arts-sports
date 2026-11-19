@@ -2,12 +2,12 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
-import { Check, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { Check, ImagePlus, Loader2, MapPin, Trash2 } from "lucide-react";
 import { useT } from "@/i18n/client";
 import PageSkeleton from "@/components/ui/PageSkeleton";
 import { api, btnGhost, btnPrimary, card, field } from "@/components/admin/pos/api";
 import { Lines, ReceiptShop } from "@/components/admin/pos/ReceiptShop";
-import { EMPTY_RECEIPT_SETTINGS, type ReceiptSettings } from "@/lib/pos/receipt-settings";
+import { EMPTY_RECEIPT_SETTINGS, shopMap, type ReceiptSettings } from "@/lib/pos/receipt-settings";
 
 const URL_ = "/api/admin/pos/receipt-settings";
 
@@ -26,6 +26,7 @@ export default function ReceiptSettingsPage() {
   }, []);
 
   if (!s) return <PageSkeleton label={t("shop.common.loading")} />;
+  const map = shopMap(s);
 
   const set = <K extends keyof ReceiptSettings>(k: K, v: ReceiptSettings[K]) => {
     setSaved(false);
@@ -62,7 +63,7 @@ export default function ReceiptSettingsPage() {
     setSaved(true);
   };
 
-  const text = (k: "shop_name" | "address" | "phone" | "email" | "website", label: string, help?: string) => (
+  const text = (k: "shop_name" | "address" | "phone" | "email" | "website" | "map_url" | "hours", label: string, help?: string) => (
     <label className="text-xs space-y-1 block">
       <span className="font-semibold block">{label}</span>
       <input className={field} value={s[k]} onChange={(e) => set(k, e.target.value)} />
@@ -95,6 +96,16 @@ export default function ReceiptSettingsPage() {
               {text("email", t("shop.receiptSettings.email"))}
             </div>
             {text("website", t("shop.receiptSettings.website"))}
+            <div className="grid sm:grid-cols-2 gap-3">
+              {text("hours", t("shop.receiptSettings.hours"), t("shop.receiptSettings.hoursHelp"))}
+              {text("map_url", t("shop.receiptSettings.mapUrl"), t("shop.receiptSettings.mapUrlHelp"))}
+            </div>
+            {map && (
+              <a href={map.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary underline underline-offset-2">
+                <MapPin className="w-3.5 h-3.5" /> {t("shop.receiptSettings.mapCheck")}
+              </a>
+            )}
+            <p className="text-xs text-text-muted">{t("shop.receiptSettings.pickupHelp")}</p>
           </section>
 
           <section className={`${card} p-4 space-y-3`}>

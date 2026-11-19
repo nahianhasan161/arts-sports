@@ -1,3 +1,5 @@
+import { storeEn } from "./store.en";
+import { homeEn } from "./home.en";
 import { shopEn } from "./shop.en";
 import { siteEn } from "./site.en";
 import { adminEn } from "./admin.en";
@@ -97,13 +99,25 @@ export const en = {
       short: "Half sleeve",
       full: "Full sleeve",
       collar: "Collar",
-      round: "Round neck",
-      v: "V neck",
-      polo: "Polo collar",
+      jerseyType: "Jersey type",
+      round: "T-shirt (no collar)",
+      v: "T-shirt (V neck)",
+      polo: "Polo (with collar)",
+      tshirtName: "T-shirt",
+      tshirtSub: "No collar: round or V neck",
+      poloName: "Polo",
+      poloSub: "With a collar",
+      collarPicture: "Collar picture (optional)",
+      collarPictureHint: "Show how the collar or neck should look. Skip it if your design picture already shows the collar.",
+      collarPictureAdd: "Add a collar picture",
+      collarPictureAdded: "Collar picture added",
       shorts: "Add shorts",
       names: "Print names",
       numbers: "Print numbers",
-      logo: "Print a logo",
+      logo: "Logo",
+      logoHint: "How the logo is made",
+      logoTypes: { none: "No logo", print: "Printed", dtf: "DTF print", silicon: "Silicon", embroidery: "Embroidery" },
+      free: "Free",
     },
     quantity: {
       label: "How many?",
@@ -157,14 +171,17 @@ export const en = {
       dhaka: "Inside Dhaka ({fee})",
       outside: "Outside Dhaka ({fee})",
       address: "Delivery address",
-      galleryConsent: "You may show photos of my finished jersey in your gallery",
     },
     estimate: {
       title: "Estimated price",
       fabric: "Jersey ({fabric})",
       name: "Name print",
       number: "Number print",
-      logo: "Logo print",
+      logo: "Logo",
+      logo_print: "Logo (printed)",
+      logo_dtf: "Logo (DTF print)",
+      logo_silicon: "Logo (silicon)",
+      logo_embroidery: "Logo (embroidery)",
       full_sleeve: "Full sleeve",
       shorts: "Shorts",
       polo_collar: "Polo collar",
@@ -232,7 +249,6 @@ export const en = {
       approveTitle: "Happy with the mockup?",
       approveRule: "Printing starts as soon as you confirm. After that the order cannot be cancelled and the advance cannot be refunded.",
       approveTick: "I have checked the design, names, numbers and sizes, and I accept that a confirmed order cannot be cancelled or refunded.",
-      galleryTick: "You may show photos of my finished jersey in your gallery",
       approveButton: "Confirm the design",
       requestChange: "Ask for a change",
       changePlaceholder: "What should we change?",
@@ -353,6 +369,8 @@ export const en = {
   shop: shopEn,
   site: siteEn,
   admin: adminEn,
+  home: homeEn,
+  store: storeEn,
 };
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };

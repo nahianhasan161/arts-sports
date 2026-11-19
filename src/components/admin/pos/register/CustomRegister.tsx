@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, LayoutGrid, ListOrdered, Palette, Printer, Search, Shirt, UserRound } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka, type PayMethod } from "@/lib/pos/types";
-import { advanceFor, estimate } from "@/lib/custom-jersey/pricing";
-import { SIZES, SPORTS, orderTotal, type Collar, type CustomJerseyConfig, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
+import { advanceFor, estimate, logoPrice } from "@/lib/custom-jersey/pricing";
+import { JERSEY_TYPES, LOGO_TYPES, SIZES, orderTotal, type Collar, type LogoType, type CustomJerseyConfig, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
 import { RosterEditor } from "@/components/custom-jersey/RosterEditor";
 import { api, btnGhost, btnPrimary, field } from "../api";
 import { CustomTab } from "../CustomTab";
 import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "./parts";
 import { PaymentScreen, type Pay } from "./PaymentScreen";
 import { DesignRefs, MAX_REFS, type DesignRef } from "./DesignRefs";
+import { GalleryStrip } from "./GalleryStrip";
 import type { DesignRow } from "@/lib/custom-jersey/designs";
 import { CustomerInput } from "@/components/admin/pickers";
 
@@ -20,18 +21,17 @@ const METHODS: readonly PayMethod[] = ["cash", "card", "bkash", "nagad"];
 type Size = (typeof SIZES)[number];
 type Popup = "customer" | "design" | "delivery" | "list" | null;
 const EXTRAS = [
-  ["with_names", "names"],
-  ["with_numbers", "numbers"],
-  ["with_logo", "logo"],
-  ["with_shorts", "shorts"],
+  ["with_names", "names", "name"],
+  ["with_numbers", "numbers", "number"],
+  ["with_shorts", "shorts", "shorts"],
 ] as const;
 type Extras = Record<(typeof EXTRAS)[number][0], boolean>;
-const NO_EXTRAS: Extras = { with_names: false, with_numbers: false, with_logo: false, with_shorts: false };
+const NO_EXTRAS: Extras = { with_names: false, with_numbers: false, with_shorts: false };
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * A custom jersey order in the register's layout, so staff learn one screen:
- * tiles on the right (sport, fabric, style, sizes), the order slip and the
+ * tiles on the right (gallery design, fabric, sleeve, collar, logo, sizes), the order slip and the
  * number pad on the left, then the same payment screen as a sale. The price
  * is the website's estimate; the server works it out again.
  */
@@ -48,11 +48,11 @@ export function CustomRegister() {
 
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [sport, setSport] = useState<(typeof SPORTS)[number]>("football");
   const [fabricId, setFabricId] = useState("");
   const [sleeve, setSleeve] = useState<Sleeve>("short");
   const [collar, setCollar] = useState<Collar>("round");
   const [extras, setExtras] = useState<Extras>(NO_EXTRAS);
+  const [logoType, setLogoType] = useState<LogoType | null>(null);
   const [counts, setCounts] = useState<Partial<Record<Size, number>>>({});
   const [roster, setRoster] = useState<RosterRow[]>([]);
   const [selected, setSelected] = useState<Size | null>(null);
@@ -126,10 +126,10 @@ export function CustomRegister() {
   const est = useMemo(() => {
     if (!config || !fabric || sizedRoster.length === 0) return null;
     return estimate(
-      { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity: sizedRoster.length, sleeve, collar, withShorts: extras.with_shorts, withNames: extras.with_names, withNumbers: extras.with_numbers, withLogo: extras.with_logo, roster: sizedRoster, neededBy: neededBy || null },
+      { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity: sizedRoster.length, sleeve, collar, withShorts: extras.with_shorts, withNames: extras.with_names, withNumbers: extras.with_numbers, logoType, roster: sizedRoster, neededBy: neededBy || null },
       config.pricing
     );
-  }, [config, fabric, sizedRoster, sleeve, collar, extras, neededBy]);
+  }, [config, fabric, sizedRoster, sleeve, collar, extras, logoType, neededBy]);
 
   const agreed = price === "" ? (est?.total ?? 0) : Number(price) || 0;
   const total = orderTotal({ final_price: agreed, delivery_charge: deliveryCharge });
@@ -139,14 +139,26 @@ export function CustomRegister() {
   const fabricName = (f: { name_en: string; name_bn: string | null }) => (locale === "bn" && f.name_bn ? f.name_bn : f.name_en);
   const customerLabel = name || phone || t("shop.customReg.customer");
 
+  const collarTag = t("customJersey.upload.tags.collar");
+  const pickedDesigns = new Set(files.flatMap((f) => (f.design_id ? [f.design_id] : [])));
+  function toggleDesign(d: DesignRow) {
+    setFiles((l) =>
+      l.some((r) => r.design_id === d.id)
+        ? l.filter((r) => r.design_id !== d.id)
+        : l.length >= MAX_REFS
+          ? l
+          : [...l, { path: d.image_url, name: d.title || d.caption || "design", mime: "image/*", size: 0, kind: "reference" as const, design_id: d.id, preview: d.image_url }]
+    );
+  }
+
   function reset() {
     setPhone("");
     setName("");
-    setSport("football");
     setFabricId(config?.fabrics[0]?.id ?? "");
     setSleeve("short");
     setCollar("round");
     setExtras(NO_EXTRAS);
+    setLogoType(null);
     setCounts({});
     setRoster([]);
     setSelected(null);
@@ -245,15 +257,17 @@ export function CustomRegister() {
       action: "create",
       customer_name: name,
       customer_phone: phone,
-      sport,
+      sport: "other",
       fabric_id: fabricId,
       sleeve,
       collar,
       ...extras,
+      with_logo: Boolean(logoType),
+      logo_type: logoType,
       roster: sizedRoster,
       needed_by: neededBy || null,
       notes,
-      files: files.map((f): UploadedFile => ({ path: f.path, name: f.name, mime: f.mime, size: f.size, kind: f.kind, note: f.note, product_id: f.product_id })),
+      files: files.map((f): UploadedFile => ({ path: f.path, name: f.name, mime: f.mime, size: f.size, kind: f.kind, note: f.note, product_id: f.product_id, design_id: f.design_id })),
       delivery_method: delivery,
       delivery_zone: zone,
       delivery_address: address,
@@ -400,12 +414,15 @@ export function CustomRegister() {
     `relative h-16 px-3 rounded-md border text-sm font-semibold text-on-surface transition active:scale-[0.98] flex items-center justify-center text-center ${on ? "border-accent-gold bg-accent-gold/20 ring-2 ring-accent-gold" : "border-border-light bg-surface-card hover:border-accent-gold"}`;
   const heading = "text-xs font-semibold uppercase tracking-wide text-text-muted mb-1.5 mt-3 first:mt-0";
   const slipBtn = (on: boolean) => `h-10 px-3 rounded-md border text-sm flex items-center gap-1.5 min-w-0 ${on ? "border-primary bg-primary/10 text-on-surface font-semibold" : "border-border-light bg-surface-subtle text-on-surface hover:bg-surface-container"}`;
+  const priceTag = (n: number) => (
+    <span className="text-[11px] font-normal text-text-muted tabular-nums">{n > 0 ? `+${taka(n)}` : t("customJersey.options.free")}</span>
+  );
   const options = [
-    t(`customJersey.sport.${sport}`),
     fabric ? fabricName(fabric) : "",
     t(`customJersey.options.${sleeve}`),
-    t(`customJersey.options.${collar}`),
+    t(collar === "polo" ? "customJersey.options.poloName" : "customJersey.options.tshirtName"),
     ...EXTRAS.filter(([k]) => extras[k]).map(([, text]) => t(`customJersey.options.${text}`)),
+    logoType ? `${t("customJersey.options.logo")}: ${t(`customJersey.options.logoTypes.${logoType}`)}` : "",
   ].filter(Boolean);
 
   return (
@@ -518,14 +535,8 @@ export function CustomRegister() {
         {/* Tiles: what to make */}
         <section className={`${pane === "tiles" ? "flex" : "hidden"} lg:flex flex-1 min-w-0 flex-col bg-surface`}>
           <div className="flex-1 overflow-y-auto p-2">
-            <p className={heading}>{t("customJersey.sport.label")}</p>
-            <div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar pb-1">
-              {SPORTS.map((s) => (
-                <button key={s} type="button" onClick={() => setSport(s)} className={`shrink-0 min-w-[9rem] h-14 px-4 rounded-md text-sm font-medium text-on-surface transition ${sport === s ? "bg-accent-gold/70 ring-2 ring-accent-gold" : "bg-accent-gold/30 hover:bg-accent-gold/45"}`}>
-                  {t(`customJersey.sport.${s}`)}
-                </button>
-              ))}
-            </div>
+            <p className={heading}>{t("shop.customReg.gallery")}</p>
+            <GalleryStrip picked={pickedDesigns} onToggle={toggleDesign} onMore={() => setPopup("design")} />
 
             <p className={heading}>{t("shop.customNew.fabric")}</p>
             {!config ? (
@@ -555,25 +566,49 @@ export function CustomRegister() {
               </ul>
             )}
 
-            <p className={heading}>{t("shop.customReg.style")}</p>
+            <p className={heading}>{t("customJersey.options.sleeve")}</p>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
               {(["short", "full"] as const).map((s) => (
-                <button key={s} type="button" className={tile(sleeve === s)} onClick={() => setSleeve(s)}>
+                <button key={s} type="button" className={`${tile(sleeve === s)} flex-col gap-0.5`} onClick={() => setSleeve(s)}>
                   {t(`customJersey.options.${s}`)}
-                </button>
-              ))}
-              {(["round", "v", "polo"] as const).map((c) => (
-                <button key={c} type="button" className={tile(collar === c)} onClick={() => setCollar(c)}>
-                  {t(`customJersey.options.${c}`)}
+                  {s === "full" && priceTag(config?.pricing.extras.full_sleeve ?? 0)}
                 </button>
               ))}
             </div>
 
+            <p className={heading}>{t("customJersey.options.collar")}</p>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
+              {JERSEY_TYPES.map((c) => (
+                <button key={c} type="button" className={`${tile((collar === "polo" ? "polo" : "round") === c)} flex-col gap-0.5`} onClick={() => setCollar(c)}>
+                  {t(c === "polo" ? "customJersey.options.polo" : "customJersey.options.round")}
+                  {c === "polo" && priceTag(config?.pricing.extras.polo_collar ?? 0)}
+                </button>
+              ))}
+              <button type="button" className={`${tile(files.some((f) => f.note === collarTag))} flex-col gap-0.5 border-dashed`} onClick={() => setPopup("design")}>
+                {t("customJersey.options.collarPicture")}
+                <span className="text-[11px] font-normal text-text-muted">{t("shop.customReg.collarPictureHint")}</span>
+              </button>
+            </div>
+
             <p className={heading}>{t("shop.customReg.extras")}</p>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
-              {EXTRAS.map(([key, text]) => (
-                <button key={key} type="button" className={tile(extras[key])} onClick={() => setExtras((x) => ({ ...x, [key]: !x[key] }))}>
+              {EXTRAS.map(([key, text, price]) => (
+                <button key={key} type="button" className={`${tile(extras[key])} flex-col gap-0.5`} onClick={() => setExtras((x) => ({ ...x, [key]: !x[key] }))}>
                   {t(`customJersey.options.${text}`)}
+                  {priceTag(config?.pricing.extras[price] ?? 0)}
+                </button>
+              ))}
+            </div>
+
+            <p className={heading}>{t("customJersey.options.logo")}</p>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
+              <button type="button" className={tile(!logoType)} onClick={() => setLogoType(null)}>
+                {t("customJersey.options.logoTypes.none")}
+              </button>
+              {LOGO_TYPES.map((lt) => (
+                <button key={lt} type="button" className={`${tile(logoType === lt)} flex-col gap-0.5`} onClick={() => setLogoType(lt)}>
+                  {t(`customJersey.options.logoTypes.${lt}`)}
+                  {config && priceTag(logoPrice(config.pricing, lt))}
                 </button>
               ))}
             </div>

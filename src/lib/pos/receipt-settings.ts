@@ -9,6 +9,10 @@ export interface ReceiptSettings {
   phone: string;
   email: string;
   website: string;
+  /** Google Maps link (or "lat, lng") of the shop: the custom jersey "pick up" step shows the map. */
+  map_url: string;
+  /** Opening hours as typed, e.g. "Sat–Thu 10am–9pm". */
+  hours: string;
   logo_url: string;
   show_logo: boolean;
   /** Under the items on a sale receipt (return / exchange rules). */
@@ -27,6 +31,8 @@ export const EMPTY_RECEIPT_SETTINGS: ReceiptSettings = {
   phone: "",
   email: "",
   website: "",
+  map_url: "",
+  hours: "",
   logo_url: "",
   show_logo: true,
   terms: "",
@@ -40,6 +46,8 @@ const LIMITS: Record<Exclude<keyof ReceiptSettings, "show_logo">, number> = {
   phone: 80,
   email: 120,
   website: 120,
+  map_url: 500,
+  hours: 120,
   logo_url: 500,
   terms: 2000,
   custom_terms: 2000,
@@ -63,5 +71,25 @@ export function parseReceiptSettings(raw: unknown): ReceiptSettings {
   }
   if (typeof obj.show_logo === "boolean") out.show_logo = obj.show_logo;
   if (out.logo_url && !/^https?:\/\//i.test(out.logo_url) && !out.logo_url.startsWith("/")) out.logo_url = "";
+  if (out.map_url && !/^https:\/\//i.test(out.map_url) && !MAP_POINT.test(out.map_url)) out.map_url = "";
   return out;
+}
+
+/** "23.8103, 90.4125": a map pin typed as latitude, longitude. */
+const MAP_POINT = /^-?\d{1,2}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?$/;
+
+/**
+ * Where the shop is on a map, from the address and the map field:
+ *   link   opens Google Maps (the pasted link, else a search for the pin / address)
+ *   embed  a Google Maps frame for the page (needs no key); null when there is nothing to show
+ */
+export function shopMap(s: Pick<ReceiptSettings, "map_url" | "address" | "shop_name">): { link: string; embed: string } | null {
+  const point = MAP_POINT.test(s.map_url) ? s.map_url.replace(/\s+/g, "") : "";
+  const query = point || [s.shop_name, s.address].filter(Boolean).join(", ");
+  if (!point && !s.map_url && !s.address) return null;
+  const search = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  return {
+    link: s.map_url && !point ? s.map_url : search,
+    embed: `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed`,
+  };
 }

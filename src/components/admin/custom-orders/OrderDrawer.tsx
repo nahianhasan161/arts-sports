@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, ArrowLeft, ArrowRight, Copy, Download, ImagePlus, Loader2, X } from "lucide-react";
 import { JerseyPreview } from "@/components/custom-jersey/JerseyPreview";
 import { measureText, sizeLabel, sizeSummary } from "@/lib/custom-jersey/pricing";
-import { BEFORE_APPROVAL, STAFF_TRANSITIONS, isOverdue, type CustomOrderDetail, type CustomOrderStatus, type Pattern } from "@/lib/custom-jersey/types";
+import { BEFORE_APPROVAL, STAFF_TRANSITIONS, isOverdue, logoTypeOf, type LogoType, type CustomOrderDetail, type CustomOrderStatus, type Pattern } from "@/lib/custom-jersey/types";
 import { STATUS_LABEL, taka } from "./labels";
+
+const LOGO_LABEL: Record<LogoType, string> = { print: "printed", dtf: "DTF print", silicon: "silicon", embroidery: "embroidery" };
 
 interface Payload {
   order: CustomOrderDetail;
@@ -315,12 +317,11 @@ export function OrderDrawer({
                 <dt className="text-text-muted">Quantity</dt><dd className="tabular-nums">{o.quantity}</dd>
                 <dt className="text-text-muted">Fabric</dt><dd>{o.fabric_name}</dd>
                 <dt className="text-text-muted">Options</dt>
-                <dd>{[`${o.sleeve} sleeve`, `${o.collar} collar`, o.with_names && "names", o.with_numbers && "numbers", o.with_logo && "logo", o.with_shorts && "shorts"].filter(Boolean).join(" · ")}</dd>
+                <dd>{[o.sleeve === "full" ? "full sleeve" : "half sleeve", o.collar === "polo" ? "polo (collar)" : o.collar === "v" ? "T-shirt (V neck)" : "T-shirt (no collar)", o.with_names && "names", o.with_numbers && "numbers", o.with_logo && `logo${logoTypeOf(o) ? `: ${LOGO_LABEL[logoTypeOf(o)!]}` : ""}`, o.with_shorts && "shorts"].filter(Boolean).join(" · ")}</dd>
                 <dt className="text-text-muted">Needed by</dt>
                 <dd>{o.needed_by ?? "no date"} {o.is_rush && <span className="ml-1 text-[10px] font-bold uppercase bg-amber-100 text-amber-800 rounded px-1.5 py-0.5">Urgent</span>}</dd>
                 <dt className="text-text-muted">Estimate</dt><dd className="tabular-nums">{taka(o.estimated_price)}</dd>
                 {o.final_price !== null && (<><dt className="text-text-muted">Final price</dt><dd className="tabular-nums font-semibold">{taka(o.final_price)} + delivery {taka(o.delivery_charge)}</dd></>)}
-                <dt className="text-text-muted">Gallery</dt><dd>{o.gallery_consent ? "Customer agreed to photos" : "No permission"}</dd>
               </dl>
               {o.notes && <p className="text-sm whitespace-pre-line bg-surface-subtle rounded p-2">{o.notes}</p>}
 
@@ -498,17 +499,13 @@ export function OrderDrawer({
             {["ready", "delivered"].includes(o.status) && (
               <section className="bg-surface-card rounded-xl border border-border-light p-4 flex flex-col gap-2">
                 <h3 className={sectionTitle}>Gallery photo</h3>
-                {o.gallery_consent ? (
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <input className={`${field} flex-1 min-w-40`} placeholder="Caption (optional)" value={galleryCaption} onChange={(e) => setGalleryCaption(e.target.value)} />
                     <label className={`${outline} cursor-pointer`}>
                       {busy === "gallery" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />} Add a photo of the finished jersey
                       <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { void addGalleryPhoto(e.target.files?.[0]); e.target.value = ""; }} />
                     </label>
                   </div>
-                ) : (
-                  <p className="text-sm text-text-muted">The customer did not agree to show this jersey, so it cannot go in the gallery.</p>
-                )}
               </section>
             )}
 

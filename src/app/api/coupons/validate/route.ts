@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { CouponQuote } from "@/types";
 
 /**
@@ -18,10 +19,22 @@ import type { CouponQuote } from "@/types";
  * Always 200. A rejected coupon is a normal answer, not a transport
  * error, and the caller branches on `valid`/`reason`.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Codes are short and guessable, so slow down anyone trying them in bulk.
+  const limit = checkRateLimit(request, "couponValidate");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts. Try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+    );
+  }
+
   try {
     const body = await request.json().catch(() => null);
-    const code = typeof body?.code === "string" ? body.code : "";
+    // The checkout page sends `coupon_code`; `code` is kept for older callers.
+    // Reading only `code` made every coupon come back as "coupon_empty".
+    const rawCode = body?.coupon_code ?? body?.code;
+    const code = typeof rawCode === "string" ? rawCode : "";
     const rawItems: { product_id?: unknown; quantity?: unknown }[] = Array.isArray(body?.items)
       ? body.items
       : [];

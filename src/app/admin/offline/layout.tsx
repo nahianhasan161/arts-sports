@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut, ShoppingBag, Store } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, LogOut, ShoppingBag, Store } from "lucide-react";
 import { useT } from "@/i18n/client";
 import PageSkeleton from "@/components/ui/PageSkeleton";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
@@ -81,18 +81,18 @@ export default function OfflineLayout({ children }: { children: React.ReactNode 
           </div>
         </div>
 
-        {/* Phones and tablets: the same menu as a row that scrolls sideways. */}
-        <nav className="lg:hidden flex gap-1 overflow-x-auto no-scrollbar px-3 pb-2">
+        {/* Phones and tablets: the same menu as a row that scrolls sideways (arrows for mouse users). */}
+        <ScrollRow className="lg:hidden" activeKey={currentItem?.href}>
           {offlineItems.map((item) => {
             const active = currentItem?.href === item.href;
             return (
-              <Link key={item.id} href={item.href} aria-current={active ? "page" : undefined} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${active ? "bg-accent-gold text-rail" : "bg-white/5 text-rail-text"}`}>
+              <Link key={item.id} href={item.href} data-active={active || undefined} aria-current={active ? "page" : undefined} className={`inline-flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${active ? "bg-accent-gold text-rail" : "bg-white/5 text-rail-text"}`}>
                 <item.icon className="w-4 h-4" />
                 {t(`admin.nav.${item.id}.name`)}
               </Link>
             );
           })}
-        </nav>
+        </ScrollRow>
       </header>
 
       <main className="flex-1 overflow-y-auto print:overflow-visible">
@@ -175,6 +175,64 @@ function MenuGroup({ group, items, currentHref }: { group: GroupId; items: NavIt
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A sideways-scrolling row. The scrollbar is hidden, so arrow buttons appear
+ * at whichever edge has more items, the mouse wheel scrolls it sideways, and
+ * the active item is brought into view.
+ */
+function ScrollRow({ children, className = "", activeKey }: { children: React.ReactNode; className?: string; activeKey?: string }) {
+  const { t } = useT();
+  const ref = useRef<HTMLElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setEdges({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    el.addEventListener("wheel", onWheel, { passive: false });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      el.removeEventListener("wheel", onWheel);
+      ro.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const active = ref.current?.querySelector<HTMLElement>("[data-active]");
+    active?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [activeKey]);
+
+  const step = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.7, behavior: "smooth" });
+  const arrow = "absolute top-0 bottom-2 z-10 flex items-center px-1 text-white from-rail via-rail to-transparent";
+
+  return (
+    <div className={`relative ${className}`}>
+      <nav ref={ref} className="flex gap-1 overflow-x-auto no-scrollbar px-3 pb-2">
+        {children}
+      </nav>
+      {edges.left && (
+        <button type="button" onClick={() => step(-1)} aria-label={t("admin.shell.scrollLeft")} className={`${arrow} left-0 pr-4 bg-gradient-to-r`}>
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      )}
+      {edges.right && (
+        <button type="button" onClick={() => step(1)} aria-label={t("admin.shell.scrollRight")} className={`${arrow} right-0 pl-4 bg-gradient-to-l`}>
+          <ChevronRight className="w-5 h-5" />
+        </button>
       )}
     </div>
   );

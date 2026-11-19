@@ -30,6 +30,8 @@ import { trackEvent } from "@/lib/tracking/events";
 import { ShareButtons } from "@/components/product/ShareButtons";
 import { SocialProof } from "@/components/product/SocialProof";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
+import { useT } from "@/i18n/client";
+import { formatMoney } from "@/i18n";
 
 interface ProductDetailClientProps {
   product: Product;
@@ -38,6 +40,8 @@ interface ProductDetailClientProps {
 
 export function ProductDetailClient({ product, discountPercent }: ProductDetailClientProps) {
   const router = useRouter();
+  const { t, locale } = useT();
+  const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
 
   // The product arrives as a prop, fetched on the server by page.tsx. This
   // component used to fetch it itself in an effect, which meant the first
@@ -48,7 +52,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
     product.colors[0]?.name || "Default"
   );
   const [selectedSize, setSelectedSize] = useState<string>(
-    product.sizes[1]?.size || product.sizes[0]?.size || "M"
+    product.sizes.find((s) => s.stock > 0)?.size || product.sizes[0]?.size || "M"
   );
   const [quantity, setQuantity] = useState(1);
   const [sizeModalOpen, setSizeModalOpen] = useState(false);
@@ -110,7 +114,15 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
   // product's standing markdown base, and using it here made the two figures
   // disagree whenever a promotion applied on top of a product that already had
   // one.
-  const crossedOutPrice = live?.base_price ?? product?.original_price ?? 0;
+  //
+  // The badges API answers for every product, also when no promotion runs; then
+  // base_price equals final_price and only the product's original_price says
+  // what the price was. Reading base_price alone hid the struck price and showed
+  // "Save ৳0.00 (10% off)".
+  const crossedOutPrice =
+    live && live.base_price > live.final_price ? live.base_price : (product?.original_price ?? 0);
+  const savedAmount = Math.max(0, crossedOutPrice - displayPrice);
+  const savedPercent = savedAmount > 0 ? (displayPercent > 0 ? displayPercent : Math.round((savedAmount / crossedOutPrice) * 100)) : 0;
 
   const isLiked = isInWishlist(product.id);
   const currentSizeObj = product.sizes.find((s) => s.size === selectedSize);
@@ -202,9 +214,15 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                       {liveBadgeLabel}
                     </span>
                   )}
-                  <span className="bg-primary text-primary-foreground font-display text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> IN STOCK
-                  </span>
+                  {availableStock > 0 ? (
+                    <span className="self-start bg-primary text-primary-foreground text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm font-bold flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> {t("store.pdp.inStock", { count: num(availableStock) })}
+                    </span>
+                  ) : (
+                    <span className="self-start bg-surface-card/95 text-badge-discount text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm font-bold">
+                      {t("store.pdp.soldOut")}
+                    </span>
+                  )}
                 </div>
 
                 {/* Floating Wishlist & Share */}
@@ -306,12 +324,12 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                     </span>
                   )}
                   {availableStock > 0 ? (
-                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                      {availableStock} in stock{selectedSize ? ` · size ${selectedSize}` : ""}
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-600/10 px-2 py-0.5 rounded-full">
+                      {selectedSize ? t("store.pdp.inStockSize", { count: num(availableStock), size: selectedSize }) : t("store.pdp.inStock", { count: num(availableStock) })}
                     </span>
                   ) : (
-                    <span className="text-xs font-semibold text-badge-discount bg-badge-discount/10 px-2 py-0.5 rounded">
-                      {selectedSize ? `Size ${selectedSize} sold out` : "Currently unavailable"}
+                    <span className="text-xs font-semibold text-badge-discount bg-badge-discount/10 px-2 py-0.5 rounded-full">
+                      {selectedSize ? t("store.pdp.sizeSoldOut", { size: selectedSize }) : t("store.pdp.unavailable")}
                     </span>
                   )}
                 </div>
@@ -319,23 +337,23 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
 
               {/* Price Engine Box */}
               <div className="bg-surface-subtle p-space-base rounded-xl border border-border-light flex flex-col gap-2">
-                <div className="flex items-baseline gap-3">
-                  <span className="font-display text-2xl sm:text-3xl font-bold text-primary">
+                <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1.5">
+                  <span className="font-display text-2xl sm:text-3xl font-bold text-on-surface whitespace-nowrap tabular-nums">
                     {formatTaka(displayPrice)}
                   </span>
-                  {crossedOutPrice > displayPrice && (
-                    <span className="text-sm text-text-muted line-through">
+                  {savedAmount > 0 && (
+                    <span className="text-sm text-text-muted line-through whitespace-nowrap">
                       {formatTaka(crossedOutPrice)}
                     </span>
                   )}
-                  {displayPercent > 0 && (
-                    <span className="bg-badge-discount/10 text-badge-discount font-bold text-xs px-2.5 py-1 rounded">
+                  {savedAmount > 0 && (
+                    <span className="bg-badge-discount/10 text-badge-discount font-bold text-xs px-2.5 py-1 rounded-full">
                       {/* The amount saved goes through the same rounding as the
                           percentage, and to the paisa rather than to the taka.
                           toFixed(0) used to turn a 104.50 saving into "Save
                           105", which is a claim about money that is not
                           accurate on the page that is about to take the order. */}
-                      Save {formatTaka(crossedOutPrice - displayPrice)} ({displayPercent}% off)
+                      {t("store.pdp.save", { amount: formatMoney(savedAmount, locale), percent: num(savedPercent) })}
                     </span>
                   )}
                   {live?.promotion_name && (
@@ -346,17 +364,18 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-text-muted">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>All inclusive pricing. Cash on delivery eligible across 64 districts.</span>
+                  <span>{t("store.pdp.inclusive")}</span>
                 </div>
               </div>
 
-              {/* Color Swatch Selector */}
+              {/* Color Swatch Selector (hidden for single-colour products, which said "0 Colorways") */}
+              {product.colors.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-display text-xs uppercase text-primary font-bold">
-                    Color: <span className="text-text-muted font-normal">{selectedColor}</span>
+                    {t("store.pdp.color")}: <span className="text-text-muted font-normal normal-case">{selectedColor}</span>
                   </span>
-                  <span className="text-xs text-text-muted">{product.colors.length} Colorways</span>
+                  <span className="text-xs text-text-muted">{t("store.pdp.colors", { count: num(product.colors.length) })}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   {product.colors.map((c) => (
@@ -378,11 +397,14 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                 </div>
               </div>
 
+              )}
+
               {/* Size Selector Matrix */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-display text-xs uppercase text-primary font-bold">
-                    Select Size (Chest): <span className="text-secondary font-bold">{selectedSize} ({currentSizeObj?.chest}&quot;)</span>
+                    {t("store.pdp.size")}: <span className="text-on-surface font-bold">{selectedSize}</span>
+                    {currentSizeObj?.chest && <span className="text-text-muted font-normal normal-case"> · {t("store.pdp.chest", { value: currentSizeObj.chest })}</span>}
                   </span>
                   <button
                     type="button"
@@ -390,7 +412,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                     className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-accent-gold transition-colors"
                   >
                     <Ruler className="w-3.5 h-3.5" />
-                    <u>Size Guide</u>
+                    <u>{t("store.pdp.sizeGuide")}</u>
                   </button>
                 </div>
                 <div className="grid grid-cols-4 gap-2">
@@ -402,15 +424,18 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                         type="button"
                         disabled={s.stock === 0}
                         onClick={() => setSelectedSize(s.size)}
-                        className={`py-3 px-2 rounded-lg text-center transition-all border ${
-                          isSelected
-                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                            : "bg-surface-card border-border-light hover:border-primary text-on-surface"
-                        } disabled:opacity-30 disabled:cursor-not-allowed`}
+                        aria-pressed={isSelected}
+                        className={`relative overflow-hidden py-3 px-2 rounded-xl text-center transition-all border ${
+                          s.stock === 0
+                            ? "bg-surface-subtle border-dashed border-border-light text-text-muted cursor-not-allowed"
+                            : isSelected
+                              ? "bg-primary text-primary-foreground border-primary shadow-md"
+                              : "bg-surface-card border-border-light hover:border-on-surface text-on-surface"
+                        }`}
                       >
-                        <div className="font-bold text-sm">{s.size}</div>
-                        <div className={`text-[10px] ${isSelected ? "text-on-primary-container" : "text-text-muted"}`}>
-                          Chest {s.chest}&quot;
+                        <div className={`font-bold text-sm ${s.stock === 0 ? "line-through" : ""}`}>{s.size}</div>
+                        <div className={`text-[10px] ${isSelected && s.stock > 0 ? "opacity-75" : "text-text-muted"}`}>
+                          {s.stock === 0 ? t("store.pdp.soldOut") : t("store.pdp.chest", { value: s.chest })}
                         </div>
                       </button>
                     );
@@ -451,10 +476,11 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   <button
                     type="button"
                     onClick={handleAddToCart}
-                    className="flex-1 h-12 bg-primary hover:bg-primary-container text-white font-display text-xs uppercase tracking-wider font-bold rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]"
+                    disabled={availableStock <= 0}
+                    className="flex-1 h-12 bg-primary hover:opacity-90 text-primary-foreground font-display text-xs uppercase tracking-wider font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <ShoppingBag className="w-4 h-4" />
-                    <span>ADD TO CART • ৳ {(displayPrice * quantity).toLocaleString()}</span>
+                    <span>{availableStock > 0 ? t("store.pdp.addToCart", { price: formatMoney(displayPrice * quantity, locale) }) : t("store.pdp.soldOut")}</span>
                   </button>
                 </div>
 
@@ -462,10 +488,11 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                 <button
                   type="button"
                   onClick={handleBuyNow}
-                  className="w-full h-12 bg-accent-gold hover:bg-[#b58b32] text-white font-display text-xs uppercase tracking-wider font-bold rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]"
+                  disabled={availableStock <= 0}
+                  className="w-full h-12 bg-accent-gold hover:brightness-110 text-white font-display text-xs uppercase tracking-wider font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-accent-gold/20 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Zap className="w-4 h-4" />
-                  <span>BUY NOW (EXPRESS CHECKOUT)</span>
+                  <span>{t("store.pdp.buyNow")}</span>
                 </button>
 
                 <ShareButtons title={product.title} path={`/products/${encodeURIComponent(product.slug)}`} />
@@ -507,20 +534,20 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
       </section>
 
       {/* Mobile: buy button stays on screen while scrolling (above the bottom nav). */}
-      <div className="lg:hidden fixed bottom-16 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-border-light px-4 py-2.5 flex items-center gap-3">
+      <div className="lg:hidden fixed bottom-16 inset-x-0 z-30 bg-surface-card/95 backdrop-blur border-t border-border-light px-4 py-2.5 flex items-center gap-3">
         <div className="min-w-0">
           <p className="text-[11px] text-text-muted truncate">
             {selectedSize} · {selectedColor}
           </p>
-          <p className="font-display font-bold text-primary">{formatTaka(displayPrice * quantity)}</p>
+          <p className="font-display font-bold text-on-surface tabular-nums">{formatMoney(displayPrice * quantity, locale)}</p>
         </div>
         <button
           type="button"
           onClick={handleBuyNow}
           disabled={availableStock <= 0}
-          className="flex-1 h-11 bg-accent-gold text-white font-display text-xs uppercase tracking-wider font-bold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+          className="flex-1 h-11 bg-accent-gold text-white font-display text-xs uppercase tracking-wider font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <Zap className="w-4 h-4" /> Buy now
+          <Zap className="w-4 h-4" /> {availableStock > 0 ? t("store.pdp.buyNow") : t("store.pdp.soldOut")}
         </button>
       </div>
 

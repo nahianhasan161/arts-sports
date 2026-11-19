@@ -16,7 +16,8 @@ export interface SessionInfo {
 }
 
 /** The cash drawer: open it with a float, note cash in/out, and count it at the end of the day. */
-export function DayTab({ info, reload }: { info: SessionInfo; reload: () => Promise<void> }) {
+/** `hideHistory`: the cash page shows past days in its report instead. */
+export function DayTab({ info, reload, hideHistory }: { info: SessionInfo; reload: () => Promise<void>; hideHistory?: boolean }) {
   const { t } = useT();
   const [showroom, setShowroom] = useState(info.showrooms[0]?.id ?? "");
   const [float, setFloat] = useState("");
@@ -163,7 +164,7 @@ export function DayTab({ info, reload }: { info: SessionInfo; reload: () => Prom
         )
       )}
 
-      {info.history.length > 0 && (
+      {!hideHistory && info.history.length > 0 && (
         <section className={`${card} overflow-x-auto`}>
           <table className="w-full text-sm">
             <thead className="text-xs text-text-muted text-left">

@@ -1,4 +1,5 @@
 import "server-only";
+import { getServerUrl } from "@/lib/config";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { notifyOrderEvent } from "@/lib/notifications";
 import { sendCapiEvent } from "@/lib/tracking/capi";
@@ -32,8 +33,9 @@ export interface StartedOnlinePayment {
   checkoutUrl: string;
 }
 
+/** One origin for the whole app (see getServerUrl); never localhost in a production build. */
 function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  return getServerUrl();
 }
 
 export async function startOnlinePayment(input: StartOnlinePaymentInput): Promise<StartedOnlinePayment> {

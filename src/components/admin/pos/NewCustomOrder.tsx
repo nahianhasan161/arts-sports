@@ -5,7 +5,7 @@ import { CheckCircle2, FileUp, Printer, X } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka } from "@/lib/pos/types";
 import { advanceFor, estimate } from "@/lib/custom-jersey/pricing";
-import { SIZES, SPORTS, orderTotal, type Collar, type CustomJerseyConfig, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
+import { JERSEY_TYPES, LOGO_TYPES, SIZES, SPORTS, orderTotal, type LogoType, type Collar, type CustomJerseyConfig, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
 import { RosterEditor } from "@/components/custom-jersey/RosterEditor";
 import { api, btnGhost, btnPrimary, card, field } from "./api";
 import { CustomerInput } from "@/components/admin/pickers";
@@ -31,7 +31,8 @@ export function NewCustomOrder({ onDone, onCancel }: { onDone: (orderNumber: str
   const [fabricId, setFabricId] = useState("");
   const [sleeve, setSleeve] = useState<Sleeve>("short");
   const [collar, setCollar] = useState<Collar>("round");
-  const [extras, setExtras] = useState({ with_names: false, with_numbers: false, with_logo: false, with_shorts: false });
+  const [extras, setExtras] = useState({ with_names: false, with_numbers: false, with_shorts: false });
+  const [logoType, setLogoType] = useState<LogoType | null>(null);
   const [sizeMode, setSizeMode] = useState<"counts" | "list">("counts");
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [roster, setRoster] = useState<RosterRow[]>([]);
@@ -78,10 +79,10 @@ export function NewCustomOrder({ onDone, onCancel }: { onDone: (orderNumber: str
   const est = useMemo(() => {
     if (!config || !fabric || sizedRoster.length === 0) return null;
     return estimate(
-      { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity: sizedRoster.length, sleeve, collar, withShorts: extras.with_shorts, withNames: extras.with_names, withNumbers: extras.with_numbers, withLogo: extras.with_logo, roster: sizedRoster, neededBy: neededBy || null },
+      { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity: sizedRoster.length, sleeve, collar, withShorts: extras.with_shorts, withNames: extras.with_names, withNumbers: extras.with_numbers, logoType, roster: sizedRoster, neededBy: neededBy || null },
       config.pricing
     );
-  }, [config, fabric, sizedRoster, sleeve, collar, extras, neededBy]);
+  }, [config, fabric, sizedRoster, sleeve, collar, extras, logoType, neededBy]);
 
   const agreed = price === "" ? (est?.total ?? 0) : Number(price) || 0;
   const total = orderTotal({ final_price: agreed, delivery_charge: deliveryCharge });
@@ -119,6 +120,8 @@ export function NewCustomOrder({ onDone, onCancel }: { onDone: (orderNumber: str
       sleeve,
       collar,
       ...extras,
+      with_logo: Boolean(logoType),
+      logo_type: logoType,
       roster: sizedRoster,
       needed_by: neededBy || null,
       notes,
@@ -210,7 +213,7 @@ export function NewCustomOrder({ onDone, onCancel }: { onDone: (orderNumber: str
           </button>
         ))}
         <span className="w-px bg-border-light mx-1" />
-        {(["round", "v", "polo"] as const).map((c) => (
+        {JERSEY_TYPES.map((c) => (
           <button key={c} type="button" className={chip(collar === c)} onClick={() => setCollar(c)}>
             {t(`customJersey.options.${c}`)}
           </button>
@@ -221,12 +224,22 @@ export function NewCustomOrder({ onDone, onCancel }: { onDone: (orderNumber: str
           [
             ["with_names", "names"],
             ["with_numbers", "numbers"],
-            ["with_logo", "logo"],
             ["with_shorts", "shorts"],
           ] as const
         ).map(([key, text]) => (
           <button key={key} type="button" className={chip(extras[key])} onClick={() => setExtras((x) => ({ ...x, [key]: !x[key] }))}>
             {t(`customJersey.options.${text}`)}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={label}>{t("customJersey.options.logo")}</span>
+        <button type="button" className={chip(!logoType)} onClick={() => setLogoType(null)}>
+          {t("customJersey.options.logoTypes.none")}
+        </button>
+        {LOGO_TYPES.map((lt) => (
+          <button key={lt} type="button" className={chip(logoType === lt)} onClick={() => setLogoType(lt)}>
+            {t(`customJersey.options.logoTypes.${lt}`)}
           </button>
         ))}
       </div>

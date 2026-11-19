@@ -17,13 +17,14 @@ import {
   LayoutGrid,
   MessageCircle,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { useT } from "@/i18n/client";
-import type { MessageKey } from "@/i18n";
+import { formatMoney, type MessageKey } from "@/i18n";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
 
 /** `key` is translated; names that come from the database are shown as saved. */
@@ -43,7 +44,7 @@ const DEFAULT_NAV: NavItem[] = [
 
 export function Header() {
   const router = useRouter();
-  const { t } = useT();
+  const { t, locale } = useT();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -186,41 +187,24 @@ export function Header() {
         </div>
 
         {/* Global Search Bar */}
-        <div className="hidden md:flex flex-1 max-w-xl flex-col gap-1">
-          <form onSubmit={handleSearch} className="relative flex items-center w-full">
+        <div className="hidden md:flex flex-1 max-w-xl">
+          <form onSubmit={handleSearch} className="relative flex items-center w-full group">
+            <Search className="w-4 h-4 absolute left-4 text-text-muted pointer-events-none group-focus-within:text-accent-gold transition-colors" />
             <input
-              type="text"
+              type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("site.header.searchPlaceholder")}
-              className="w-full h-10 pl-space-base pr-10 bg-surface-subtle text-on-surface placeholder:text-text-muted rounded-lg text-sm font-body focus:outline-none focus:bg-surface-card focus:ring-1 focus:ring-accent-gold transition-all border border-border-light"
+              aria-label={t("site.header.search")}
+              className="w-full h-11 pl-11 pr-24 bg-surface-subtle text-on-surface placeholder:text-text-muted rounded-full text-sm font-body border border-border-light focus:outline-none focus:bg-surface-card focus:border-accent-gold focus:ring-4 focus:ring-accent-gold/15 transition-all"
             />
             <button
               type="submit"
-              aria-label={t("site.header.search")}
-              className="absolute right-1 w-8 h-8 flex items-center justify-center text-text-muted hover:text-primary transition-colors"
+              className="absolute right-1.5 h-8 px-4 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition"
             >
-              <Search className="w-4 h-4" />
+              {t("site.header.search")}
             </button>
           </form>
-
-          {/* Quick Keywords */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-text-muted text-[10px] uppercase font-bold tracking-wider">
-              {t("site.header.popular")}
-            </span>
-            <div className="flex items-center gap-1 flex-wrap">
-              {["T-Shirt", "Polo", "Hoodie", "Joggers", "Kurti"].map((tag) => (
-                <Link
-                  key={tag}
-                  href={`/shop?q=${tag}`}
-                  className="px-2 py-0.5 bg-surface-subtle hover:bg-surface-container text-on-surface-variant text-[11px] rounded transition-colors"
-                >
-                  {tag}
-                </Link>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Action Controls */}
@@ -306,7 +290,8 @@ export function Header() {
           {/* Cart Trigger - Third */}
           <button
             onClick={toggleCart}
-            className="flex items-center gap-2 pl-2 pr-3 py-1.5 bg-surface-subtle hover:bg-surface-container border border-border-light rounded-lg transition-colors cursor-pointer"
+            aria-label={t("site.header.total")}
+            className="flex items-center gap-2 pl-2.5 pr-3.5 h-11 bg-surface-subtle hover:bg-surface-container border border-border-light rounded-full transition-colors cursor-pointer"
           >
             <div className="relative flex items-center justify-center text-primary">
               <ShoppingBag className="w-6 h-6" />
@@ -318,9 +303,7 @@ export function Header() {
               <span className="text-[10px] text-text-muted uppercase font-bold tracking-wider">
                 {t("site.header.total")}
               </span>
-              <span className="text-sm text-primary font-bold">
-                ৳ {subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </span>
+              <span className="text-sm text-on-surface font-bold tabular-nums">{formatMoney(subtotal, locale)}</span>
             </div>
           </button>
         </div>
@@ -330,15 +313,26 @@ export function Header() {
       <div className="hidden lg:block bg-surface-card border-t border-border-light">
         <div className="max-w-container-max mx-auto px-space-base h-11 flex items-center">
           <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {navCategories.map((cat) => (
-              <Link
-                key={cat.key ? t(cat.key) : cat.name}
-                href={cat.href}
-                className="px-3.5 py-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-subtle rounded-md font-display uppercase tracking-wider text-xs font-semibold transition-colors whitespace-nowrap"
-              >
-                {cat.key ? t(cat.key) : cat.name}
-              </Link>
-            ))}
+            {navCategories.map((cat) =>
+              cat.href === "/custom-jersey" ? (
+                <Link
+                  key="custom-jersey"
+                  href={cat.href}
+                  className="mx-1 px-3.5 py-1.5 rounded-full bg-accent-gold text-white font-display uppercase tracking-wider text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 shadow-sm hover:brightness-110 transition"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {cat.key ? t(cat.key) : cat.name}
+                </Link>
+              ) : (
+                <Link
+                  key={cat.key ? t(cat.key) : cat.name}
+                  href={cat.href}
+                  className="px-3.5 py-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-subtle rounded-full font-display uppercase tracking-wider text-xs font-semibold transition-colors whitespace-nowrap"
+                >
+                  {cat.key ? t(cat.key) : cat.name}
+                </Link>
+              )
+            )}
           </nav>
         </div>
       </div>

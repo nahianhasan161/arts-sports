@@ -3,22 +3,16 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { CategoryStrip } from "@/components/shop/CategoryStrip";
 import { InfiniteProductGrid } from "@/components/shop/InfiniteProductGrid";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Home, ChevronRight, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { Home, ChevronRight, SlidersHorizontal, ArrowUpDown, ArrowRight, Sparkles } from "lucide-react";
+import { useT } from "@/i18n/client";
+import { JerseyPreview } from "@/components/custom-jersey/JerseyPreview";
 import { FilterSidebar } from "@/components/shop/FilterSidebar";
 import type { Category, Product } from "@/types";
 import type { CatalogTerm, TermType } from "@/lib/services/catalog";
 
-const FACET_ORDER: [TermType, string][] = [
-  ["team", "Team"],
-  ["league", "League"],
-  ["edition", "Edition"],
-  ["season", "Season"],
-  ["player", "Player"],
-  ["brand", "Brand"],
-];
+const FACET_ORDER: TermType[] = ["team", "league", "edition", "season", "player", "brand"];
 
 interface ShopContentProps {
   products: Product[];
@@ -63,6 +57,8 @@ export function ShopContent({
 }: ShopContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t, locale } = useT();
+  const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [shown, setShown] = useState(products.length);
 
@@ -150,52 +146,44 @@ export function ShopContent({
   const queryString = searchParams?.toString() ?? "";
 
   const heading = parentName
-    ? `${parentName.toUpperCase()} COLLECTION`
+    ? t("store.shop.collection", { name: parentName })
     : query
-      ? `SEARCH RESULTS`
-      : "ALL COLLECTIONS";
+      ? t("store.shop.searchTitle", { q: query })
+      : t("store.shop.allTitle");
 
   return (
     <div className="w-full pb-space-3xl">
-      {/* 1. Breadcrumbs & Category Hero Strip */}
+      {/* 1. Breadcrumbs, title, categories and facets */}
       <section className="w-full bg-surface-card border-b border-border-light">
-        <div className="max-w-container-max mx-auto px-space-base py-space-md">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-text-muted mb-3">
-            <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1">
+        <div className="max-w-container-max mx-auto px-4 sm:px-6 pt-5 pb-4">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-text-muted mb-4">
+            <Link href="/" className="hover:text-on-surface transition-colors flex items-center gap-1">
               <Home className="w-3.5 h-3.5" />
-              <span>Home</span>
+              <span>{t("store.shop.home")}</span>
             </Link>
             <ChevronRight className="w-3 h-3 opacity-40" />
-            <Link href="/shop" className="hover:text-primary transition-colors">
-              Shop
+            <Link href="/shop" className="hover:text-on-surface transition-colors">
+              {t("store.shop.shop")}
             </Link>
             <ChevronRight className="w-3 h-3 opacity-40" />
-            <span className="font-bold text-primary">
-              {parentName ?? (query ? `"${query}"` : "All Products")}
+            <span className="font-semibold text-on-surface">
+              {parentName ?? (query ? `“${query}”` : t("store.shop.allProducts"))}
             </span>
           </nav>
 
-          {/* Category Title & Metrics */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 pb-3">
-            <div>
-              <h1 className="font-display text-2xl sm:text-3xl uppercase text-primary tracking-wide font-bold">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 pb-4">
+            <div className="flex flex-col gap-1.5">
+              <h1 className="font-display text-3xl sm:text-4xl uppercase text-on-surface tracking-tight font-bold leading-none">
                 {heading}
               </h1>
-              <p className="text-xs sm:text-sm text-text-muted mt-1 max-w-2xl">
-                Engineered with certified combed compact organic cotton, tailored
-                precision, and modern street aesthetics. Handcrafted for daylong
-                comfort in tropical weather.
-              </p>
+              <p className="text-sm text-text-muted max-w-2xl">{t("store.shop.subtitle")}</p>
             </div>
 
             {/* The count is the database's answer to this exact filter set,
                 so it can never disagree with the grid below it. */}
-            <div className="flex items-center gap-2 text-xs text-text-muted bg-surface-subtle px-3 py-1.5 rounded-lg border border-border-light self-start md:self-auto">
-              <span className="w-2 h-2 rounded-full bg-secondary-container" />
-              <span>
-                Showing <strong className="text-on-surface font-bold">{shown}</strong> of{" "}
-                <strong className="text-on-surface font-bold">{total}</strong> products
-              </span>
+            <div className="flex items-center gap-2 text-xs text-on-surface-variant bg-surface-subtle px-3 py-1.5 rounded-full border border-border-light self-start md:self-auto tabular-nums">
+              <span className="w-2 h-2 rounded-full bg-accent-gold" />
+              {t("store.shop.showing", { shown: num(shown), total: num(total) })}
             </div>
           </div>
 
@@ -209,15 +197,15 @@ export function ShopContent({
 
           {/* Quick Sub-Category Chips */}
           {quickChips.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 pb-1 -mx-space-base px-space-base md:mx-0 md:px-0">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-3 pb-1 -mx-4 px-4 md:mx-0 md:px-0">
               {quickChips.map((chip) => (
                 <button
                   key={chip}
                   onClick={() => setSubCategory(chip === subCategory ? "" : chip)}
-                  className={`px-3 py-1.5 rounded text-xs font-display uppercase tracking-wider font-semibold whitespace-nowrap transition-colors border ${
+                  className={`h-8 px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
                     subCategory === chip
                       ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-surface-subtle hover:bg-surface-container text-on-surface border-border-light"
+                      : "bg-surface-card hover:border-on-surface-variant/50 text-on-surface border-border-light"
                   }`}
                 >
                   {chip}
@@ -228,28 +216,28 @@ export function ShopContent({
 
           {/* Team, league, edition, season: each row only appears when the
               admin has created terms of that type. */}
-          {FACET_ORDER.map(([type, label]) => {
-            const list = terms.filter((t) => t.type === type);
+          {FACET_ORDER.map((type) => {
+            const list = terms.filter((x) => x.type === type);
             if (list.length === 0) return null;
             return (
-              <div key={type} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 -mx-space-base px-space-base md:mx-0 md:px-0">
-                <span className="text-[10px] font-display font-bold uppercase tracking-widest text-text-muted shrink-0 w-14">
-                  {label}
+              <div key={type} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2.5 -mx-4 px-4 md:mx-0 md:px-0">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted shrink-0 w-16">
+                  {t(`store.shop.facets.${type}`)}
                 </span>
-                {list.map((t) => {
-                  const active = (termSelection[type] ?? []).includes(t.slug);
+                {list.map((term) => {
+                  const active = (termSelection[type] ?? []).includes(term.slug);
                   return (
                     <button
-                      key={t.id}
-                      onClick={() => toggleTerm(type, t.slug)}
+                      key={term.id}
+                      onClick={() => toggleTerm(type, term.slug)}
                       aria-pressed={active}
-                      className={`px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors border ${
+                      className={`h-8 px-3.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
                         active
-                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                          : "bg-surface-subtle hover:bg-surface-container text-on-surface border-border-light"
+                          ? "bg-accent-gold text-white border-accent-gold shadow-sm"
+                          : "bg-surface-card hover:border-on-surface-variant/50 text-on-surface border-border-light"
                       }`}
                     >
-                      {t.name_en}
+                      {term.name_en}
                     </button>
                   );
                 })}
@@ -259,46 +247,39 @@ export function ShopContent({
         </div>
       </section>
 
-      {/* 2. Editorial Spotlight Promo Banner */}
-      <section className="max-w-container-max mx-auto px-space-base mt-space-md w-full">
-        <div className="relative bg-primary-container text-white rounded-xl overflow-hidden shadow-md flex flex-col md:flex-row items-stretch">
-          <div className="flex-1 p-space-lg md:p-space-xl flex flex-col justify-center relative z-10">
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="px-2 py-0.5 bg-secondary text-white rounded text-[10px] font-display font-bold uppercase tracking-widest">
-                LIMITED DROP
+      {/* 2. Custom jersey promo: the shop's own product, drawn rather than a remote photo. */}
+      <section className="max-w-container-max mx-auto px-4 sm:px-6 mt-5 w-full">
+        <div className="relative overflow-hidden rounded-2xl bg-primary-container text-white shadow-md">
+          <div className="absolute inset-0 as-pitch-lines" aria-hidden />
+          <div className="absolute -top-24 -right-16 w-72 h-72 rounded-full bg-accent-gold/30 blur-3xl" aria-hidden />
+          <div className="relative grid md:grid-cols-[1.4fr_1fr] items-center gap-4 p-5 sm:p-8">
+            <div className="flex flex-col gap-2.5">
+              <span className="self-start inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-accent-gold" />
+                {t("store.banner.eyebrow")}
               </span>
-              <span className="text-secondary-fixed text-xs font-display uppercase font-bold tracking-wider">
-                WORLD CUP SPECIAL RELEASE
-              </span>
+              <h2 className="font-display text-2xl sm:text-4xl uppercase font-bold leading-tight">{t("store.banner.title")}</h2>
+              <p className="text-sm text-white/80 max-w-lg">{t("store.banner.text")}</p>
+              <div className="flex flex-wrap gap-2.5 pt-2">
+                <Link
+                  href="/custom-jersey#order"
+                  className="h-11 px-5 rounded-xl bg-accent-gold text-white font-display text-xs uppercase font-bold tracking-wider inline-flex items-center gap-2 hover:brightness-110 transition"
+                >
+                  {t("store.banner.cta")}
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/custom-jersey/gallery"
+                  className="h-11 px-5 rounded-xl bg-white/10 border border-white/25 text-white font-display text-xs uppercase font-bold tracking-wider inline-flex items-center hover:bg-white/20 transition"
+                >
+                  {t("store.banner.cta2")}
+                </Link>
+              </div>
             </div>
-            <h2 className="font-display text-2xl sm:text-3xl uppercase tracking-wide leading-tight font-bold">
-              OFFICIAL &amp; FAN EDITION KITS
-            </h2>
-            <p className="text-on-primary-container text-xs sm:text-sm max-w-md mt-1 mb-4">
-              Engineered lightweight moisture-wicking honeycomb Jacquard knit fabric.
-              Official emblem detailing with reinforced 4-way stretch seams.
-            </p>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/shop?category=sports"
-                className="px-5 py-2.5 bg-secondary hover:bg-secondary-container hover:text-primary text-white font-display text-xs uppercase font-bold rounded transition-colors shadow-sm"
-              >
-                Shop Jerseys
-              </Link>
-              <span className="text-on-primary-container text-xs hidden sm:inline">
-                Cash on delivery available nationwide
-              </span>
+            <div className="relative hidden md:flex items-center justify-center h-48" aria-hidden>
+              <JerseyPreview pattern="stripes" colors={["#b91c1c", "#111827", "#ffffff"]} side="front" teamName="DHAKA FC" number="7" className="absolute left-[8%] h-40 w-auto -rotate-12 opacity-90 drop-shadow-2xl" />
+              <JerseyPreview pattern="sash" colors={["#0f2a4a", "#c89b3c", "#ffffff"]} side="back" name="RAHIM" number="10" className="relative h-48 w-auto rotate-6 drop-shadow-[0_25px_35px_rgba(0,0,0,0.5)]" />
             </div>
-          </div>
-          <div className="w-full md:w-1/2 relative min-h-[160px] md:min-h-[200px] bg-primary-container">
-            <Image
-              src="https://lh3.googleusercontent.com/aida/AEtjO1XtRs88VSBzdbMWQYRQuAY8CMk93-FpKuVlyb4a4idBDt95ROa-QuuKBaeOYjyhts6byy9S6RakXa0MkP45VJRbQ2P5ixraZTP7wBi2v4OfPwjYGUGEM0LLf24iv1Tpqz9ttMJnPF8M7Ka-yBomlyibQgY5rAYEVXaEn_pW9_nDIrkpdg5QXdDvVKNk968t2nuHE0zqs7YctPeS0kASeelv_7Pw3pI9gAFWPOAfM88aUoQ_7RVNdLPX6cs"
-              alt="Official Match Edition Jersey"
-              fill
-              sizes="(max-width: 767px) 100vw, 50vw"
-              className="object-cover opacity-90 hover:scale-105 transition-transform duration-700"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-primary-container via-transparent to-transparent hidden md:block" />
           </div>
         </div>
       </section>

@@ -1,4 +1,6 @@
 import "server-only";
+import { config as appConfig, getServerUrl } from "@/lib/config";
+import { parseReceiptSettings, RECEIPT_SETTINGS_KEY, shopMap } from "@/lib/pos/receipt-settings";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { notify, type Template } from "@/lib/notifications";
 import { formatMoney, resolveLocale, translate, type Vars } from "@/i18n";
@@ -22,8 +24,9 @@ import {
  * access token. This module uses the service role and trusts that decision.
  */
 
+/** One origin for the whole app (see getServerUrl); never localhost in a production build. */
 export function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  return getServerUrl();
 }
 
 export function customerLink(token: string): string {
@@ -70,7 +73,7 @@ export async function loadConfig(includeInactive = false): Promise<CustomJerseyC
     fabrics = fabrics.eq("is_active", true);
     templates = templates.eq("is_active", true);
   }
-  const [f, t, pricing, delivery] = await Promise.all([fabrics, templates, loadPricing(), deliveryFees()]);
+  const [f, t, pricing, delivery, pickup] = await Promise.all([fabrics, templates, loadPricing(), deliveryFees(), pickupShop()]);
   if (f.error) throw new Error(explainDbError(f.error.message));
   if (t.error) throw new Error(explainDbError(t.error.message));
   return {
@@ -79,7 +82,18 @@ export async function loadConfig(includeInactive = false): Promise<CustomJerseyC
     pricing,
     delivery,
     onlinePayment: isOnlinePaymentAvailable(),
+    pickup,
   };
+}
+
+/** The shop customers pick up from: the shop details on the Receipt settings page. */
+async function pickupShop(): Promise<CustomJerseyConfig["pickup"]> {
+  const { data } = await getServiceSupabase().from("app_settings").select("value").eq("key", RECEIPT_SETTINGS_KEY).maybeSingle();
+  const s = parseReceiptSettings(data?.value ?? null);
+  const name = s.shop_name || appConfig.app.name;
+  const phone = s.phone || appConfig.business.phone;
+  if (!s.address && !s.map_url) return null;
+  return { name, address: s.address, phone, hours: s.hours, map: shopMap({ ...s, shop_name: name }) };
 }
 
 const ORDER_COLUMNS =

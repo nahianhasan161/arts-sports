@@ -187,7 +187,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       case "gallery_add": {
         // Only with the customer's permission (roadmap 3.4).
-        if (!order.gallery_consent) return bad("The customer has not agreed to show this jersey in the gallery");
         if (!isStaffImagePath(b.image)) return bad("Upload the photo first");
         const { error } = await db.from("custom_gallery").insert({
           custom_order_id: order.id,

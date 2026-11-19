@@ -17,6 +17,8 @@ export const adminEn = {
     collapse: "Make the menu smaller",
     expand: "Make the menu bigger",
     openMenu: "Open menu",
+    scrollLeft: "Show earlier menu items",
+    scrollRight: "Show more menu items",
     loading: "Loading the control panel…",
     deniedTitle: "You cannot open this",
     deniedText: "Only shop staff and admins can use the control panel. If you should have access, ask the owner to add it.",

@@ -1,4 +1,4 @@
-import { DEFAULT_PRICING, type Collar, type FabricPriceTier, type PricingConfig, type RosterRow, type Sleeve } from "./types";
+import { DEFAULT_PRICING, LOGO_TYPES, type Collar, type FabricPriceTier, type LogoType, type PricingConfig, type RosterRow, type Sleeve } from "./types";
 
 /**
  * The estimate shown on the site, and stored with the order. The same
@@ -7,7 +7,8 @@ import { DEFAULT_PRICING, type Collar, type FabricPriceTier, type PricingConfig,
  *
  *   price = fabric price per piece for that quantity (the fabric's own price
  *           tiers when it has them, else the base price less the % discount)
- *         + extras per piece (name, number, logo, full sleeve, shorts, polo collar)
+ *         + extras per piece (name, number, logo by type, full sleeve, shorts, polo collar);
+ *           an extra priced 0 (names, numbers, printed logo) adds no line
  *         + rush charge when it is needed sooner than the normal lead time
  *
  * It is an estimate: staff set the final price after seeing the design.
@@ -23,7 +24,8 @@ export interface EstimateInput {
   withShorts: boolean;
   withNames: boolean;
   withNumbers: boolean;
-  withLogo: boolean;
+  /** How the logo is made; null / undefined = no logo. */
+  logoType?: LogoType | null;
   /** When a roster is given it decides quantity and how many are full sleeve. */
   roster?: Pick<RosterRow, "sleeve">[];
   /** YYYY-MM-DD */
@@ -32,7 +34,8 @@ export interface EstimateInput {
 }
 
 export interface EstimateLine {
-  key: "fabric" | "name" | "number" | "logo" | "full_sleeve" | "shorts" | "polo_collar" | "rush";
+  /** "logo" only appears in orders saved before logo types. */
+  key: "fabric" | "name" | "number" | "logo" | `logo_${LogoType}` | "full_sleeve" | "shorts" | "polo_collar" | "rush";
   quantity: number;
   unit: number;
   amount: number;
@@ -40,6 +43,8 @@ export interface EstimateLine {
 
 export interface Estimate {
   quantity: number;
+  /** Kept with the order (estimate_breakdown.logoType); see logoTypeOf(). */
+  logoType: LogoType | null;
   discountPercent: number;
   unitFabricPrice: number;
   lines: EstimateLine[];
@@ -67,17 +72,22 @@ export function normalizePricing(raw: unknown): PricingConfig {
         .sort((a, b) => a.min - b.min)
     : [];
   const d = DEFAULT_PRICING;
-  const e = (r.extras ?? {}) as Partial<PricingConfig["extras"]>;
+  const e = (r.extras ?? {}) as Partial<PricingConfig["extras"]> & { logo?: unknown };
   const rush = (r.rush ?? {}) as Partial<PricingConfig["rush"]>;
+  // Price tables saved before logo types had one "logo" price: the paid types start from it.
+  const oldLogo = e.logo === undefined ? null : num(e.logo, d.extras.logo_dtf);
   return {
     tiers: tiers.length ? tiers : d.tiers,
     extras: {
       name: num(e.name, d.extras.name),
       number: num(e.number, d.extras.number),
-      logo: num(e.logo, d.extras.logo),
       full_sleeve: num(e.full_sleeve, d.extras.full_sleeve),
       shorts: num(e.shorts, d.extras.shorts),
       polo_collar: num(e.polo_collar, d.extras.polo_collar),
+      logo_print: num(e.logo_print, d.extras.logo_print),
+      logo_dtf: num(e.logo_dtf, oldLogo ?? d.extras.logo_dtf),
+      logo_silicon: num(e.logo_silicon, oldLogo ?? d.extras.logo_silicon),
+      logo_embroidery: num(e.logo_embroidery, oldLogo ?? d.extras.logo_embroidery),
     },
     rush: {
       normal_days: Math.max(1, Math.floor(num(rush.normal_days, d.rush.normal_days, 365))),
@@ -145,9 +155,10 @@ export function estimate(input: EstimateInput, pricing: PricingConfig): Estimate
   const add = (key: EstimateLine["key"], on: boolean, unit: number, count = quantity) => {
     if (on && unit > 0 && count > 0) lines.push({ key, quantity: count, unit, amount: round(unit * count) });
   };
+  const logoType = input.logoType && (LOGO_TYPES as readonly string[]).includes(input.logoType) ? input.logoType : null;
   add("name", input.withNames, pricing.extras.name);
   add("number", input.withNumbers, pricing.extras.number);
-  add("logo", input.withLogo, pricing.extras.logo);
+  if (logoType) add(`logo_${logoType}` as const, true, logoPrice(pricing, logoType));
   add("full_sleeve", fullSleeves > 0, pricing.extras.full_sleeve, fullSleeves);
   add("shorts", input.withShorts, pricing.extras.shorts);
   add("polo_collar", input.collar === "polo", pricing.extras.polo_collar);
@@ -167,6 +178,7 @@ export function estimate(input: EstimateInput, pricing: PricingConfig): Estimate
   const total = subtotal + rushAmount;
   return {
     quantity,
+    logoType,
     discountPercent,
     unitFabricPrice,
     lines,
@@ -177,6 +189,16 @@ export function estimate(input: EstimateInput, pricing: PricingConfig): Estimate
     total,
     perPiece: round(total / quantity),
   };
+}
+
+/** Taka per piece for a logo made this way. */
+export function logoPrice(pricing: PricingConfig, type: LogoType): number {
+  return pricing.extras[`logo_${type}` as const] ?? 0;
+}
+
+/** A logo type sent by a form, or null (no logo). */
+export function parseLogoType(v: unknown): LogoType | null {
+  return typeof v === "string" && (LOGO_TYPES as readonly string[]).includes(v) ? (v as LogoType) : null;
 }
 
 /** The advance (30% by default), rounded up to a whole taka. */

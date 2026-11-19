@@ -126,13 +126,19 @@ export function consume(rule: keyof typeof RATE_LIMITS, identity = "local"): Rat
 /**
  * Who is making the request.
  *
- * `x-forwarded-for` is spoofable, which is one more reason this is a brake and
- * not a gate.
+ * On Cloudflare, `cf-connecting-ip` is set by the edge and cannot be supplied
+ * by the client. `x-forwarded-for` can: a script that sends a new value on
+ * every request would get a fresh bucket each time. It is only a fallback for
+ * local dev and other hosts.
  */
 function identityOf(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
-  return ip;
+  return (
+    request.headers.get("cf-connecting-ip") ||
+    forwarded?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
 }
 
 /** Server entry point: takes an identity from the request and consumes a token. */

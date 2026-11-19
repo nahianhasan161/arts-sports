@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { clientIp } from "@/lib/tracking/capi";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeBdPhone } from "@/lib/phone";
 import { resolveLocale, LOCALE_COOKIE } from "@/i18n";
 import { getServiceSupabase, isServiceSupabaseConfigured } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { estimate } from "@/lib/custom-jersey/pricing";
+import { estimate, parseLogoType } from "@/lib/custom-jersey/pricing";
 import { isDesignPath, isPreviewPath } from "@/lib/custom-jersey/files";
 import { explainDbError, loadConfig, notifyCustomOrder, findOrder } from "@/lib/custom-jersey/server";
 import { MAX_ROSTER, cleanRosterRow } from "@/lib/custom-jersey/roster";
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     return bad("Invalid request");
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = clientIp(request.headers);
   if ((await verifyTurnstile(text(b.turnstile_token, 4000) || null, ip)) === "failed") {
     return bad("Security check failed. Reload the page and try again.", 403);
   }
@@ -139,6 +140,8 @@ export async function POST(request: NextRequest) {
   const neededBy = /^\d{4}-\d{2}-\d{2}$/.test(text(b.needed_by, 10)) ? text(b.needed_by, 10) : null;
   const withNames = b.with_names === true;
   const withNumbers = b.with_numbers === true;
+  // How the logo is made; a form from before logo types sends only with_logo (counted as printed).
+  const logoType = parseLogoType(b.logo_type) ?? (b.with_logo === true ? "print" : null);
   const result = estimate(
     {
       fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers,
@@ -148,7 +151,7 @@ export async function POST(request: NextRequest) {
       withShorts: b.with_shorts === true,
       withNames,
       withNumbers,
-      withLogo: b.with_logo === true,
+      logoType,
       roster: roster.length ? roster : undefined,
       neededBy,
     },
@@ -205,7 +208,7 @@ export async function POST(request: NextRequest) {
       with_shorts: b.with_shorts === true,
       with_names: withNames,
       with_numbers: withNumbers,
-      with_logo: b.with_logo === true,
+      with_logo: Boolean(logoType),
       quantity: result.quantity,
       needed_by: neededBy,
       is_rush: result.isRush,
@@ -215,7 +218,6 @@ export async function POST(request: NextRequest) {
       delivery_charge: pickup ? 0 : zone === "dhaka" ? config.delivery.dhaka : config.delivery.outside,
       estimated_price: result.total,
       estimate_breakdown: { ...result, fabric_price: fabric.price_per_piece, fabric_tiers: fabric.price_tiers ?? [] },
-      gallery_consent: b.gallery_consent === true,
     })
     .select("id")
     .single();

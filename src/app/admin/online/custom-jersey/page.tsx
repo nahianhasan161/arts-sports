@@ -22,7 +22,10 @@ const h2 = "font-display text-lg uppercase font-bold text-primary mb-1";
 const EXTRAS: { key: keyof PricingConfig["extras"]; label: string }[] = [
   { key: "name", label: "Name print" },
   { key: "number", label: "Number print" },
-  { key: "logo", label: "Logo print" },
+  { key: "logo_print", label: "Logo: printed" },
+  { key: "logo_dtf", label: "Logo: DTF print" },
+  { key: "logo_silicon", label: "Logo: silicon" },
+  { key: "logo_embroidery", label: "Logo: embroidery" },
   { key: "full_sleeve", label: "Full sleeve" },
   { key: "shorts", label: "Shorts" },
   { key: "polo_collar", label: "Polo collar" },
@@ -117,7 +120,7 @@ export default function CustomJerseySetupPage() {
   const samples = sampleFabric
     ? [1, 5, 11, 21, 51].map((quantity) => ({
         quantity,
-        result: estimate({ fabricPrice: sampleFabric.price_per_piece, fabricTiers: sampleFabric.price_tiers, quantity, sleeve: "short", collar: "round", withShorts: false, withNames: true, withNumbers: true, withLogo: false }, pricing),
+        result: estimate({ fabricPrice: sampleFabric.price_per_piece, fabricTiers: sampleFabric.price_tiers, quantity, sleeve: "short", collar: "round", withShorts: false, withNames: true, withNumbers: true, logoType: null }, pricing),
       }))
     : [];
 
@@ -226,11 +229,12 @@ export default function CustomJerseySetupPage() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold mb-2">Extras, taka per piece</h3>
+            <h3 className="text-sm font-semibold mb-1">Extras, taka per piece</h3>
+            <p className="text-xs text-text-muted mb-2">0 = free (shown to customers as &quot;Free&quot;).</p>
             <div className="flex flex-col gap-1.5 text-sm">
               {EXTRAS.map((x) => (
                 <label key={x.key} className="flex items-center gap-2">
-                  <span className="w-28">{x.label}</span> ৳
+                  <span className="w-36">{x.label}</span> ৳
                   <input type="number" min={0} className={`${field} w-24`} value={pricing.extras[x.key]} onChange={(e) => setPricing({ ...pricing, extras: { ...pricing.extras, [x.key]: num(e.target.value) } })} />
                 </label>
               ))}

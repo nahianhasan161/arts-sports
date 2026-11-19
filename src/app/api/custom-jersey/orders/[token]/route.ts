@@ -27,7 +27,7 @@ import { formatMoney, resolveLocale } from "@/i18n";
  *         comment            { body }
  *         resubmit           { notes?, files? }   after "changes needed"
  *         request_revision   { body }             ask for a change to the mockup
- *         approve            { accept_terms: true, gallery_consent? }
+ *         approve            { accept_terms: true }
  *         cancel                                  only before approving
  *         pay                                     start an online payment for what is due
  */
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const moved = await moveOrder(order, "approved", customer, {
           reason: null,
           note: "Design confirmed; accepted no cancellation or refund after confirming",
-          patch: { approved_at: now, terms_accepted_at: now, advance_amount: advance, gallery_consent: b.gallery_consent === true },
+          patch: { approved_at: now, terms_accepted_at: now, advance_amount: advance },
         });
         if (!moved) return stale();
         await notifyCustomOrder(order, "custom_approved", { amount: formatMoney(advance, resolveLocale(order.locale)) });

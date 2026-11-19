@@ -91,13 +91,14 @@ export function Footer() {
           {/* Brand Info */}
           <div className="lg:col-span-2 flex flex-col gap-space-sm">
             <Link href="/" className="inline-flex items-center">
-              <div className="bg-surface-card px-3 py-1.5 rounded-md inline-flex items-center shadow-sm">
+              {/* The logo is dark ink: a light chip in light mode, inverted to white in dark mode (as in the header). */}
+              <div className="bg-surface-card dark:bg-transparent dark:shadow-none dark:px-0 px-3 py-1.5 rounded-md inline-flex items-center shadow-sm">
                  <Image
                    src="/main-logo-arts-sports.webp"
                    alt="arts sports"
                    width={160}
                    height={30}
-                   className="h-6 w-auto object-contain"
+                   className="h-6 w-auto object-contain dark:brightness-0 dark:invert"
                  />
               </div>
             </Link>

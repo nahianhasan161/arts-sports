@@ -7,7 +7,7 @@ import { useT } from "@/i18n/client";
 import { formatMoney } from "@/i18n";
 import { measureText, sizeLabel, sizeSummary } from "@/lib/custom-jersey/pricing";
 import { DESIGN_ACCEPT } from "@/lib/custom-jersey/files";
-import { BEFORE_APPROVAL, PRODUCTION_STEPS, type CustomOrderDetail, type Pattern, type UploadedFile } from "@/lib/custom-jersey/types";
+import { BEFORE_APPROVAL, PRODUCTION_STEPS, logoTypeOf, type CustomOrderDetail, type Pattern, type UploadedFile } from "@/lib/custom-jersey/types";
 import { JerseyPreview } from "./JerseyPreview";
 import { SizeSummary } from "./RosterEditor";
 import { LanguageToggle } from "./LanguageToggle";
@@ -49,7 +49,6 @@ export function CustomOrderView({ token }: { token: string }) {
   const [change, setChange] = useState("");
   const [changeOpen, setChangeOpen] = useState(false);
   const [accept, setAccept] = useState(false);
-  const [gallery, setGallery] = useState(false);
   const [newFiles, setNewFiles] = useState<UploadedFile[]>([]);
   const [resubmitNote, setResubmitNote] = useState("");
   // Back from the gateway the URL carries ?payment=<id>; it is checked below.
@@ -67,7 +66,6 @@ export function CustomOrderView({ token }: { token: string }) {
       fetchOrder().then((json) => {
         if (!json) return setMissing(true);
         setData(json);
-        setGallery(json.order.gallery_consent);
       }),
     [fetchOrder]
   );
@@ -78,7 +76,6 @@ export function CustomOrderView({ token }: { token: string }) {
       if (!alive) return;
       if (!json) return setMissing(true);
       setData(json);
-      setGallery(json.order.gallery_consent);
     });
     return () => {
       alive = false;
@@ -310,12 +307,8 @@ export function CustomOrderView({ token }: { token: string }) {
                 <input type="checkbox" className="w-4 h-4 mt-0.5 accent-[var(--primary)]" checked={accept} onChange={(e) => setAccept(e.target.checked)} />
                 {t("customJersey.order.approveTick")}
               </label>
-              <label className="flex items-start gap-2 text-sm cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 mt-0.5 accent-[var(--primary)]" checked={gallery} onChange={(e) => setGallery(e.target.checked)} />
-                {t("customJersey.order.galleryTick")}
-              </label>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={primaryBtn} disabled={!accept || busy !== null} onClick={() => act("approve", { accept_terms: true, gallery_consent: gallery })}>
+                <button type="button" className={primaryBtn} disabled={!accept || busy !== null} onClick={() => act("approve", { accept_terms: true })}>
                   {busy === "approve" && <Loader2 className="w-4 h-4 animate-spin" />} {t("customJersey.order.approveButton")}
                 </button>
                 <button type="button" className={ghostBtn} onClick={() => setChangeOpen((v) => !v)}>
@@ -472,7 +465,7 @@ export function CustomOrderView({ token }: { token: string }) {
                 t(`customJersey.options.${o.collar}`),
                 o.with_names && t("customJersey.options.names"),
                 o.with_numbers && t("customJersey.options.numbers"),
-                o.with_logo && t("customJersey.options.logo"),
+                o.with_logo && (logoTypeOf(o) ? `${t("customJersey.options.logo")}: ${t(`customJersey.options.logoTypes.${logoTypeOf(o)!}`)}` : t("customJersey.options.logo")),
                 o.with_shorts && t("customJersey.options.shorts"),
               ]
                 .filter(Boolean)

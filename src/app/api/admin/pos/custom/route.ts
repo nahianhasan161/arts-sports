@@ -3,7 +3,7 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { normalizeBdPhone } from "@/lib/phone";
 import { customerLink, dueFor, explainDbError, findOrder, loadConfig, moveOrder, notifyCustomOrder, paidTotal, recordManualPayment } from "@/lib/custom-jersey/server";
-import { advanceFor, estimate } from "@/lib/custom-jersey/pricing";
+import { advanceFor, estimate, parseLogoType } from "@/lib/custom-jersey/pricing";
 import { isDesignPath } from "@/lib/custom-jersey/files";
 import { cleanRosterRow } from "@/lib/custom-jersey/roster";
 import { SPORTS, orderTotal, type Collar, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
@@ -114,8 +114,9 @@ async function createOrder(b: Record<string, unknown>, staffId: string) {
   if (name.length < 2) return bad("Enter the customer's name");
   if (!phone) return bad("Enter a valid mobile number (01XXXXXXXXX)");
 
-  const sport = SPORTS.find((s) => s === b.sport);
-  if (!sport) return bad("Choose a sport");
+  // The register picks a gallery design instead of a sport; "other" when none is sent.
+  const sport = SPORTS.find((s) => s === b.sport) ?? "other";
+  const logoType = parseLogoType(b.logo_type) ?? (b.with_logo === true ? "print" : null);
   const sleeve: Sleeve = b.sleeve === "full" ? "full" : "short";
   const collar: Collar = b.collar === "v" || b.collar === "polo" ? b.collar : "round";
 
@@ -175,7 +176,7 @@ async function createOrder(b: Record<string, unknown>, staffId: string) {
 
   const neededBy = /^\d{4}-\d{2}-\d{2}$/.test(text(b.needed_by, 10)) ? text(b.needed_by, 10) : null;
   const result = estimate(
-    { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity, sleeve, collar, withShorts: b.with_shorts === true, withNames: b.with_names === true, withNumbers: b.with_numbers === true, withLogo: b.with_logo === true, roster: roster.length ? roster : undefined, neededBy },
+    { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity, sleeve, collar, withShorts: b.with_shorts === true, withNames: b.with_names === true, withNumbers: b.with_numbers === true, logoType, roster: roster.length ? roster : undefined, neededBy },
     config.pricing
   );
   if (result.tooSoon) return bad(`Too soon: the earliest is ${config.pricing.rush.min_days} days from today`);
@@ -219,7 +220,7 @@ async function createOrder(b: Record<string, unknown>, staffId: string) {
       with_shorts: b.with_shorts === true,
       with_names: b.with_names === true,
       with_numbers: b.with_numbers === true,
-      with_logo: b.with_logo === true,
+      with_logo: Boolean(logoType),
       quantity: result.quantity,
       needed_by: neededBy,
       is_rush: result.isRush,
