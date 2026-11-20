@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getObjectStream, isReadablePath, isStorageConfigured, missingStorageConfig, BUCKET } from "@/lib/media/storage";
+import { getObjectStream, isReadablePath, isStorageConfigured, missingStorageConfig, bucketName } from "@/lib/media/storage";
 
 /**
  * Streams one media object to the browser.
@@ -62,7 +62,7 @@ export async function GET(_request: Request, props: { params: Promise<{ path: st
   } catch (error) {
     // The provider failed, which is a fault on our side of the wire. The
     // detail goes to the log; the shopper gets a plain 502 and a retry.
-    console.error(`[media] read failed for ${path} in ${BUCKET}:`, error);
+    console.error(`[media] read failed for ${path} in ${bucketName()}:`, error);
     return NextResponse.json({ error: "Media is temporarily unavailable" }, { status: 502 });
   }
 

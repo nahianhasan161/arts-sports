@@ -76,10 +76,12 @@ export function storageProvider(): Provider {
   return R2_KEYS.every((k) => env(k) !== "") ? "r2" : "tigris";
 }
 
-export const BUCKET =
-  storageProvider() === "r2"
-    ? env("R2_BUCKET") || "artssports-media"
+/** Read per call: on Workers the env is not filled in yet when modules load. */
+export function bucketName(): string {
+  return storageProvider() === "r2"
+    ? env("R2_BUCKET") || "arts"
     : env("TIGRIS_STORAGE_BUCKET") || "artsfashion-media";
+}
 
 /**
  * Extensions the app will ever store, as decided by sniffImage().
@@ -156,7 +158,7 @@ export function endpoint(): string {
 /** The bucket's public base URL, without a trailing slash, or "" when private. */
 export function publicBaseUrl(): string {
   if (storageProvider() === "r2") return env("R2_PUBLIC_URL").replace(/\/+$/, "");
-  return env("TIGRIS_STORAGE_PUBLIC") === "true" ? `${endpoint()}/${BUCKET}` : "";
+  return env("TIGRIS_STORAGE_PUBLIC") === "true" ? `${endpoint()}/${bucketName()}` : "";
 }
 
 /**
@@ -238,7 +240,7 @@ export async function putObject(
   try {
     await storageClient().send(
       new PutObjectCommand({
-        Bucket: BUCKET,
+        Bucket: bucketName(),
         Key: path,
         Body: body,
         ContentType: contentType,
@@ -275,7 +277,7 @@ export async function deleteObjects(paths: string[]): Promise<string | null> {
     try {
       const result = await client.send(
         new DeleteObjectsCommand({
-          Bucket: BUCKET,
+          Bucket: bucketName(),
           Delete: { Objects: chunk.map((Key) => ({ Key })), Quiet: true },
         }),
       );
@@ -309,14 +311,14 @@ export async function copyObject(fromPath: string, toPath: string): Promise<stri
   try {
     await storageClient().send(
       new CopyObjectCommand({
-        Bucket: BUCKET,
+        Bucket: bucketName(),
         Key: toPath,
         // CopySource is a single "bucket/key" string, not a bucket and a key
         // as separate fields, and the key has to be percent-encoded. Without
         // the encoding a path containing a space is silently sent as a
         // different key, and the copy appears to have succeeded while writing
         // an object nothing will ever read.
-        CopySource: encodeURIComponent(`${BUCKET}/${fromPath}`),
+        CopySource: encodeURIComponent(`${bucketName()}/${fromPath}`),
         // Carried over so the copy is served exactly like the original.
         MetadataDirective: "COPY",
       }),
@@ -344,7 +346,7 @@ export interface FetchedObject {
  */
 export async function getObjectStream(path: string): Promise<FetchedObject | null> {
   try {
-    const result = await storageClient().send(new GetObjectCommand({ Bucket: BUCKET, Key: path }));
+    const result = await storageClient().send(new GetObjectCommand({ Bucket: bucketName(), Key: path }));
     return {
       body: result.Body as Readable,
       contentType: result.ContentType ?? null,
@@ -362,7 +364,7 @@ export async function getObjectStream(path: string): Promise<FetchedObject | nul
 /** True when the object is absent. */
 export async function objectExists(path: string): Promise<boolean> {
   try {
-    await storageClient().send(new GetObjectCommand({ Bucket: BUCKET, Key: path, Range: "bytes=0-0" }));
+    await storageClient().send(new GetObjectCommand({ Bucket: bucketName(), Key: path, Range: "bytes=0-0" }));
     return true;
   } catch (error) {
     const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;

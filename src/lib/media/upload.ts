@@ -1,5 +1,5 @@
 import { sniffImage, MAX_MEDIA_BYTES } from "./validate";
-import { putObject, deleteObjects, copyObject, publicUrlFor, isStorageConfigured, BUCKET } from "./storage";
+import { putObject, deleteObjects, copyObject, publicUrlFor, isStorageConfigured, bucketName } from "./storage";
 import { thumbPath } from "./thumb";
 
 /**
@@ -17,7 +17,7 @@ import { thumbPath } from "./thumb";
  * is behind them.
  */
 
-export { BUCKET, publicUrlFor };
+export { bucketName, publicUrlFor };
 
 /**
  * Moves an object from one key to another.
