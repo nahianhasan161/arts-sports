@@ -112,7 +112,7 @@ export const OFFLINE_NAV: NavItem[] = [
   { id: "storeHome", href: OFFLINE, icon: Store, perm: "pos.use" },
   { id: "pos", href: REGISTER, icon: ScanBarcode, perm: "pos.use" },
   { id: "shopOrders", href: `${OFFLINE}/orders`, icon: Receipt, perm: "pos.use" },
-  { id: "shopCustom", href: `${OFFLINE}/custom-jersey`, icon: Shirt, perm: "pos.use" },
+  { id: "shopCustom", href: `${OFFLINE}/pos?type=custom-jersey`, icon: Shirt, perm: "pos.use" },
   { id: "customDesigns", href: `${OFFLINE}/designs`, icon: Images, perm: "custom_orders.manage" },
   { id: "cash", href: `${OFFLINE}/cash`, icon: Wallet, perm: "pos.use" },
   { id: "products", href: `${OFFLINE}/products`, icon: Package },

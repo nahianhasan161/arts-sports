@@ -102,7 +102,7 @@ export default function StoreOverviewPage() {
       </div>
 
       <div className="grid sm:grid-cols-3 gap-3">
-        <QuickLink label={t("admin.nav.shopCustom.name")} href="/admin/offline/custom-jersey" icon={Shirt} />
+        <QuickLink label={t("admin.nav.shopCustom.name")} href="/admin/offline/pos?type=custom-jersey" icon={Shirt} />
         <QuickLink label={t("admin.store.manageStock")} href="/admin/offline/inventory" icon={Boxes} />
         <QuickLink label={t("admin.store.seeCustomers")} href="/admin/offline/customers" icon={Contact} />
       </div>

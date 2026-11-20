@@ -245,7 +245,7 @@ export function DesignCatalog() {
             {cats.map((c) => <option key={c.slug} value={c.slug}>{categoryName(c, locale)}</option>)}
           </select>
           <Link
-            href={`/admin/offline/custom-jersey?designs=${[...picked].slice(0, 10).join(",")}`}
+            href={`/admin/offline/pos?type=custom-jersey&designs=${[...picked].slice(0, 10).join(",")}`}
             className={`${btnPrimary} h-9 ml-auto`}
           >
             <Shirt className="w-4 h-4" /> {t("shop.designs.makeJersey")}
@@ -519,7 +519,7 @@ function DesignEditor({ design, cats, locale, onClose, onSave, onDelete, onShow 
         ) : (
           <>
             <button type="button" onClick={onDelete} className={`${btnGhost} h-10 text-badge-discount`}><Trash2 className="w-4 h-4" /> {t("shop.common.delete")}</button>
-            <Link href={`/admin/offline/custom-jersey?designs=${design.id}`} className={`${btnGhost} h-10 ml-auto`}>
+            <Link href={`/admin/offline/pos?type=custom-jersey&designs=${design.id}`} className={`${btnGhost} h-10 ml-auto`}>
               <Shirt className="w-4 h-4" /> {t("shop.designs.makeJersey")}
             </Link>
           </>

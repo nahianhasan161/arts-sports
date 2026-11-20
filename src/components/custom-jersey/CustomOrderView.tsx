@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { OrderDesigns } from "./OrderDesigns";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Check, Copy, Download, FileText, Loader2, MessageCircle, Upload } from "lucide-react";
 import { useT } from "@/i18n/client";
@@ -485,7 +486,9 @@ export function CustomOrderView({ token }: { token: string }) {
         </div>
         {o.notes && <p className="text-sm whitespace-pre-line bg-surface-subtle rounded-lg p-3">{o.notes}</p>}
 
-        {o.files.length > 0 && (
+        {o.items.length > 0 && <OrderDesigns order={o} fileHref={(i) => `/api/custom-jersey/file?token=${token}&i=${i}`} />}
+
+        {o.files.length > 0 && o.items.length === 0 && (
           <div>
             <h3 className="text-xs font-semibold mb-1">{t("customJersey.order.files")}</h3>
             <ul className="flex flex-col gap-1">
@@ -519,6 +522,7 @@ export function CustomOrderView({ token }: { token: string }) {
                         {measureText(r) && <span className="block text-[11px] text-text-muted">{measureText(r)}</span>}
                       </td>
                       <td className="py-1">{t(`customJersey.options.${r.sleeve}`)}</td>
+                      {r.pant_size && <td className="py-1 pl-2 text-xs">{t("customJersey.roster.pant")}: {r.pant_size}</td>}
                     </tr>
                   ))}
                 </tbody>

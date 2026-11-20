@@ -908,7 +908,7 @@ export function CustomJerseyForm() {
                   {result.lines.map((l) => (
                     <li key={l.key} className="flex justify-between gap-3">
                       <span className="text-on-surface-variant min-w-0">
-                        {l.key === "fabric" ? t("customJersey.estimate.fabric", { fabric: localized(fabric as unknown as Record<string, unknown>, "name", locale) }) : t(`customJersey.estimate.${l.key}`)}
+                        {l.key === "fabric" ? t("customJersey.estimate.fabric", { fabric: localized(fabric as unknown as Record<string, unknown>, "name", locale) }) : l.key.startsWith("opt_") ? (locale === "bn" && l.name_bn ? l.name_bn : (l.name ?? "")) : t(`customJersey.estimate.${l.key as Exclude<typeof l.key, `opt_${string}`>}`)}
                         {l.key !== "rush" && (
                           <span className="block text-xs text-text-muted tabular-nums">
                             {money(l.unit)} × {num(l.quantity)}

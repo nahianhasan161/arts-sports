@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, FileText, Printer, Search } from "lucide-react";
+import { Copy, FileText, ReceiptText, Search, X } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka, type SaleDetail } from "@/lib/pos/types";
 import { REGISTER } from "@/components/admin/nav";
 import { api, dateTime } from "../api";
 import { Numpad, applyKey, type PadKey } from "./parts";
 import { SkeletonRows } from "@/components/ui/PageSkeleton";
-import { PeriodSelect, periodRange, type Period } from "@/components/admin/filters/period";
+import { DateRangeInputs, PeriodSelect, dateRange, periodRange, type Period } from "@/components/admin/filters/period";
 
 interface Row {
   id: string;
@@ -29,7 +29,8 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
   const { t } = useT();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<(typeof STATUSES)[number]>("all");
-  const [period, setPeriod] = useState<Period>("all");
+  const [period, setPeriod] = useState<Period | "custom">("all");
+  const [days, setDays] = useState({ from: "", to: "" });
   const [rows, setRows] = useState<Row[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<SaleDetail | null>(null);
@@ -42,14 +43,14 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
 
   const salesUrl = useCallback(
     (term: string) => {
-      const { from, to } = periodRange(period);
+      const { from, to } = period === "custom" ? dateRange(days.from, days.to) : periodRange(period);
       const p = new URLSearchParams({ q: term.trim() });
       if (from) p.set("from", from);
       if (to) p.set("to", to);
       if (status !== "all") p.set("status", status);
       return `/api/admin/pos/sales?${p}`;
     },
-    [period, status],
+    [period, days, status],
   );
 
   const load = useCallback(
@@ -61,6 +62,14 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
     },
     [salesUrl],
   );
+
+  function close() {
+    setSelected(null);
+    setDetail(null);
+    setQty({});
+    setActive(null);
+    setBuffer("");
+  }
 
   const open = useCallback(async (id: string) => {
     setSelected(id);
@@ -136,7 +145,7 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
   return (
     <div className="flex-1 flex min-h-0 flex-col md:flex-row">
       {/* Left: the list */}
-      <section className={`flex-1 min-w-0 flex flex-col border-r border-border-light ${selected ? "hidden md:flex" : "flex"}`}>
+      <section className={`flex-1 min-w-0 flex flex-col ${selected ? "hidden md:flex md:border-r md:border-border-light" : "flex"}`}>
         <form
           className="flex gap-2 p-2 border-b border-border-light"
           onSubmit={(e) => {
@@ -148,7 +157,10 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("shop.register.searchOrders")} autoFocus className="w-full h-10 rounded-md bg-surface-card border border-border-light pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted focus:outline-none focus:border-primary" />
           </div>
-          <PeriodSelect value={period} onChange={setPeriod} className="h-10 rounded-md bg-surface-card border border-border-light px-2 text-sm text-on-surface" />
+          <PeriodSelect custom value={period} onChange={setPeriod} className="h-10 rounded-md bg-surface-card border border-border-light px-2 text-sm text-on-surface" />
+          {period === "custom" && (
+            <DateRangeInputs from={days.from} to={days.to} onChange={(from, to) => setDays({ from, to })} className="h-10 rounded-md bg-surface-card border border-border-light px-2 text-sm text-on-surface" />
+          )}
           <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="h-10 rounded-md bg-surface-card border border-border-light px-2 text-sm text-on-surface">
             {STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -169,8 +181,8 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
           ) : (
             <ul className="divide-y divide-border-light">
               {shown.map((r) => (
-                <li key={r.id}>
-                  <button type="button" onClick={() => void open(r.id)} className={`w-full grid grid-cols-[7rem_1fr_auto_auto] sm:grid-cols-[8rem_1fr_7rem_8rem] items-center gap-3 px-3 py-3 text-left hover:bg-surface-subtle ${selected === r.id ? "bg-primary/10" : ""}`}>
+                <li key={r.id} className={`flex items-stretch hover:bg-surface-subtle ${selected === r.id ? "bg-primary/10" : ""}`}>
+                  <button type="button" onClick={() => void open(r.id)} className="flex-1 min-w-0 grid grid-cols-[7rem_1fr_auto_auto] sm:grid-cols-[8rem_1fr_7rem_8rem] items-center gap-3 pl-3 pr-1 py-3 text-left">
                     <span className="text-xs text-text-muted">{dateTime(r.created_at)}</span>
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold text-on-surface truncate">{r.receipt_no}</span>
@@ -181,6 +193,10 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
                       <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${badge(r.status)}`}>{t(`shop.sales.status.${r.status as (typeof STATUSES)[1]}`)}</span>
                     </span>
                   </button>
+                  {/* Shortcut: put this bill's items into a new bill without opening it. */}
+                  <button type="button" onClick={() => onCopy(r.id)} className="w-12 flex-shrink-0 flex items-center justify-center text-text-muted hover:text-primary" aria-label={`${t("shop.register.copyToBill")} ${r.receipt_no}`} title={t("shop.register.copyToBill")}>
+                    <Copy className="w-4 h-4" />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -189,17 +205,19 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
       </section>
 
       {/* Right: the chosen bill + refund */}
-      <aside className={`w-full md:w-[26rem] flex-shrink-0 flex-col bg-surface-card min-h-0 ${selected ? "flex" : "hidden md:flex"}`}>
-        {!selected ? (
-          <p className="m-auto p-6 text-sm text-text-muted text-center">{t("shop.register.pickOrder")}</p>
-        ) : !detail ? (
+      {selected && (
+      <aside className="w-full md:w-[26rem] flex-shrink-0 flex flex-col bg-surface-card min-h-0">
+        <div className="px-3 pt-2 flex items-center gap-2">
+          <p className="flex-1 min-w-0 truncate text-sm font-semibold text-on-surface">{detail?.sale.receipt_no ?? ""}</p>
+          <button type="button" onClick={close} className="h-9 w-9 flex items-center justify-center rounded-md text-on-surface-variant hover:bg-surface-subtle" aria-label={t("shop.sales.close")} title={t("shop.sales.close")}>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        {!detail ? (
           <SkeletonRows count={6} label={t("shop.common.loading")} />
         ) : (
           <>
-            <div className="px-3 pt-3 flex items-center gap-2">
-              <button type="button" onClick={() => setSelected(null)} className="md:hidden text-sm text-primary">←</button>
-              <p className="flex-1 text-center text-sm text-on-surface-variant">{canManage ? t("shop.register.selectToRefund") : t("shop.sales.needManager")}</p>
-            </div>
+            <p className="px-3 text-center text-sm text-on-surface-variant">{canManage ? t("shop.register.selectToRefund") : t("shop.sales.needManager")}</p>
             <ul className="flex-1 overflow-y-auto px-2 py-2">
               {detail.items.map((i) => {
                 const n = qty[i.id] ?? 0;
@@ -240,11 +258,12 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
               <button type="button" className={action} onClick={() => onCopy(detail.sale.id)}>
                 <Copy className="w-4 h-4" /> {t("shop.register.copyToBill")}
               </button>
-              <a className={action} href={`${REGISTER}/receipt/${detail.sale.id}`} target="_blank" rel="noreferrer">
+              {/* Invoice = full A4 page with the bill-to details; receipt = the small roll-printer slip. */}
+              <a className={action} href={`${REGISTER}/receipt/${detail.sale.id}?doc=invoice`} target="_blank" rel="noreferrer" title={t("shop.register.invoiceHint")}>
                 <FileText className="w-4 h-4" /> {t("shop.register.invoice")}
               </a>
-              <a className={action} href={`${REGISTER}/receipt/${detail.sale.id}?size=thermal`} target="_blank" rel="noreferrer">
-                <Printer className="w-4 h-4" /> {t("shop.sales.reprint")}
+              <a className={action} href={`${REGISTER}/receipt/${detail.sale.id}?size=thermal`} target="_blank" rel="noreferrer" title={t("shop.register.receiptHint")}>
+                <ReceiptText className="w-4 h-4" /> {t("shop.register.receipt")}
               </a>
             </div>
 
@@ -268,6 +287,7 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
           </>
         )}
       </aside>
+      )}
     </div>
   );
 }

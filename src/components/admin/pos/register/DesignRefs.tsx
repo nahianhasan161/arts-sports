@@ -135,7 +135,7 @@ export function DesignRefs({ refs, setRefs, uploading, onUpload }: {
 }
 
 /** Big view of one picture, with arrows when there are several. */
-function Lightbox({ items, index, setIndex }: { items: { src: string; title: string }[]; index: number | null; setIndex: (i: number | null) => void }) {
+export function Lightbox({ items, index, setIndex }: { items: { src: string; title: string }[]; index: number | null; setIndex: (i: number | null) => void }) {
   const { t } = useT();
   useEffect(() => {
     if (index == null) return;

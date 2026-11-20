@@ -152,6 +152,10 @@ export const en = {
       chest: "Chest",
       length: "Length",
       sleeveLength: "Sleeve length (optional)",
+      pant: "Pant",
+      noPant: "No pant",
+      pantCustom: "Other size…",
+      pantCustomPrompt: "Pant size (for example W32 L40)",
       needMeasure: "Chest and length are needed for a custom size",
     },
     date: {

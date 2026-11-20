@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { OrderDesigns } from "@/components/custom-jersey/OrderDesigns";
 import { AlertCircle, ArrowLeft, ArrowRight, Copy, Download, ImagePlus, Loader2, X } from "lucide-react";
 import { JerseyPreview } from "@/components/custom-jersey/JerseyPreview";
 import { measureText, sizeLabel, sizeSummary } from "@/lib/custom-jersey/pricing";
@@ -139,13 +140,14 @@ export function OrderDrawer({
     }
   };
 
+  const designTitle = (id?: string | null) => data?.order.items.find((x) => x.id === id)?.title ?? "";
   const exportRoster = () => {
     if (!data) return;
     const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
     const num = (v?: number | null) => (v ? String(v) : "");
     const csv = [
-      "Name,Number,Size,Sleeve,Fit,Chest,Length,Sleeve length",
-      ...data.order.roster.map((r) => [r.player_name, r.player_number, r.size, r.sleeve, r.fit ?? "men", num(r.chest), num(r.length), num(r.sleeve_length)].map(esc).join(",")),
+      "Name,Number,Size,Sleeve,Fit,Chest,Length,Sleeve length,Pant,Design",
+      ...data.order.roster.map((r) => [r.player_name, r.player_number, r.size, r.sleeve, r.fit ?? "men", num(r.chest), num(r.length), num(r.sleeve_length), r.pant_size ?? "", designTitle(r.item_id)].map(esc).join(",")),
     ].join("\n");
     const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: "text/csv" }));
     const a = document.createElement("a");
@@ -317,7 +319,7 @@ export function OrderDrawer({
                 <dt className="text-text-muted">Quantity</dt><dd className="tabular-nums">{o.quantity}</dd>
                 <dt className="text-text-muted">Fabric</dt><dd>{o.fabric_name}</dd>
                 <dt className="text-text-muted">Options</dt>
-                <dd>{[o.sleeve === "full" ? "full sleeve" : "half sleeve", o.collar === "polo" ? "polo (collar)" : o.collar === "v" ? "T-shirt (V neck)" : "T-shirt (no collar)", o.with_names && "names", o.with_numbers && "numbers", o.with_logo && `logo${logoTypeOf(o) ? `: ${LOGO_LABEL[logoTypeOf(o)!]}` : ""}`, o.with_shorts && "shorts"].filter(Boolean).join(" · ")}</dd>
+                <dd>{chosenText(o.estimate_breakdown, o.collar) || [o.sleeve === "full" ? "full sleeve" : "half sleeve", o.collar === "polo" ? "polo (collar)" : o.collar === "v" ? "T-shirt (V neck)" : "T-shirt (no collar)", o.with_names && "names", o.with_numbers && "numbers", o.with_logo && `logo${logoTypeOf(o) ? `: ${LOGO_LABEL[logoTypeOf(o)!]}` : ""}`, o.with_shorts && "shorts"].filter(Boolean).join(" · ")}</dd>
                 <dt className="text-text-muted">Needed by</dt>
                 <dd>{o.needed_by ?? "no date"} {o.is_rush && <span className="ml-1 text-[10px] font-bold uppercase bg-amber-100 text-amber-800 rounded px-1.5 py-0.5">Urgent</span>}</dd>
                 <dt className="text-text-muted">Estimate</dt><dd className="tabular-nums">{taka(o.estimated_price)}</dd>
@@ -348,7 +350,9 @@ export function OrderDrawer({
                 </div>
               )}
 
-              {o.files.length > 0 && (
+              {o.items.length > 0 && <OrderDesigns order={o} fileHref={(i) => `/api/custom-jersey/file?id=${o.id}&i=${i}`} />}
+
+              {o.files.length > 0 && o.items.length === 0 && (
                 <ul className="flex flex-col gap-1">
                   {o.files.map((f, i) => (
                     <li key={f.path}>
@@ -372,11 +376,11 @@ export function OrderDrawer({
                 <p className="text-xs mb-2 tabular-nums">{sizeSummary(o.roster).map(([s, n]) => `${s}: ${n}`).join(" · ")}</p>
                 <div className="max-h-64 overflow-y-auto">
                   <table className="w-full text-sm">
-                    <thead><tr className="text-left text-[11px] uppercase text-text-muted"><th>#</th><th>Name</th><th>No.</th><th>Size</th><th>Sleeve</th></tr></thead>
+                    <thead><tr className="text-left text-[11px] uppercase text-text-muted"><th>#</th><th>Name</th><th>No.</th><th>Size</th><th>Sleeve</th>{o.items.length > 0 && <><th>Pant</th><th>Design</th></>}</tr></thead>
                     <tbody>
                       {o.roster.map((r, i) => (
                         <tr key={r.id} className="border-t border-border-light">
-                          <td className="py-1 text-text-muted tabular-nums">{i + 1}</td><td>{r.player_name}</td><td className="tabular-nums">{r.player_number}</td><td>{sizeLabel(r)}{measureText(r) && <span className="block text-[11px] text-text-muted">{measureText(r)}</span>}</td><td>{r.sleeve}</td>
+                          <td className="py-1 text-text-muted tabular-nums">{i + 1}</td><td>{r.player_name}</td><td className="tabular-nums">{r.player_number}</td><td>{sizeLabel(r)}{measureText(r) && <span className="block text-[11px] text-text-muted">{measureText(r)}</span>}</td><td>{r.sleeve}</td>{o.items.length > 0 && <><td>{r.pant_size ?? ""}</td><td className="text-xs text-text-muted">{designTitle(r.item_id)}</td></>}
                         </tr>
                       ))}
                     </tbody>
@@ -527,4 +531,12 @@ export function OrderDrawer({
       </div>
     </div>
   );
+}
+
+/** POS orders made from the option lists keep what was picked, with names, in estimate_breakdown.choices. */
+function chosenText(b: Record<string, unknown> | null | undefined, collar: string): string {
+  const c = b?.choices as { sleeve?: { name_en: string } | null; collar?: { name_en: string } | null; extras?: { name_en: string }[]; logo?: { name_en: string } | null } | undefined;
+  if (!c) return "";
+  const type = collar === "polo" ? "polo" : "T-shirt";
+  return [type, c.sleeve?.name_en, c.collar?.name_en, ...(c.extras ?? []).map((x) => x.name_en), c.logo ? `logo: ${c.logo.name_en}` : ""].filter(Boolean).join(" · ");
 }

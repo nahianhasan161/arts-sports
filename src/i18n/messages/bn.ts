@@ -148,6 +148,10 @@ export const bn: Messages = {
       chest: "বুক",
       length: "লম্বা",
       sleeveLength: "হাতার লম্বা (ঐচ্ছিক)",
+      pant: "প্যান্ট",
+      noPant: "প্যান্ট নেই",
+      pantCustom: "অন্য সাইজ…",
+      pantCustomPrompt: "প্যান্টের সাইজ (যেমন কোমর ৩২, লম্বা ৪০)",
       needMeasure: "নিজের মাপের জন্য বুক আর লম্বা দিন",
     },
     date: {

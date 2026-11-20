@@ -1,10 +1,6 @@
-import { CustomRegister } from "@/components/admin/pos/register/CustomRegister";
+import { redirect } from "next/navigation";
 
-/** Custom jersey at the counter, in the register's layout: tiles, order slip, number pad, payment. */
+/** Custom jersey orders are taken in the register's custom-jersey mode; one panel only. */
 export default function ShopCustomJerseyPage() {
-  return (
-    <div className="max-w-7xl mx-auto h-[calc(100dvh-12rem)] min-h-[600px] flex flex-col rounded-lg border border-border-light overflow-hidden">
-      <CustomRegister />
-    </div>
-  );
+  redirect("/admin/offline/pos?type=custom-jersey");
 }

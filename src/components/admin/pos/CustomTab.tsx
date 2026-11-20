@@ -27,6 +27,8 @@ export interface CounterOrder {
   payable: number;
   kind: "advance" | "balance";
   can_pay: boolean;
+  /** One line per design ("Design 1 · 6 pcs · Mesh · pants 4"); empty on one-design orders. */
+  designs?: { title: string; pieces: number; pants: number; fabric: string | null; jersey: boolean }[];
 }
 
 const METHODS = ["cash", "card", "bkash", "nagad"] as const;

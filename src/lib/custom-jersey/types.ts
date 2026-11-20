@@ -135,6 +135,64 @@ export interface PricingConfig {
   rush: { normal_days: number; min_days: number; percent: number };
   advance_percent: number;
   free_revisions: number;
+  /**
+   * Lowest price per piece for an order of several designs (0 = no floor). The
+   * quantity discount never takes the average price per piece below this.
+   */
+  min_per_piece: number;
+  /** Choices staff add, edit and delete themselves (POS custom jersey panel). See JerseyOptions. */
+  options: JerseyOptions;
+}
+
+/**
+ * One choice in a staff-managed list (sleeve, collar, extra, logo), with its
+ * price per piece. Saved inside the price table (app_settings.custom_jersey_pricing),
+ * so changing a price needs no migration; the server prices from this list.
+ */
+export interface JerseyOption {
+  id: string;
+  name_en: string;
+  name_bn: string | null;
+  /** Taka per piece; 0 = free. */
+  price: number;
+}
+/** `full` = long sleeve (saved as sleeve "full" on the order). */
+export interface SleeveOption extends JerseyOption {
+  full: boolean;
+}
+/** Which jersey type the collar belongs to: T-shirt ("round") or polo. */
+export interface CollarOption extends JerseyOption {
+  type: (typeof JERSEY_TYPES)[number];
+}
+/** `means` ties the extra to the order's names / numbers / shorts flags (production lists read those). */
+export interface ExtraOption extends JerseyOption {
+  means: "names" | "numbers" | "shorts" | null;
+}
+/** A size staff define with its body measurements in inches. */
+export interface SizeOption {
+  id: string;
+  label: string;
+  chest: number | null;
+  length: number | null;
+}
+export interface JerseyOptions {
+  sleeves: SleeveOption[];
+  collars: CollarOption[];
+  extras: ExtraOption[];
+  logos: JerseyOption[];
+  sizes: SizeOption[];
+  /** Pant / shorts styles, price per pant. A player gets a pant when their row has a pant size. */
+  pants: JerseyOption[];
+}
+export type OptionGroup = keyof JerseyOptions;
+export const OPTION_GROUPS: OptionGroup[] = ["sleeves", "collars", "extras", "logos", "sizes", "pants"];
+
+/** What an order picked from the option lists (ids), sent by the POS panel. */
+export interface OptionChoice {
+  sleeve: string | null;
+  collar: string | null;
+  extras: string[];
+  logo: string | null;
 }
 
 export const DEFAULT_PRICING: PricingConfig = {
@@ -150,6 +208,8 @@ export const DEFAULT_PRICING: PricingConfig = {
   rush: { normal_days: 7, min_days: 3, percent: 20 },
   advance_percent: 30,
   free_revisions: 2,
+  min_per_piece: 0,
+  options: { sleeves: [], collars: [], extras: [], logos: [], sizes: [], pants: [] },
 };
 
 export interface RosterRow {
@@ -164,6 +224,10 @@ export interface RosterRow {
   length?: number | null;
   /** Optional; also allowed on a standard size when only the sleeve is made longer/shorter. */
   sleeve_length?: number | null;
+  /** Which design of the order this player belongs to (OrderItem.id). Missing on single-design orders. */
+  item_id?: string | null;
+  /** The player's pant size (a jersey size or a custom text). Null / missing = no pant. */
+  pant_size?: string | null;
 }
 
 export interface UploadedFile {
@@ -178,6 +242,8 @@ export interface UploadedFile {
   product_id?: string;
   /** Set when staff picked one of our gallery designs (custom_gallery); `path` is then its public image URL. */
   design_id?: string;
+  /** Gallery design picks: all of that design's pictures (cover first), so they can be browsed. */
+  images?: string[];
 }
 
 export interface TemplateDesign {
@@ -248,6 +314,8 @@ export interface CustomOrderDetail {
   delivered_at: string | null;
   paid_total: number;
   roster: (RosterRow & { id: string; position: number })[];
+  /** The designs of the order (several per order). Empty on orders taken before designs were split. */
+  items: OrderItem[];
   mockups: { id: string; version: number; images: string[]; note: string | null; created_at: string }[];
   messages: { id: string; author: "customer" | "staff"; body: string; created_at: string }[];
   events: { id: string; from_status: string | null; to_status: string; actor: string; note: string | null; created_at: string }[];
@@ -286,4 +354,27 @@ export function isOverdue(o: Pick<CustomOrderDetail, "due_date" | "status">, tod
   if (!o.due_date) return false;
   if (!["queued", "cutting", "printing", "sewing", "qc"].includes(o.status)) return false;
   return o.due_date < today.toISOString().slice(0, 10);
+}
+
+/**
+ * One design of an order. An order can hold several, each with its own pictures,
+ * fabric, jersey type, options and pant; its players are the roster rows with this
+ * item_id. Stored in custom_orders.items (migration 20261121100000).
+ */
+export interface OrderItem {
+  /** "d1", "d2"... unique inside the order. */
+  id: string;
+  title: string;
+  /** false = pant only (no jersey). */
+  jersey: boolean;
+  fabric_id: string | null;
+  fabric_name: string | null;
+  jersey_type: (typeof JERSEY_TYPES)[number];
+  /** Picks from the option lists (ids); only used when `jersey` is true. */
+  choice: OptionChoice;
+  /** The pant style (options.pants id) and its fabric; null = no pant offered on this design. */
+  pant: { option: string | null; fabric_id: string | null; fabric_name: string | null } | null;
+  notes: string | null;
+  /** Indexes into the order's `files` (pictures of this design: front, back, collar, logo...). */
+  files: number[];
 }

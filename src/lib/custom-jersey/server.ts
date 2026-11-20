@@ -8,7 +8,6 @@ import { DEFAULT_GATEWAY, getGateway } from "@/lib/payments/gateway";
 import { publicUrlFor } from "@/lib/media/storage";
 import { normalizeFabricTiers, normalizePricing } from "./pricing";
 import {
-  DEFAULT_PRICING,
   orderTotal,
   type CustomJerseyConfig,
   type CustomOrderDetail,
@@ -43,6 +42,9 @@ export function isOnlinePaymentAvailable(): boolean {
 
 /** Turns a missing-table error into something staff can act on. */
 export function explainDbError(message: string): string {
+  if (/\bitems\b|item_id|pant_size/.test(message) && /does not exist|schema cache|Could not find/i.test(message)) {
+    return "Several designs in one order need the migration 20261121100000_custom_order_items.sql, which has not been applied yet.";
+  }
   if (/custom_|jersey_templates/.test(message) && /does not exist|schema cache|Could not find/i.test(message)) {
     return "Custom jersey is not set up yet: the Phase 3 migration (20261113100000_custom_jersey.sql) has not been applied.";
   }
@@ -51,11 +53,12 @@ export function explainDbError(message: string): string {
 
 export async function loadPricing(): Promise<PricingConfig> {
   const { data } = await getServiceSupabase().from("app_settings").select("value").eq("key", "custom_jersey_pricing").maybeSingle();
-  if (!data?.value) return DEFAULT_PRICING;
+  // normalizePricing({}) = the defaults plus the starting option lists.
+  if (!data?.value) return normalizePricing({});
   try {
     return normalizePricing(JSON.parse(data.value));
   } catch {
-    return DEFAULT_PRICING;
+    return normalizePricing({});
   }
 }
 
@@ -105,14 +108,23 @@ export type OrderRow = Omit<CustomOrderDetail, "paid_total" | "roster" | "mockup
   user_id: string | null;
 };
 
+/** True when the error is "column ... does not exist" (a migration not applied yet). */
+const missingColumn = (e: { message?: string } | null) => Boolean(e && /column .* does not exist|Could not find .* column/i.test(e.message ?? ""));
+
 export async function findOrder(by: { id: string } | { token: string }): Promise<OrderRow | null> {
-  const query = getServiceSupabase().from("custom_orders").select(ORDER_COLUMNS);
-  const { data, error } = await ("id" in by ? query.eq("id", by.id) : query.eq("access_token", by.token)).maybeSingle();
+  const run = (columns: string) => {
+    const query = getServiceSupabase().from("custom_orders").select(columns);
+    return ("id" in by ? query.eq("id", by.id) : query.eq("access_token", by.token)).maybeSingle();
+  };
+  // `items` comes with migration 20261121100000; before it, orders read as one design.
+  let { data, error } = await run(`${ORDER_COLUMNS}, items`);
+  if (missingColumn(error)) ({ data, error } = await run(ORDER_COLUMNS));
   if (error) throw new Error(explainDbError(error.message));
   if (!data) return null;
   const row = data as unknown as OrderRow;
   return {
     ...row,
+    items: Array.isArray(row.items) ? row.items : [],
     delivery_charge: Number(row.delivery_charge),
     estimated_price: Number(row.estimated_price),
     final_price: row.final_price === null ? null : Number(row.final_price),
@@ -126,8 +138,13 @@ export async function findOrder(by: { id: string } | { token: string }): Promise
  */
 export async function loadDetail(order: OrderRow, audience: "staff" | "customer"): Promise<CustomOrderDetail> {
   const db = getServiceSupabase();
+  const rosterCols = "id, position, player_name, player_number, size, sleeve, fit, chest, length, sleeve_length";
+  const readRoster = async () => {
+    const res = await db.from("custom_order_roster").select(`${rosterCols}, item_id, pant_size`).eq("custom_order_id", order.id).order("position");
+    return missingColumn(res.error) ? await db.from("custom_order_roster").select(rosterCols).eq("custom_order_id", order.id).order("position") : res;
+  };
   const [roster, mockups, messages, events, payments] = await Promise.all([
-    db.from("custom_order_roster").select("id, position, player_name, player_number, size, sleeve, fit, chest, length, sleeve_length").eq("custom_order_id", order.id).order("position"),
+    readRoster(),
     db.from("custom_order_mockups").select("id, version, images, note, created_at").eq("custom_order_id", order.id).order("version", { ascending: false }),
     db.from("custom_order_messages").select("id, author, body, created_at").eq("custom_order_id", order.id).order("created_at"),
     db.from("custom_order_events").select("id, from_status, to_status, actor, note, created_at").eq("custom_order_id", order.id).order("created_at"),

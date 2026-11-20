@@ -5,8 +5,10 @@ import { ClipboardPaste, Download, FileSpreadsheet, Plus, Ruler, Trash2, X } fro
 import { useT } from "@/i18n/client";
 import { importRosterFile, parseDelimited, rowsToRoster, MAX_ROSTER, ROSTER_SAMPLE_CSV } from "@/lib/custom-jersey/roster";
 import { sizeSummary } from "@/lib/custom-jersey/pricing";
-import { BOYS_SIZES, CUSTOM_SIZE, SIZES, type Fit, type RosterRow, type Sleeve } from "@/lib/custom-jersey/types";
+import { BOYS_SIZES, CUSTOM_SIZE, SIZES, type Fit, type RosterRow, type SizeOption, type Sleeve } from "@/lib/custom-jersey/types";
 
+/** Pant select value that asks for a size of the player's own. */
+const PANT_CUSTOM = "__custom";
 const cell = "w-full h-9 px-2 rounded-md border border-border-light bg-surface-card text-sm focus:outline-none focus:ring-1 focus:ring-primary";
 const tool = "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border-light bg-surface-card text-xs font-semibold hover:bg-surface-subtle";
 
@@ -15,11 +17,26 @@ export function RosterEditor({
   rows,
   onChange,
   defaultSleeve,
+  sizes: sizeOptions,
+  pant,
+  noSleeve,
 }: {
   rows: RosterRow[];
   onChange: (rows: RosterRow[]) => void;
   defaultSleeve: Sleeve;
+  /** Staff-defined sizes (POS): replace the men's size list, and picking one fills its chest / length. */
+  sizes?: SizeOption[];
+  /** Show a pant column: each player picks a pant size (a jersey size or their own) or no pant. */
+  pant?: boolean;
+  /** Pant-only design: no sleeve column. */
+  noSleeve?: boolean;
 }) {
+  const menSizes: readonly string[] = sizeOptions?.length ? sizeOptions.map((s) => s.label) : SIZES;
+  const firstMen = menSizes.includes("M") ? "M" : (menSizes[0] ?? "M");
+  const withMeasures = (size: string): Partial<RosterRow> => {
+    const o = sizeOptions?.find((s) => s.label === size);
+    return o ? { size, chest: o.chest, length: o.length } : { size };
+  };
   const { t } = useT();
   const fileInput = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -42,12 +59,12 @@ export function RosterEditor({
   };
   const changeFit = (i: number, fit: Fit) => {
     const r = rows[i];
-    const list: readonly string[] = fit === "boys" ? BOYS_SIZES : SIZES;
-    update(i, { fit, size: r.size === CUSTOM_SIZE || list.includes(r.size) ? r.size : fit === "boys" ? "26" : "M" });
+    const list: readonly string[] = fit === "boys" ? BOYS_SIZES : menSizes;
+    update(i, { fit, size: r.size === CUSTOM_SIZE || list.includes(r.size) ? r.size : fit === "boys" ? "26" : firstMen });
   };
 
   const update = (index: number, patch: Partial<RosterRow>) => onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
-  const addRow = () => rows.length < MAX_ROSTER && onChange([...rows, { player_name: "", player_number: "", size: "M", sleeve: defaultSleeve, fit: "men" }]);
+  const addRow = () => rows.length < MAX_ROSTER && onChange([...rows, { player_name: "", player_number: "", sleeve: defaultSleeve, fit: "men", ...withMeasures(firstMen), size: firstMen, ...(pant ? { pant_size: firstMen } : {}) }]);
 
   const append = (imported: { rows: RosterRow[]; skipped: number }) => {
     const room = MAX_ROSTER - rows.length;
@@ -141,13 +158,14 @@ export function RosterEditor({
                 <th className="w-20 font-semibold pb-1">{t("customJersey.roster.number")}</th>
                 <th className="w-24 font-semibold pb-1">{t("customJersey.roster.fit")}</th>
                 <th className="w-24 font-semibold pb-1">{t("customJersey.roster.size")}</th>
-                <th className="w-32 font-semibold pb-1">{t("customJersey.roster.sleeve")}</th>
+                {!noSleeve && <th className="w-32 font-semibold pb-1">{t("customJersey.roster.sleeve")}</th>}
+                {pant && <th className="w-28 font-semibold pb-1">{t("customJersey.roster.pant")}</th>}
                 <th className="w-16" />
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => {
-                const sizes: readonly string[] = r.fit === "boys" ? BOYS_SIZES : SIZES;
+                const sizes: readonly string[] = r.fit === "boys" ? BOYS_SIZES : menSizes;
                 const custom = r.size === CUSTOM_SIZE;
                 const showMeasure = custom || measureOpen.has(i) || !!r.sleeve_length || !!r.chest || !!r.length;
                 const missing = custom && (!r.chest || !r.length);
@@ -168,7 +186,7 @@ export function RosterEditor({
                     </select>
                   </td>
                   <td className="p-0.5">
-                    <select className={cell} value={r.size} onChange={(e) => update(i, { size: e.target.value })} aria-label={t("customJersey.roster.size")}>
+                    <select className={cell} value={r.size} onChange={(e) => update(i, r.fit === "boys" ? { size: e.target.value } : withMeasures(e.target.value))} aria-label={t("customJersey.roster.size")}>
                       {sizes.includes(r.size) || custom ? null : <option value={r.size}>{r.size}</option>}
                       {sizes.map((s) => (
                         <option key={s} value={s}>
@@ -178,12 +196,37 @@ export function RosterEditor({
                       <option value={CUSTOM_SIZE}>{t("customJersey.roster.custom")}</option>
                     </select>
                   </td>
+                  {!noSleeve && (
                   <td className="p-0.5">
                     <select className={cell} value={r.sleeve} onChange={(e) => update(i, { sleeve: e.target.value as Sleeve })} aria-label={t("customJersey.roster.sleeve")}>
                       <option value="short">{t("customJersey.options.short")}</option>
                       <option value="full">{t("customJersey.options.full")}</option>
                     </select>
                   </td>
+                  )}
+                  {pant && (
+                    <td className="p-0.5">
+                      <select
+                        className={cell}
+                        value={r.pant_size ?? ""}
+                        aria-label={t("customJersey.roster.pant")}
+                        onChange={(e) => {
+                          if (e.target.value !== PANT_CUSTOM) return update(i, { pant_size: e.target.value || null });
+                          const v = window.prompt(t("customJersey.roster.pantCustomPrompt"), r.pant_size ?? "")?.trim().toUpperCase().slice(0, 20);
+                          if (v) update(i, { pant_size: v });
+                        }}
+                      >
+                        <option value="">{t("customJersey.roster.noPant")}</option>
+                        {r.pant_size && !menSizes.includes(r.pant_size) && <option value={r.pant_size}>{r.pant_size}</option>}
+                        {menSizes.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                        <option value={PANT_CUSTOM}>{t("customJersey.roster.pantCustom")}</option>
+                      </select>
+                    </td>
+                  )}
                   <td className="whitespace-nowrap">
                     <button
                       type="button"
@@ -203,7 +246,7 @@ export function RosterEditor({
                 {showMeasure && (
                   <tr>
                     <td />
-                    <td colSpan={6} className="pb-2">
+                    <td colSpan={7} className="pb-2">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="text-text-muted">{t("customJersey.roster.inches")}</span>
                         {custom && (

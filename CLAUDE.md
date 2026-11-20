@@ -120,7 +120,8 @@ For docs, `grep -n '^#'` first and read just the relevant section.
 - All migrations up to `20261117120000` (supplier purchases) are applied live (2026-11-17). The Phase 4 SQL functions were smoke-tested in a
   rolled-back transaction; the screens have not been clicked through with real data.
   `20261117130000` (audit actor + purchase corrections) applied live 2026-11-17; `20261118100000` (roster fit/measurements) applied live 2026-11-18; `20261119110000` (custom payment guards) applied live 2026-11-19.
-  **Pending (not applied):** `20261119120000` (supplier `categories`, `fabric_moves.move_date` + `fabric_purchase(date)`, `pos_sales.customer_address`, `customers.address`) and `20261119120100` (names/numbers free in the stored price table).
+  Applied live 2026-11-21: `20261119120000` (supplier `categories`, `fabric_moves.move_date` + `fabric_purchase(date)`, `pos_sales.customer_address`, `customers.address`) and `20261119120100` (names/numbers free in the stored price table).
+  Also applied live 2026-11-21: `20261121100000` (several designs per custom order: `custom_orders.items`, roster `item_id`/`pant_size`).
 - Plans: `docs/roadmap.md` (phases), `docs/3d-store-and-app.md` (3D/360°/Flutter), `docs/cloudflare.md` (deploy/R2)
 
 ## Alpha → live checklist (do once, at launch; ask the user before each step)

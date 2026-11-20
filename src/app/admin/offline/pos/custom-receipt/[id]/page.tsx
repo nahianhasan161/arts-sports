@@ -57,7 +57,9 @@ export default function CustomReceiptPage({ params }: { params: Promise<{ id: st
         <dl className="flex-1">
           {[
             [t("shop.common.name"), `${order.customer_name} · ${order.customer_phone}`],
-            [t("shop.receipt.item"), `${order.quantity}× ${order.sport} ${order.fabric_name ?? ""}`],
+            ...(order.designs?.length
+              ? order.designs.map((x) => [x.title, [t("shop.customReg.pcs", { n: x.pieces }), x.jersey ? x.fabric : t("shop.customReg.pantOnly"), x.jersey && x.pants ? t("shop.customReg.pants", { n: x.pants }) : ""].filter(Boolean).join(" · ")])
+              : [[t("shop.receipt.item"), `${order.quantity}× ${order.sport} ${order.fabric_name ?? ""}`]]),
             [t("shop.common.status"), STATUS_LABEL[order.status]],
             [t("shop.receipt.expected"), date ?? t("shop.receipt.dateLater")],
             [t("shop.common.total"), order.total ? taka(order.total) : t("shop.receipt.priceLater")],

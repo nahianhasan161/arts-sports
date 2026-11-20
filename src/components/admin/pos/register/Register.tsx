@@ -1482,8 +1482,8 @@ export function Register() {
 }
 
 /**
- * One bill line. Swipe it to the right (finger or mouse) to show + and − (one
- * piece more / less) and delete, which asks first. A line with more pieces
+ * One bill line. Swipe it to the right (finger or mouse) to show delete (leftmost,
+ * asks first) and + / − (one piece more / less). A line with more pieces
  * than the shop has is red, and Payment stays closed until it is fixed.
  */
 function BillLine({ line: l, stock, active, open, setOpen, onSelect, onQty, onRemove }: {
@@ -1507,7 +1507,10 @@ function BillLine({ line: l, stock, active, open, setOpen, onSelect, onQty, onRe
 
   return (
     <li className={`relative overflow-hidden border-l-4 ${over ? "border-badge-discount bg-badge-discount/10" : "border-transparent"}`}>
-      <div className="absolute inset-y-0 left-0 flex" style={{ width: WIDTH }} aria-hidden={!open}>
+      <div className={`absolute inset-y-0 left-0 flex ${shift > 0 ? "" : "invisible"}`} style={{ width: WIDTH }} aria-hidden={!open}>
+        <button type="button" tabIndex={open ? 0 : -1} onClick={onRemove} className="w-14 flex items-center justify-center bg-badge-discount text-white active:opacity-80" aria-label={t("shop.register.removeLine")}>
+          <Trash2 className="w-5 h-5" />
+        </button>
         <div className="flex flex-col w-14">
           <button type="button" tabIndex={open ? 0 : -1} onClick={() => onQty(l.quantity + 1)} className="flex-1 flex items-center justify-center bg-emerald-600 text-white active:opacity-80" aria-label="+1">
             <Plus className="w-5 h-5" />
@@ -1516,14 +1519,11 @@ function BillLine({ line: l, stock, active, open, setOpen, onSelect, onQty, onRe
             <Minus className="w-5 h-5" />
           </button>
         </div>
-        <button type="button" tabIndex={open ? 0 : -1} onClick={onRemove} className="w-14 flex items-center justify-center bg-badge-discount text-white active:opacity-80" aria-label={t("shop.register.removeLine")}>
-          <Trash2 className="w-5 h-5" />
-        </button>
       </div>
       <button
         type="button"
         style={{ transform: `translateX(${shift}px)`, transition: drag === null ? "transform 150ms ease-out" : "none", touchAction: "pan-y" }}
-        className={`relative w-full text-left px-3 py-2 text-sm ${over ? "bg-badge-discount/10" : active ? "bg-primary/10" : "bg-surface-card hover:bg-surface-subtle"}`}
+        className={`relative block w-full text-left text-sm bg-surface-card ${over || active ? "" : "hover:bg-surface-subtle"}`}
         onPointerDown={(e) => {
           start.current = { x: e.clientX, y: e.clientY, base: open ? WIDTH : 0 };
           moved.current = false;
@@ -1552,6 +1552,8 @@ function BillLine({ line: l, stock, active, open, setOpen, onSelect, onQty, onRe
           onSelect();
         }}
       >
+        {/* Tint sits on an inner layer so the row stays opaque and the swipe buttons don't show through. */}
+        <span className={`block px-3 py-2 ${over ? "bg-badge-discount/10" : active ? "bg-primary/10" : ""}`}>
         <span className="flex items-baseline gap-3">
           <b className={`tabular-nums ${over ? "text-badge-discount" : "text-on-surface"}`}>{l.quantity}</b>
           <span className="flex-1 min-w-0 truncate text-on-surface">{l.title}</span>
@@ -1569,6 +1571,7 @@ function BillLine({ line: l, stock, active, open, setOpen, onSelect, onQty, onRe
             {over && <span className="text-badge-discount font-semibold"> · {stock > 0 ? t("shop.register.onlyLeft", { n: stock }) : t("shop.register.soldOut")}</span>}
           </span>
         )}
+        </span>
       </button>
     </li>
   );

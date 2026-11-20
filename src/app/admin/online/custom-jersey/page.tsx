@@ -217,6 +217,8 @@ export default function CustomJerseySetupPage() {
               ))}
               <button className={`${outline} self-start mt-1`} onClick={() => setPricing({ ...pricing, tiers: [...pricing.tiers, { min: (pricing.tiers.at(-1)?.min ?? 1) + 10, discount_percent: pricing.tiers.at(-1)?.discount_percent ?? 0 }] })}><Plus className="w-3.5 h-3.5" /> Add a step</button>
             </div>
+            <p className="text-xs text-text-muted mt-2">Orders with several designs (shop counter) count all designs together and take the % off the whole price, except fabric that has its own price by quantity.</p>
+            <label className="flex items-center gap-2 text-sm mt-2">Lowest price per piece <input type="number" min={0} className={`${field} w-24`} value={pricing.min_per_piece} onChange={(e) => setPricing({ ...pricing, min_per_piece: num(e.target.value) })} /> ৳ (0 = no limit)</label>
 
             <h3 className="text-sm font-semibold mt-5 mb-2">Time and advance</h3>
             <div className="flex flex-col gap-1.5 text-sm">

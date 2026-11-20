@@ -145,7 +145,7 @@ export const POS_GUIDE: Topic[] = [
       { bn: "জার্সি তৈরি (অবস্থা: ready) এবং পুরো টাকা পাওয়া হলে “জিনিস দিয়ে দিন (delivered)” বোতাম আসবে — জার্সি বুঝিয়ে দিয়ে এটি চাপুন।", en: "When the jersey is ready and fully paid, the “Hand over (mark delivered)” button appears — give the jersey and press it." },
       { bn: "কাস্টম জার্সির টাকা সাধারণ বিলের মধ্যে যায় না; এর হিসাব আলাদা থাকে এবং অনলাইন প্যানেলের “কাস্টম অর্ডার” পেজে দেখা যায়।", en: "Custom jersey money does not go into a normal bill; it is kept separately and shows on the “Custom orders” page of the online panel." },
     ],
-    href: "/admin/offline/custom-jersey",
+    href: "/admin/offline/pos?type=custom-jersey",
     action: { bn: "কাস্টম জার্সি খুলুন", en: "Open Custom jersey" },
   },
   {
