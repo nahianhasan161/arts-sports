@@ -81,7 +81,7 @@ export default function ReturnsPolicyPage() {
 
       <LegalSection title="5. How to start a return">
         <p>
-          Call <strong>+880 9677 666 888</strong> between 9 AM and 10 PM, or
+          Call <strong>+880 1911-904618</strong> between 9 AM and 10 PM, or
           email <strong>support@artssports.com</strong>, with your order
           reference and the item you want to return. Our team will confirm the
           return and arrange collection with a courier partner.

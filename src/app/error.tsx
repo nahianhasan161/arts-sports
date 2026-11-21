@@ -23,6 +23,25 @@ export default function GlobalError({
     // Kept in the console so a real failure is still visible in the logs
     // instead of being swallowed by the friendly UI.
     console.error("Unhandled storefront error:", error);
+    // After a deploy, a cached page can ask for a module the new chunks don't
+    // have ("l[e] is not a function", ChunkLoadError). A fresh load fixes it,
+    // so reload once (guarded so a real bug can't loop).
+    const msg = `${error?.name ?? ""} ${error?.message ?? ""}`;
+    const stale =
+      /ChunkLoadError|Loading chunk|Loading CSS chunk|is not a function/.test(msg) &&
+      String(error?.stack ?? "").includes("webpack");
+    if (stale || /ChunkLoadError|Loading (CSS )?chunk/.test(msg)) {
+      try {
+        const key = "chunk-reload-at";
+        const last = Number(sessionStorage.getItem(key) || 0);
+        if (Date.now() - last > 30_000) {
+          sessionStorage.setItem(key, String(Date.now()));
+          window.location.reload();
+        }
+      } catch {
+        /* storage blocked: just show the page */
+      }
+    }
   }, [error]);
 
   return (
@@ -76,10 +95,10 @@ export default function GlobalError({
         </div>
 
         <a
-          href="tel:+8809677666888"
+          href="tel:+8801911904618"
           className="text-xs text-primary font-semibold hover:underline pt-2"
         >
-          Need help? Call +880 9677 666 888
+          Need help? Call +880 1911-904618
         </a>
       </div>
     </div>

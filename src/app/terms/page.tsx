@@ -125,7 +125,7 @@ export default function TermsPage() {
 
       <LegalSection title="10. Complaints and escalation">
         <p>
-          Contact us first on <strong>+880 9677 666 888</strong> or{" "}
+          Contact us first on <strong>+880 1911-904618</strong> or{" "}
           <strong>support@artssports.com</strong>. We aim to answer within two
           working days and to resolve most complaints on the first contact.
         </p>

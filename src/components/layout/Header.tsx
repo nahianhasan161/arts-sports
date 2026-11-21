@@ -124,7 +124,7 @@ export function Header() {
                 Only links that resolve are advertised now; the rest is
                 support contact, which does. */}
             <a
-              href="tel:+8809677666888"
+              href="tel:+8801911904618"
               className="inline-flex items-center gap-1.5 font-bold text-secondary-container hover:text-white transition-colors"
             >
               <Smartphone className="w-3.5 h-3.5" />
@@ -149,11 +149,11 @@ export function Header() {
 
           <div className="flex items-center gap-space-md">
             <a
-              href="tel:+8809677666888"
+              href="tel:+8801911904618"
               className="hidden sm:inline-flex items-center gap-1 text-on-primary hover:text-secondary-container transition-colors"
             >
               <Phone className="w-3.5 h-3.5" />
-              <span>+8809677666888</span>
+              <span>+8801911904618</span>
             </a>
             <span className="hidden sm:inline-block h-3 w-px bg-on-primary-container/40"></span>
             <LanguageToggle tone="dark" />
@@ -406,7 +406,7 @@ export function Header() {
 
           {/* Chat — the only support channel that actually answers */}
           <a
-            href="tel:+8809677666888"
+            href="tel:+8801911904618"
             onClick={() => setMobileMenuOpen(false)}
             className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
             aria-label={t("site.header.support")}

@@ -448,11 +448,11 @@ export default async function OrderConfirmedPage(
             order reference when you contact us.
           </p>
           <a
-            href="tel:+8809677666888"
+            href="tel:+8801911904618"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider hover:bg-primary-container transition-colors"
           >
             <Phone className="w-4 h-4" />
-            +880 9677 666 888
+            +880 1911-904618
           </a>
         </div>
 

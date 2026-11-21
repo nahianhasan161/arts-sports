@@ -437,8 +437,8 @@ export function CustomJerseyForm() {
         <AlertCircle className="w-5 h-5 shrink-0 text-badge-discount" />
         <span>
           {t("customJersey.errors.generic")}{" "}
-          <a href="tel:+8809677666888" className="font-semibold text-on-surface underline underline-offset-2">
-            +880 9677 666 888
+          <a href="tel:+8801911904618" className="font-semibold text-on-surface underline underline-offset-2">
+            +880 1911-904618
           </a>
         </span>
       </div>
@@ -968,13 +968,13 @@ export function CustomJerseyForm() {
         </div>
 
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-border-light bg-surface-card px-4 py-3">
-          <a href="tel:+8809677666888" className="flex items-center gap-2.5 min-w-0">
+          <a href="tel:+8801911904618" className="flex items-center gap-2.5 min-w-0">
             <span className="shrink-0 w-9 h-9 rounded-full bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
               <Phone className="w-4 h-4" />
             </span>
             <span className="min-w-0">
               <span className="block text-[11px] text-text-muted">{t("home.cj.summary.help")}</span>
-              <span className="block text-sm font-semibold text-on-surface">+880 9677 666 888</span>
+              <span className="block text-sm font-semibold text-on-surface">+880 1911-904618</span>
             </span>
           </a>
           <Link href="/custom-jersey/gallery" className="shrink-0 text-xs font-semibold text-on-surface underline underline-offset-4 decoration-accent-gold">

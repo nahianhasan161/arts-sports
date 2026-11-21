@@ -197,8 +197,8 @@ export function Footer() {
             <Link href="mailto:corporate@artssports.com" className="text-xs hover:text-white transition-colors">
               {t("site.footer.bulk")}
             </Link>
-            <a href="tel:+8809677666888" className="text-xs hover:text-white transition-colors">
-              +880 9677 666 888
+            <a href="tel:+8801911904618" className="text-xs hover:text-white transition-colors">
+              +880 1911-904618
             </a>
             <span className="text-xs text-[#718096]">{t("site.footer.hours")}</span>
           </div>

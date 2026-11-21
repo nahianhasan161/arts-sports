@@ -17,7 +17,7 @@ export default function PrivacyPolicyPage() {
           Arts Sports is the business that operates this store. For any
           question about your data, contact us at{" "}
           <strong>support@artssports.com</strong> or on{" "}
-          <strong>+880 9677 666 888</strong>.
+          <strong>+880 1911-904618</strong>.
         </p>
       </LegalSection>
 

@@ -47,7 +47,7 @@ export const siteEn = {
     returnDays: "7 days",
     returnText: "from delivery for size exchange or return.",
     supportTitle: "Dedicated Support",
-    supportText: "Call +8809677666888 or chat with us every day 9 AM - 10 PM.",
+    supportText: "Call +8801911904618 or chat with us every day 9 AM - 10 PM.",
     about: "Arts Sports is engineered with high fabric standards, bespoke craftsmanship, and contemporary everyday apparel. Designed with passion, loved worldwide.",
     shopCollections: "Shop Collections",
     menTees: "Men's Half Sleeve T-Shirts",

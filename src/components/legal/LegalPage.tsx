@@ -51,8 +51,8 @@ export function LegalPage({ title, intro, children }: LegalPageProps) {
         <footer className="mt-space-xl pt-space-base border-t border-border-light text-xs text-text-muted">
           <p className="mb-2">
             Questions about this policy? Call{" "}
-            <a href="tel:+8809677666888" className="text-primary font-semibold hover:underline">
-              +880 9677 666 888
+            <a href="tel:+8801911904618" className="text-primary font-semibold hover:underline">
+              +880 1911-904618
             </a>{" "}
             between 9 AM and 10 PM, or email{" "}
             <a href="mailto:support@artssports.com" className="text-primary font-semibold hover:underline">
