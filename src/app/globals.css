@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -7,8 +6,8 @@
 @tailwind utilities;
 
 :root {
-  --font-oswald: 'Oswald', 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-plus-jakarta: 'Plus Jakarta Sans', 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-oswald: var(--nf-oswald), var(--nf-hind), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-plus-jakarta: var(--nf-jakarta), var(--nf-hind), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 @layer base {
@@ -22,7 +21,7 @@
   html[lang="bn"] h1, html[lang="bn"] h2, html[lang="bn"] h3,
   html[lang="bn"] h4, html[lang="bn"] h5, html[lang="bn"] h6,
   html[lang="bn"] .font-display {
-    font-family: 'Hind Siliguri', var(--font-plus-jakarta);
+    font-family: var(--nf-hind), var(--font-plus-jakarta);
     letter-spacing: normal;
   }
   html[lang="bn"] body { line-height: 1.6; }
@@ -305,3 +304,217 @@
 @media (prefers-reduced-motion: reduce) {
   .as-float, .as-marquee, .as-rise { animation: none; }
 }
+
+/* Phone held sideways: one slim header row, so there is room for the page. */
+@media (max-height: 500px) and (max-width: 1023px) {
+  .site-top { display: none; }
+  .site-bar { height: 56px; }
+  .site-main { padding-top: 56px; }
+}
+
+/* iPhones zoom the page when a field smaller than 16px gets focus. */
+@media (pointer: coarse) {
+  .pitch :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"]), select, textarea) { font-size: 16px; }
+}
+
+/* ---- Football theme: the customer site only ----
+   `pitch` is set on <html> outside /admin (lib/theme.ts, SiteChrome), so the
+   admin panel and the POS keep their own neutral colours. */
+.pitch {
+  --c-primary: 11 83 50;
+  --c-primary-container: 7 56 35;
+  --c-on-primary-container: 150 190 168;
+  --c-badge-new: 11 83 50;
+  --c-surface: 246 250 246;
+  --c-surface-subtle: 238 246 240;
+  --c-surface-dim: 208 222 212;
+  --c-surface-container: 230 240 233;
+  --c-surface-container-low: 238 245 240;
+  --c-surface-container-high: 222 234 226;
+  --c-surface-container-highest: 214 228 219;
+  --c-border-light: 213 227 218;
+  --c-text-muted: 88 108 97;
+  --c-on-surface: 17 34 25;
+  --c-on-surface-variant: 54 74 63;
+  --ring: rgb(11 83 50);
+}
+.pitch.dark {
+  --c-primary: 126 222 160;
+  --c-primary-foreground: 6 30 18;
+  --c-primary-container: 7 48 31;
+  --c-on-primary-container: 150 190 168;
+  --c-badge-new: 22 101 62;
+  --c-surface: 7 20 14;
+  --c-surface-card: 13 30 21;
+  --c-surface-subtle: 18 38 27;
+  --c-surface-dim: 30 54 41;
+  --c-surface-container: 21 43 31;
+  --c-surface-container-low: 16 35 25;
+  --c-surface-container-high: 27 51 38;
+  --c-surface-container-highest: 34 60 46;
+  --c-border-light: 34 60 46;
+  --c-text-muted: 146 172 157;
+  --c-on-surface: 230 242 235;
+  --c-on-surface-variant: 184 206 193;
+  --background: rgb(7 20 14);
+  --card: rgb(13 30 21);
+  --popover: rgb(13 30 21);
+}
+
+/* The cricket bat behind the home promises (components/home/BatCard.tsx). The wood is the
+   same in light and dark mode, so the text on it keeps its own colours. */
+.as-bat,
+.dark .as-bat {
+  --bat-handle: 176px;
+  --bat-toe: 40px;
+  --c-on-surface: 46 27 8;
+  --c-text-muted: 92 60 24;
+  --c-border-light: 196 152 88;
+}
+@media (min-width: 768px) {
+  .as-bat,
+  .dark .as-bat {
+    --bat-handle: clamp(128px, 15vw, 190px);
+    --bat-toe: 44px;
+  }
+}
+
+.pitch ::selection { background: rgb(200 155 60 / 0.35); }
+/* Mown stripes with a centre circle and halfway line. */
+.pitch .as-pitch-lines {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 0 89px, rgb(255 255 255 / 0.13) 90px 92px, transparent 93px),
+    linear-gradient(90deg, transparent calc(50% - 1px), rgb(255 255 255 / 0.13) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.045) 0 56px, transparent 56px 112px);
+}
+/* Light stripes behind page titles. */
+.pitch .as-mown {
+  background-image: repeating-linear-gradient(90deg, rgb(var(--c-primary) / 0.03) 0 64px, transparent 64px 128px);
+}
+/* Touchline: grass strip with a white line on it. */
+.as-touchline { height: 6px; background: linear-gradient(transparent 2px, rgb(255 255 255 / 0.85) 2px 4px, transparent 4px), repeating-linear-gradient(90deg, #1c7a44 0 28px, #17693a 28px 56px); }
+@keyframes as-bounce {
+  0%, 100% { transform: translateY(0) rotate(0); animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  50% { transform: translateY(-45%) rotate(180deg); animation-timing-function: cubic-bezier(.6, 0, .8, .3); }
+}
+.as-bounce { animation: as-bounce 1.1s infinite; }
+@media (prefers-reduced-motion: reduce) { .as-bounce { animation: none; } }
+
+/* ---- Product cards as things from sport (components/product/SportCard.tsx) ----
+   Same measurements for every frame; each one only sets its colours (`--sc` is
+   the card, the `--c-*` triplets are the text on it), its strip and its hover.
+   Looks the same in light and dark mode. */
+.as-sc {
+  --c-on-surface: 255 255 255;
+  --c-on-surface-variant: 255 255 255;
+  --c-text-muted: 255 255 255;
+  --c-badge-discount: 255 232 130;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: rgb(var(--c-on-surface));
+  border-radius: 14px;
+}
+.as-sc, .as-sc::before, .as-sc-body, .as-sc-move { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.as-sc::before, .as-sc::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.as-sc::after { z-index: -1; background: var(--sc-bg, var(--sc)); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.16), 0 6px 16px -6px rgb(0 0 0 / 0.35); }
+.as-sc::before { z-index: -2; display: none; }
+.as-sc-head { padding: 8px 8px 0; }
+.as-sc-body { position: relative; isolation: isolate; flex: 1; display: flex; flex-direction: column; padding: 4px 10px 10px; min-width: 0; }
+@media (min-width: 640px) {
+  .as-sc-head { padding: 10px 10px 0; }
+  .as-sc-body { padding: 4px 13px 12px; }
+}
+/* The picture keeps the light colours for the buttons and labels on it. */
+.as-sc-media {
+  --c-surface-card: 255 255 255;
+  --c-on-surface: 17 34 25;
+  --c-on-surface-variant: 54 74 63;
+  --c-text-muted: 88 108 97;
+  --c-border-light: 213 227 218;
+  --c-badge-discount: 214 40 40;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eef1f4;
+}
+.as-sc-seam { position: relative; height: 22px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.as-sc-rule { flex: 1; border-top: 2px solid currentColor; opacity: 0.55; }
+.as-sc-back { position: absolute; z-index: -1; right: 34px; bottom: 6px; width: 72px; height: 48px; opacity: 0.35; pointer-events: none; }
+
+/* Referee cards: the other card is tucked behind. */
+.as-sc:is([data-frame="yellow"], [data-frame="red"])::before { display: block; background: var(--sc-other); transform: rotate(2.5deg); box-shadow: 0 4px 10px -4px rgb(0 0 0 / 0.3); }
+.as-sc:is([data-frame="yellow"], [data-frame="red"]) { --sc-bg: linear-gradient(125deg, rgb(255 255 255 / 0.22) 0 22%, transparent 22.3%) var(--sc); }
+.as-sc[data-frame="yellow"] { --sc: #ffd60a; --sc-other: #d3122a; --c-on-surface: 31 26 0; --c-on-surface-variant: 31 26 0; --c-text-muted: 78 62 0; --c-badge-discount: 165 10 28; }
+.as-sc[data-frame="red"] { --sc: #d3122a; --sc-other: #ffd60a; --c-text-muted: 255 228 228; --c-badge-discount: 255 238 160; }
+
+/* Match ticket: two pieces with a torn-off stub. */
+.as-sc[data-frame="ticket"] { --sc: #fff4d6; --c-on-surface: 23 32 56; --c-on-surface-variant: 23 32 56; --c-text-muted: 88 78 52; --c-badge-discount: 185 16 38; filter: drop-shadow(0 0 0.6px rgb(0 0 0 / 0.55)) drop-shadow(0 4px 7px rgb(0 0 0 / 0.22)); }
+.as-sc[data-frame="ticket"]::after { display: none; }
+.as-sc[data-frame="ticket"] :is(.as-sc-head, .as-sc-body) { background: var(--sc); -webkit-mask: radial-gradient(circle 9px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 9px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat; mask: radial-gradient(circle 9px at 0 var(--notch), #0000 97%, #000) left / 51% 100% no-repeat, radial-gradient(circle 9px at 100% var(--notch), #0000 97%, #000) right / 51% 100% no-repeat; }
+.as-sc[data-frame="ticket"] .as-sc-head { --notch: 100%; border-radius: 14px 14px 0 0; background: linear-gradient(#1b4fa0, #1b4fa0) top / 100% 5px no-repeat var(--sc); }
+.as-sc[data-frame="ticket"] .as-sc-body { --notch: 0px; border-radius: 0 0 14px 14px; padding-top: 8px; background: linear-gradient(90deg, rgb(23 32 56 / 0.5) 0 60%, transparent 60%) 14px 0 / 10px 2px repeat-x var(--sc); }
+.as-sc-barcode { flex: 1; height: 11px; margin: 0 8px; background: repeating-linear-gradient(90deg, #172038 0 2px, transparent 2px 4px, #172038 4px 5px, transparent 5px 9px, #172038 9px 12px, transparent 12px 14px); opacity: 0.8; }
+
+/* Stadium scoreboard. */
+.as-sc[data-frame="scoreboard"] { --sc: #14181d; --sc-bg: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1.4px) 0 0 / 6px 6px var(--sc); --c-text-muted: 170 182 194; --c-badge-discount: 255 138 118; }
+.as-sc[data-frame="scoreboard"]::after { box-shadow: inset 0 0 0 3px #39424c, inset 0 0 0 4px #000, 0 6px 16px -6px rgb(0 0 0 / 0.5); }
+.as-sc[data-frame="scoreboard"] .as-sc-price { color: #ffb52e; text-shadow: 0 0 10px rgb(255 150 0 / 0.55); letter-spacing: 0.04em; }
+.as-sc-lamp { width: 6px; height: 6px; border-radius: 50%; background: #ffb52e; box-shadow: 0 0 6px rgb(255 160 0 / 0.8); }
+.as-sc-lamp:nth-child(even) { opacity: 0.35; }
+
+/* Coach's tactics board. */
+.as-sc[data-frame="tactics"] { --sc: #146b3b; --sc-bg: repeating-linear-gradient(0deg, #146b3b 0 34px, #125f34 34px 68px); --c-text-muted: 214 240 223; }
+.as-sc[data-frame="tactics"]::after { box-shadow: inset 0 0 0 3px #146b3b, inset 0 0 0 4.5px rgb(255 255 255 / 0.65), 0 6px 16px -6px rgb(0 0 0 / 0.4); }
+.as-sc-spot { width: 16px; height: 16px; border: 2px solid rgb(255 255 255 / 0.65); border-radius: 50%; margin: 0 -8px; }
+
+/* Dressing-room locker door. */
+.as-sc[data-frame="locker"] { --sc: #2f4d73; --sc-bg: linear-gradient(100deg, #3b5d88, #2f4d73 45%, #26405f); --c-text-muted: 212 224 240; transform-origin: left center; }
+.as-sc[data-frame="locker"]::after { box-shadow: inset 0 0 0 1px #1b304a, inset 0 0 0 3px rgb(255 255 255 / 0.14), 0 6px 16px -6px rgb(0 0 0 / 0.4); }
+.as-sc[data-frame="locker"]::before { display: block; z-index: 1; pointer-events: none; inset: 22px auto 22px -3px; width: 6px; border-radius: 3px; background: linear-gradient(#cdd6df, #8b97a5) top / 100% 26px no-repeat, linear-gradient(#cdd6df, #8b97a5) bottom / 100% 26px no-repeat; }
+.as-sc-vent { width: 22%; height: 5px; border-radius: 3px; background: #14243a; box-shadow: 0 1px 0 rgb(255 255 255 / 0.22); }
+.as-sc-handle { position: absolute; right: -4px; top: 2px; width: 8px; height: 34px; border-radius: 4px; background: linear-gradient(90deg, #8b97a5, #eef2f6 45%, #98a4b1); box-shadow: 0 1px 3px rgb(0 0 0 / 0.5); }
+
+/* Cricket pitch with the wicket behind it. */
+.as-sc[data-frame="wicket"] { --sc: #dcb57c; --sc-bg: repeating-linear-gradient(90deg, rgb(120 78 24 / 0.07) 0 3px, transparent 3px 11px) var(--sc); --c-on-surface: 46 27 8; --c-on-surface-variant: 46 27 8; --c-text-muted: 88 54 18; --c-badge-discount: 150 10 24; }
+.as-sc[data-frame="wicket"]::after { z-index: -2; }
+.as-sc[data-frame="wicket"] > span > svg { z-index: -3; }
+.as-sc-crease { position: absolute; inset: 7px 0; border: solid #fff; border-width: 2.5px 0; background: linear-gradient(#fff, #fff) 22% 0 / 2.5px 100% no-repeat, linear-gradient(#fff, #fff) 78% 0 / 2.5px 100% no-repeat; }
+.as-sc-bail-l, .as-sc-bail-r { transform-box: fill-box; transform-origin: center; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.3, 1); }
+
+/* Leather cricket ball. */
+.as-sc[data-frame="ball"] { --sc: #7a1220; --sc-bg: radial-gradient(120% 70% at 25% 8%, #a82334, transparent 60%), #7a1220; --c-text-muted: 248 218 212; }
+.as-sc-stitch { position: absolute; inset: 4px -8px; background: linear-gradient(#f3e3c3, #f3e3c3) center / 100% 1.5px no-repeat, repeating-linear-gradient(115deg, #f3e3c3 0 2px, transparent 2px 8px) 0 0 / 100% 5px no-repeat, repeating-linear-gradient(65deg, #f3e3c3 0 2px, transparent 2px 8px) 0 100% / 100% 5px no-repeat; }
+@media (min-width: 640px) { .as-sc-stitch { inset: 4px -10px; } }
+
+/* Badminton court mats. */
+.as-sc[data-frame="net"] { --sc: #0f6f68; --c-text-muted: 208 240 236; }
+.as-sc[data-frame="netblue"] { --sc: #1f4fa8; --c-text-muted: 214 226 250; }
+.as-sc:is([data-frame="net"], [data-frame="netblue"])::after { box-shadow: inset 0 0 0 3px var(--sc), inset 0 0 0 4.5px rgb(255 255 255 / 0.7), 0 6px 16px -6px rgb(0 0 0 / 0.4); }
+.as-sc-mesh { position: absolute; inset: 5px -8px 3px; border-top: 3px solid #fff; background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.5) 0 1px, transparent 1px 5px), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.5) 0 1px, transparent 1px 5px); }
+
+/* Basketball court. */
+.as-sc[data-frame="hoop"] { --sc: #e3a25a; --sc-bg: repeating-linear-gradient(90deg, rgb(110 56 8 / 0.28) 0 1px, transparent 1px 22px), #e3a25a; --c-on-surface: 46 22 4; --c-on-surface-variant: 46 22 4; --c-text-muted: 84 44 10; --c-badge-discount: 140 8 22; }
+
+@keyframes as-sc-lamp { 0%, 60%, 100% { opacity: 0.25; } 20% { opacity: 1; } }
+@keyframes as-sc-run { to { stroke-dashoffset: -20; } }
+@keyframes as-sc-rally { 0%, 100% { translate: 0 0; } 50% { translate: 70px -16px; rotate: 70deg; } }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .as-sc:hover { transform: translateY(-6px); }
+  .as-sc:is([data-frame="yellow"], [data-frame="red"]):hover { transform: translateY(-8px) rotate(-2deg); }
+  .as-sc:is([data-frame="yellow"], [data-frame="red"]):hover::before { transform: rotate(6deg); }
+  .as-sc:is([data-frame="yellow"], [data-frame="red"]):hover .as-sc-move { transform: rotate(-14deg) scale(1.15); }
+  .as-sc[data-frame="ticket"]:hover .as-sc-body { transform: translateY(5px) rotate(1.4deg); }
+  .as-sc[data-frame="scoreboard"]:hover .as-sc-lamp { animation: as-sc-lamp 0.9s linear infinite; }
+  .as-sc[data-frame="tactics"]:hover .as-sc-run { animation: as-sc-run 0.7s linear infinite; }
+  .as-sc[data-frame="tactics"]:hover .as-sc-back { opacity: 0.5; }
+  .as-sc[data-frame="locker"]:hover { transform: perspective(900px) rotateY(-11deg); }
+  .as-sc[data-frame="wicket"]:hover .as-sc-bail-l { transform: translate(-12px, -9px) rotate(-50deg); }
+  .as-sc[data-frame="wicket"]:hover .as-sc-bail-r { transform: translate(12px, -11px) rotate(65deg); }
+  .as-sc[data-frame="ball"]:hover { transform: translateY(-6px) rotate(1.5deg); }
+  .as-sc:is([data-frame="net"], [data-frame="netblue"]):hover .as-sc-move { animation: as-sc-rally 0.9s ease-in-out; }
+  .as-sc[data-frame="hoop"]:hover .as-sc-move { transform: translateY(26px); }
+}
+@media (prefers-reduced-motion: reduce) { .as-sc, .as-sc::before, .as-sc-body, .as-sc-move { transition: none; } }

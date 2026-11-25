@@ -14,6 +14,17 @@ async function getActiveSupabaseClient(): Promise<SupabaseClient | null> {
   return getSupabaseBrowserClient();
 }
 
+/**
+ * Products that come in any of these sizes, as a PostgREST `or` filter over
+ * the `sizes` JSON list. The JSON is quoted, so a size from the URL cannot
+ * add conditions of its own.
+ */
+function sizesFilter(sizes: string[]): string {
+  return sizes
+    .map((size) => `sizes.cs."${JSON.stringify([{ size }]).replace(/[\\"]/g, "\\$&")}"`)
+    .join(",");
+}
+
 export async function getProducts(options?: {
   category?: string;
   subCategory?: string;
@@ -59,6 +70,7 @@ export async function getProducts(options?: {
       if (options?.maxPrice !== undefined) {
         query = query.lte("price", options.maxPrice);
       }
+      if (options?.sizes && options.sizes.length > 0) query = query.or(sizesFilter(options.sizes));
       // Overlap, not equality: a product tagged ["summer","linen"] matches a
       // shopper looking for "summer". PostgREST's `cs` is `&&`.
       if (options?.tags && options.tags.length > 0) {
@@ -280,6 +292,9 @@ export async function getProductsCount(options?: {
   search?: string;
   status?: string;
   productIds?: string[];
+  sizes?: string[];
+  minPrice?: number;
+  maxPrice?: number;
 }): Promise<number> {
   if (options?.productIds && options.productIds.length === 0) return 0;
   const supabase = await getActiveSupabaseClient();
@@ -300,6 +315,9 @@ export async function getProductsCount(options?: {
       if (options?.productIds) {
         query = query.in("id", options.productIds);
       }
+      if (options?.sizes && options.sizes.length > 0) query = query.or(sizesFilter(options.sizes));
+      if (options?.minPrice !== undefined) query = query.gte("price", options.minPrice);
+      if (options?.maxPrice !== undefined) query = query.lte("price", options.maxPrice);
       if (options?.search) {
         const term = options.search.replace(/[,%()]/g, " ").trim();
         if (term) {
@@ -324,6 +342,9 @@ export async function getProductsCount(options?: {
   if (categoryFilter && categoryFilter !== "all") {
     items = items.filter((p) => p.category.toLowerCase() === categoryFilter.toLowerCase());
   }
+  if (options?.sizes && options.sizes.length > 0) items = items.filter((p) => p.sizes.some((s) => options.sizes!.includes(s.size)));
+  if (options?.minPrice !== undefined) items = items.filter((p) => p.price >= options.minPrice!);
+  if (options?.maxPrice !== undefined) items = items.filter((p) => p.price <= options.maxPrice!);
   if (subCategoryFilter) {
     items = items.filter(
       (p) => p.sub_category?.toLowerCase() === subCategoryFilter.toLowerCase()

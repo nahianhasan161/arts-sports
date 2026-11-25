@@ -1,6 +1,9 @@
-import { getProducts, getProductsCount } from "@/lib/services/products";
+import { getCategories, getProducts, getProductsCount } from "@/lib/services/products";
 import { resolveTermProductIds, TERM_TYPES, type TermType } from "@/lib/services/catalog";
 import type { Product } from "@/types";
+
+/** The slider moves in these steps, so its ends are rounded out to them. */
+const PRICE_STEP = 50;
 
 type Params = { [key: string]: string | string[] | undefined } | URLSearchParams;
 
@@ -38,31 +41,61 @@ export function parseShopFilters(p: Params) {
 
 export type ShopFilters = ReturnType<typeof parseShopFilters>;
 
-/** One batch of the catalogue for these filters. `withTotal` adds the count query. */
+/**
+ * The URL carries a category slug (or id); products store the category's name.
+ * A sub-category's slug selects its parent plus that sub-category.
+ */
+async function resolveCategory(value: string): Promise<{ category: string; sub?: string }> {
+  if (!value || value === "all") return { category: "all" };
+  const tree = await getCategories();
+  const matches = (c: { id: string; slug: string }) => c.slug === value || c.id === value;
+  const parent = tree.find(matches);
+  if (parent) return { category: parent.name };
+  for (const c of tree) {
+    const child = c.children?.find(matches);
+    if (child) return { category: c.name, sub: child.name };
+  }
+  return { category: value };
+}
+
+/** One batch of the catalogue for these filters. `withTotal` adds the count and the price range. */
 export async function loadShopProducts(
   f: ShopFilters,
   offset: number,
   limit: number,
   withTotal = false
-): Promise<{ products: Product[]; total: number | null }> {
-  const productIds = await resolveTermProductIds(f.termSelection);
+): Promise<{ products: Product[]; total: number | null; priceRange: { min: number; max: number } | null }> {
+  const [productIds, resolved] = await Promise.all([
+    resolveTermProductIds(f.termSelection),
+    resolveCategory(f.category),
+  ]);
   const base = {
-    category: f.category,
-    subCategory: f.subCategory || undefined,
+    category: resolved.category,
+    subCategory: f.subCategory || resolved.sub,
     search: f.query || undefined,
     productIds: productIds ?? undefined,
+    sizes: f.sizes.length > 0 ? f.sizes : undefined,
   };
-  const [products, total] = await Promise.all([
+  const [products, total, cheapest, dearest] = await Promise.all([
     getProducts({
       ...base,
-      sizes: f.sizes.length > 0 ? f.sizes : undefined,
       minPrice: f.priceMin,
       maxPrice: f.priceMax,
       sortBy: f.sortBy,
       limit,
       offset,
     }),
-    withTotal ? getProductsCount(base) : Promise.resolve(null),
+    withTotal ? getProductsCount({ ...base, minPrice: f.priceMin, maxPrice: f.priceMax }) : Promise.resolve(null),
+    // The slider's ends: of everything these filters could show, whatever price is chosen.
+    withTotal ? getProducts({ ...base, sortBy: "price_asc", limit: 1 }) : Promise.resolve([]),
+    withTotal ? getProducts({ ...base, sortBy: "price_desc", limit: 1 }) : Promise.resolve([]),
   ]);
-  return { products, total };
+  const priceRange =
+    cheapest[0] && dearest[0]
+      ? {
+          min: Math.floor(Number(cheapest[0].price) / PRICE_STEP) * PRICE_STEP,
+          max: Math.ceil(Number(dearest[0].price) / PRICE_STEP) * PRICE_STEP,
+        }
+      : null;
+  return { products, total, priceRange };
 }

@@ -1,0 +1,23 @@
+/* The header's category row (CategoryBar.tsx). The row reaches 6px below its
+   bar, over the touchline, so the ball can roll on the grass. */
+.as-catbar { padding-bottom: 6px; }
+.as-catbar-link { color: rgb(var(--c-on-surface-variant)); transition: color 0.15s; border-radius: 8px; }
+.as-catbar-link > svg { color: rgb(var(--c-text-muted)); transition: color 0.15s, transform 0.25s cubic-bezier(0.3, 0.7, 0.3, 1.4); }
+.as-catbar-link:is(:hover, [aria-current="page"]),
+.as-catbar-link:is(:hover, [aria-current="page"]) > svg { color: rgb(var(--c-primary)); }
+.as-catbar-link[data-kind="deal"],
+.as-catbar-link[data-kind="deal"] > svg { color: rgb(var(--c-badge-discount)); }
+.as-catbar-link:focus-visible { outline: 2px solid rgb(var(--c-accent-gold)); outline-offset: -4px; }
+.as-catbar-ball {
+  position: absolute;
+  left: 0;
+  bottom: 1px;
+  width: 13px;
+  height: 13px;
+  pointer-events: none;
+  transform: translateX(-24px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .as-catbar-ball { transition: transform 0.55s cubic-bezier(0.25, 0.8, 0.3, 1); }
+  .as-catbar-link:hover > svg { transform: translateY(-2px) rotate(-8deg); }
+}

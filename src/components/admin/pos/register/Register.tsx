@@ -249,6 +249,12 @@ export function Register() {
     setError(null);
     setCouponOff(null);
     setPicking(null);
+    // Nothing on the shelf: not for sale (scans land here too). Ask for the newest count.
+    if (v.available <= 0) {
+      setError(`${p.title}${v.label ? ` (${v.label})` : ""}: ${t("shop.register.soldOut")}`);
+      void loadStock(showroomId);
+      return;
+    }
     setSelected(key);
     setMode("qty");
     setTyped(null);
@@ -256,7 +262,7 @@ export function Register() {
       if (current.some((l) => l.key === key)) return current.map((l) => (l.key === key ? { ...l, quantity: l.quantity + 1 } : l));
       return [...current, { key, product_id: p.product_id, variant_id: v.variant_id, title: p.title, label: v.label, price: p.price, available: v.available, quantity: 1, discount: 0 }];
     });
-  }, []);
+  }, [t, loadStock, showroomId]);
 
   // The grid: the chosen category, or what the search box says. The newest answer wins.
   //
@@ -1166,9 +1172,10 @@ export function Register() {
                       <li key={p.product_id}>
                         <button
                           type="button"
+                          disabled={stock <= 0}
                           onClick={() => (p.variants.length === 1 ? addLine(p, p.variants[0]) : setPicking(p))}
                           title={`${p.title} · ${taka(p.price)}`}
-                          className={`group relative w-full h-40 flex flex-col text-left rounded-md border bg-surface-card overflow-hidden border-b-4 transition active:scale-[0.98] ${inBill ? "border-accent-gold" : "border-border-light border-b-accent-gold/60 hover:border-accent-gold"} ${stock > 0 ? "" : "opacity-60"}`}
+                          className={`group relative w-full h-40 flex flex-col text-left rounded-md border bg-surface-card overflow-hidden border-b-4 transition active:scale-[0.98] ${inBill ? "border-accent-gold" : "border-border-light border-b-accent-gold/60 hover:border-accent-gold"} ${stock > 0 ? "" : "opacity-60 cursor-not-allowed"}`}
                         >
                           {p.image ? (
                             <span className="relative flex-1 min-h-0 bg-surface-subtle">
@@ -1235,7 +1242,7 @@ export function Register() {
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {picking.variants.map((v) => (
-              <button key={v.variant_id ?? "one"} type="button" onClick={() => addLine(picking, v)} title={v.sku ?? v.barcode ?? undefined} className={`rounded-xl border p-3 text-left ${v.available > 0 ? "border-border-light hover:border-accent-gold" : "border-border-light opacity-50"}`}>
+              <button key={v.variant_id ?? "one"} type="button" disabled={v.available <= 0} onClick={() => addLine(picking, v)} title={v.sku ?? v.barcode ?? undefined} className={`rounded-xl border p-3 text-left ${v.available > 0 ? "border-border-light hover:border-accent-gold" : "border-border-light opacity-50 cursor-not-allowed"}`}>
                 <span className="block text-sm font-bold text-on-surface">{v.label || t("shop.common.add")}</span>
                 <span className={`block text-xs ${v.available > 0 ? "text-text-muted" : "text-badge-discount"}`}>{v.available > 0 ? t("shop.pos.left", { n: v.available }) : t("shop.register.soldOut")}</span>
               </button>

@@ -19,6 +19,8 @@ export const siteBn: SiteMessages = {
     wishlist: "পছন্দের তালিকা",
     total: "মোট",
     menu: "মেনু",
+    scrollLeft: "আগের মেনু দেখুন",
+    scrollRight: "আরও মেনু দেখুন",
     home: "হোম",
     categories: "ক্যাটাগরি",
     support: "সাহায্য",

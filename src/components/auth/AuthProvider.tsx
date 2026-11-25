@@ -9,8 +9,8 @@ import React, {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
-import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { isSupabaseConfigured, mayHaveSession, onBrowserClient } from "@/lib/supabase/config";
 import type { UserRole } from "@/types";
 
 type AuthContextValue = {
@@ -51,10 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * One query rather than two: the role and the avatar are on the same row,
    * and a second round trip would only make them disagree with each other.
    */
-  const loadProfile = useCallback(async (userId: string) => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-
+  const loadProfile = useCallback(async (supabase: SupabaseClient, userId: string) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -75,53 +72,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // The Supabase library is loaded only for someone who may be signed in. A
+  // visitor who is not (most first visits) skips it; when a page they open
+  // makes the client (sign-in, checkout), onBrowserClient picks it up here.
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-
-    if (!supabase) {
+    if (!isSupabaseConfigured) {
       setLoading(false);
       return;
     }
 
     let active = true;
+    let unsubscribe: (() => void) | null = null;
 
-    // Wait for the role too: pages that gate on it (the admin shell) would
-    // otherwise see "signed in, no role" for a moment and turn the person away.
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (active) {
-        const sessionUser = data.session?.user ?? null;
-        setUser(sessionUser);
-        if (sessionUser) {
-          await loadProfile(sessionUser.id);
+    const cancel = onBrowserClient((supabase) => {
+      // Wait for the role too: pages that gate on it (the admin shell) would
+      // otherwise see "signed in, no role" for a moment and turn the person away.
+      supabase.auth.getSession().then(async ({ data }) => {
+        if (active) {
+          const sessionUser = data.session?.user ?? null;
+          setUser(sessionUser);
+          if (sessionUser) {
+            await loadProfile(supabase, sessionUser.id);
+          }
         }
-      }
-    }).finally(() => {
-      if (active) {
+      }).finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        const newUser = session?.user ?? null;
+        setUser(newUser);
+        if (newUser) {
+          loadProfile(supabase, newUser.id);
+        } else {
+          setRole(null);
+          setAvatarUrl(null);
+        }
+      });
+      unsubscribe = () => subscription.unsubscribe();
+    });
+
+    if (unsubscribe === null) {
+      if (mayHaveSession()) {
+        import("@/lib/supabase/client")
+          .then((m) => active && m.getSupabaseBrowserClient())
+          .catch(() => active && setLoading(false));
+      } else {
         setLoading(false);
       }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const newUser = session?.user ?? null;
-      setUser(newUser);
-      if (newUser) {
-        loadProfile(newUser.id);
-      } else {
-        setRole(null);
-        setAvatarUrl(null);
-      }
-    });
+    }
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      cancel();
+      unsubscribe?.();
     };
   }, [loadProfile]);
 
   const signOut = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
+    const supabase = (await import("@/lib/supabase/client")).getSupabaseBrowserClient();
 
     if (supabase) {
       await supabase.auth.signOut();

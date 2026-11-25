@@ -1,12 +1,10 @@
 import { storeBn } from "./store.bn";
 import { homeBn } from "./home.bn";
-import type { Messages } from "./en";
-import { shopBn } from "./shop.bn";
+import type { SiteMessages } from "./en";
 import { siteBn } from "./site.bn";
-import { adminBn } from "./admin.bn";
 
 /** বাংলা লেখা। en.ts-এর সব key এখানে থাকতে হবে। */
-export const bn: Messages = {
+export const bn: SiteMessages = {
   common: {
     currency: "৳{amount}",
     orderNumber: "অর্ডার #{id}",
@@ -15,6 +13,8 @@ export const bn: Messages = {
     english: "English",
     darkMode: "ডার্ক মোড",
     lightMode: "লাইট মোড",
+    confirm: "নিশ্চিত করুন",
+    cancel: "বাতিল",
   },
   payment: {
     received: "{amount} পেমেন্ট পাওয়া গেছে",
@@ -25,7 +25,7 @@ export const bn: Messages = {
   },
   customJersey: {
     title: "কাস্টম জার্সি",
-    subtitle: "নিজের দলের জার্সি, ১টা থেকেই। Design confirm করার পর ৫–৭ দিনে তৈরি।",
+    subtitle: "নিজের দলের জার্সি, ১টা থেকেই। Design confirm করার পর ৪–৬ দিনে তৈরি।",
     steps: {
       one: "নিজের design পাঠান বা আমাদের থেকে একটা বাছুন",
       two: "আমাদের designer mockup আর চূড়ান্ত দাম পাঠাবে",
@@ -366,9 +366,7 @@ export const bn: Messages = {
       body: "{text}",
     },
   },
-  shop: shopBn,
   site: siteBn,
-  admin: adminBn,
   home: homeBn,
   store: storeBn,
 };

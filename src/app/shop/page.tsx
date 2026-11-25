@@ -37,20 +37,21 @@ interface ShopPageProps {
 
 export default async function ShopPage(props: ShopPageProps) {
   const filters = parseShopFilters(await props.searchParams);
-  const [{ products, total }, terms, categories] = await Promise.all([
+  const [{ products, total, priceRange }, terms, categories] = await Promise.all([
     loadShopProducts(filters, 0, PAGE_SIZE, true),
     getTerms(),
     getCategories(),
   ]);
   const parent =
     filters.category !== "all"
-      ? categories.find((c) => c.slug === filters.category || c.id === filters.category)
+      ? // The header links by name, the chips by slug.
+        categories.find((c) => [c.slug, c.id, c.name].includes(filters.category))
       : undefined;
 
   return (
     <Suspense
       fallback={
-        <div className="max-w-container-max mx-auto px-space-base py-space-lg grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-space-sm sm:gap-space-md">
+        <div className="max-w-container-max mx-auto px-space-base py-space-lg grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4">
           <ProductGridSkeleton count={8} />
         </div>
       }
@@ -59,18 +60,19 @@ export default async function ShopPage(props: ShopPageProps) {
         products={products}
         total={total ?? products.length}
         categories={categories}
-        categoryStrip={categories.slice(0, CATEGORY_PAGE).map(({ id, slug, name }) => ({ id, slug, name }))}
+        categoryStrip={categories.slice(0, CATEGORY_PAGE).map(({ id, slug, name, name_bn }) => ({ id, slug, name, name_bn }))}
         categoryHasMore={categories.length > CATEGORY_PAGE}
         terms={terms}
         termSelection={filters.termSelection}
-        parentName={parent?.name}
-        category={filters.category}
+        parent={parent}
+        category={parent?.slug || filters.category}
         subCategory={filters.subCategory}
         query={filters.query}
         sortBy={filters.sortBy}
         inStockOnly={filters.inStockOnly}
         dealsOnly={filters.dealsOnly}
         sizes={filters.sizes}
+        priceRange={priceRange}
         priceMin={filters.priceMin}
         priceMax={filters.priceMax}
         pageSize={PAGE_SIZE}

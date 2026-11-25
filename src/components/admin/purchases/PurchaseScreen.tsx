@@ -17,14 +17,14 @@ import { useConfirm } from "@/components/ui/confirm";
 import { api, btnGhost, btnPrimary, field } from "@/components/admin/pos/api";
 import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "@/components/admin/pos/register/parts";
 import type { Showroom, StockRow } from "@/components/admin/inventory/types";
-import { methodKey, purchaseNo, SUPPLIER_PAY_METHODS, type PurchaseRow, type SupplierBalance, type SupplierFull, type SupplierPayMethod } from "@/lib/pos/purchase-types";
+import { methodKey, plainItemId, purchaseNo, SUPPLIER_PAY_METHODS, type PurchaseRow, type SupplierBalance, type SupplierFull, type SupplierPayMethod } from "@/lib/pos/purchase-types";
 import { SupplierForm } from "./SupplierForm";
 import { PurchaseList } from "./PurchaseList";
 import { NewCategory, NewProduct } from "./QuickAdd";
 import { searchLocal, useCatalogIndex } from "@/lib/pos/catalog-store";
 
 interface Line {
-  variant_id: string;
+  variant_id: string; // or "product:<id>" for a product without sizes/colours
   title: string;
   label: string;
   in_shop: number;
@@ -145,8 +145,8 @@ export function PurchaseScreen() {
   // ---- the bill ---------------------------------------------------------------
   const addLine = useCallback(
     (p: PosProduct, v: PosVariant) => {
-      const vid = v.variant_id;
-      if (!vid) return;
+      // Sold-out items can always be bought: buying is what refills them.
+      const vid = v.variant_id ?? plainItemId(p.product_id);
       setDone(null);
       setPicking(null);
       setSelected(vid);
@@ -161,7 +161,8 @@ export function PurchaseScreen() {
         }
         return [{ variant_id: vid, title: p.title, label: v.label, in_shop: v.available, qty: 1, cost: "" }, ...current];
       });
-      // The last buying price comes from the stock list.
+      // The last buying price comes from the stock list (which has variants only).
+      if (!v.variant_id) return;
       void api<{ rows: StockRow[] }>(`/api/admin/inventory?ids=${encodeURIComponent(vid)}&showroom_id=${encodeURIComponent(showroomId)}`).then((res) => {
         if (!res.ok) return;
         const row = res.data.rows.find((r) => r.variant_id === vid);
@@ -723,17 +724,15 @@ export function PurchaseScreen() {
               ) : (
                 <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
                   {products.map((p) => {
-                    const variants = p.variants.filter((v) => v.variant_id);
-                    const stock = variants.reduce((s, v) => s + v.available, 0);
-                    const inBill = lines.filter((l) => variants.some((v) => v.variant_id === l.variant_id)).reduce((s, l) => s + l.qty, 0);
+                    const stock = p.variants.reduce((s, v) => s + v.available, 0);
+                    const inBill = lines.filter((l) => p.variants.some((v) => (v.variant_id ?? plainItemId(p.product_id)) === l.variant_id)).reduce((s, l) => s + l.qty, 0);
                     return (
                       <li key={p.product_id}>
                         <button
                           type="button"
-                          disabled={!variants.length}
-                          onClick={() => (variants.length === 1 ? addLine(p, variants[0]) : setPicking(p))}
+                          onClick={() => (p.variants.length === 1 ? addLine(p, p.variants[0]) : setPicking(p))}
                           title={p.title}
-                          className={`group relative w-full h-40 flex flex-col text-left rounded-md border bg-surface-card overflow-hidden border-b-4 transition active:scale-[0.98] disabled:opacity-40 ${inBill ? "border-accent-gold" : "border-border-light border-b-accent-gold/60 hover:border-accent-gold"}`}
+                          className={`group relative w-full h-40 flex flex-col text-left rounded-md border bg-surface-card overflow-hidden border-b-4 transition active:scale-[0.98] ${inBill ? "border-accent-gold" : "border-border-light border-b-accent-gold/60 hover:border-accent-gold"}`}
                         >
                           {p.image ? (
                             <span className="relative flex-1 min-h-0 bg-surface-subtle">

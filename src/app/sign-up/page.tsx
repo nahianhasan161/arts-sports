@@ -170,7 +170,7 @@ export default function SignUpPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-primary transition-colors"
+              className="sp-ico sp-tennis sp-sm absolute right-2.5 top-1/2 -translate-y-1/2"
             >
               {showPassword ? (
                 <EyeOff className="w-4 h-4" />
@@ -198,7 +198,7 @@ export default function SignUpPage() {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-primary transition-colors"
+              className="sp-ico sp-tennis sp-sm absolute right-2.5 top-1/2 -translate-y-1/2"
             >
               {showConfirmPassword ? (
                 <EyeOff className="w-4 h-4" />
@@ -209,7 +209,7 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        <Button type="submit" disabled={loading} className="w-full h-11">
+        <Button type="submit" disabled={loading} className="sp-btn sp-locker w-full h-11">
           {loading ? "Creating Account..." : "Create Account"}
         </Button>
 

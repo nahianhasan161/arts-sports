@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </h3>
           <button
             onClick={this.handleRetry}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-display text-xs uppercase tracking-wider font-bold rounded-lg hover:bg-primary-container transition-colors"
+            className="sp-btn sp-whistle inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-display text-xs uppercase tracking-wider font-bold rounded-lg hover:bg-primary-container transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Retry</span>
@@ -78,7 +78,7 @@ export function ProductGridErrorFallback() {
           </p>
       <button
         onClick={() => window.location.reload()}
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-display text-xs uppercase font-bold rounded-lg hover:bg-primary-container transition-colors"
+        className="sp-btn sp-whistle inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-display text-xs uppercase font-bold rounded-lg hover:bg-primary-container transition-colors"
       >
         <RotateCcw className="w-4 h-4" />
         <span>Reload Page</span>

@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import { Filter, X, ChevronUp, ChevronDown } from "lucide-react";
+import { useT } from "@/i18n/client";
+import { formatMoney } from "@/i18n";
+import { PriceFilter, type PriceRange } from "@/components/shop/PriceFilter";
 import type { Category } from "@/types";
 
 /**
@@ -17,9 +20,6 @@ import type { Category } from "@/types";
  * database, and this only reports intent back up.
  */
 
-const PRICE_MIN = 150;
-const PRICE_MAX = 5500;
-
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
 
 interface FilterSidebarProps {
@@ -28,13 +28,15 @@ interface FilterSidebarProps {
   subCategory: string;
   sizes: string[];
   inStockOnly: boolean;
+  /** Cheapest and dearest product of the current category, search and team; null when there is none. */
+  priceRange: PriceRange | null;
   priceMin?: number;
   priceMax?: number;
   onCategory: (category: string) => void;
   onSubCategory: (subCategory: string) => void;
   onToggleSize: (size: string) => void;
   onToggleInStock: () => void;
-  onPriceRange: (min: number, max: number) => void;
+  onPriceRange: (min: number | null, max: number | null) => void;
   onReset: () => void;
   onCloseMobile?: () => void;
 }
@@ -45,6 +47,7 @@ export function FilterSidebar({
   subCategory,
   sizes,
   inStockOnly,
+  priceRange,
   priceMin,
   priceMax,
   onCategory,
@@ -55,23 +58,36 @@ export function FilterSidebar({
   onReset,
   onCloseMobile,
 }: FilterSidebarProps) {
+  const { t, locale } = useT();
+  const label = (c: Category) => (locale === "bn" && c.name_bn) || c.name;
+  const money = (n: number) => formatMoney(n, locale);
   const [categoryOpen, setCategoryOpen] = useState(true);
   const [priceOpen, setPriceOpen] = useState(true);
   const [sizeOpen, setSizeOpen] = useState(true);
 
-  const min = priceMin ?? PRICE_MIN;
-  const max = priceMax ?? PRICE_MAX;
+  const priceLabel =
+    priceMin !== undefined && priceMax !== undefined
+      ? `${money(priceMin)} – ${money(priceMax)}`
+      : priceMax !== undefined
+        ? t("store.shop.ui.upTo", { price: money(priceMax) })
+        : priceMin !== undefined
+          ? t("store.shop.ui.from", { price: money(priceMin) })
+          : null;
 
   // The tree's top level is the parent categories; the currently selected
   // parent's children are the sub-categories offered as checkboxes.
   const parents = categories;
-  const children = categories.find((c) => c.slug === category || c.id === category)?.children ?? [];
+  const selected = categories.find((c) => c.slug === category || c.id === category);
+  const children = selected?.children ?? [];
+  const selectedSub = children.find((c) => c.name === subCategory);
+  const categoryLabel = selected ? label(selected) : t("store.shop.ui.category");
+  const subLabel = selectedSub ? label(selectedSub) : subCategory;
 
   const hasActiveFilters =
     (category !== "all" && category !== "") ||
     subCategory !== "" ||
     sizes.length > 0 ||
-    max < PRICE_MAX ||
+    priceLabel !== null ||
     inStockOnly;
 
   return (
@@ -83,32 +99,32 @@ export function FilterSidebar({
             <div className="flex items-center gap-1.5">
               <Filter className="w-4 h-4 text-primary" />
               <span className="font-display uppercase tracking-wider text-xs font-bold text-primary">
-                Active Filters
+                {t("store.shop.ui.activeFilters")}
               </span>
             </div>
             <button
               onClick={onReset}
-              className="text-[11px] font-bold text-badge-discount hover:underline uppercase"
+              className="sp-btn sp-yellow py-1 text-[11px] font-bold uppercase"
             >
-              Clear All
+              {t("store.shop.ui.clearAll")}
             </button>
           </div>
 
           <div className="flex flex-wrap gap-1.5 pt-1">
             {category && category !== "all" && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-surface-subtle text-primary border border-border-light rounded text-xs">
-                <span>Category</span>
-                <button onClick={() => onCategory("all")} aria-label="Clear category filter">
-                  <X className="w-3 h-3 hover:text-badge-discount" />
+                <span>{categoryLabel}</span>
+                <button onClick={() => onCategory("all")} aria-label={t("store.shop.ui.clearFilter", { name: categoryLabel })} className="sp-ico sp-red sp-xs">
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </span>
             )}
 
             {subCategory && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-surface-subtle text-primary border border-border-light rounded text-xs">
-                <span>{subCategory}</span>
-                <button onClick={() => onSubCategory("")} aria-label="Clear sub-category filter">
-                  <X className="w-3 h-3 hover:text-badge-discount" />
+                <span>{subLabel}</span>
+                <button onClick={() => onSubCategory("")} aria-label={t("store.shop.ui.clearFilter", { name: subLabel })} className="sp-ico sp-red sp-xs">
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </span>
             )}
@@ -118,27 +134,27 @@ export function FilterSidebar({
                 key={s}
                 className="inline-flex items-center gap-1 px-2 py-1 bg-surface-subtle text-primary border border-border-light rounded text-xs"
               >
-                <span>Size: {s}</span>
-                <button onClick={() => onToggleSize(s)} aria-label={`Clear size ${s}`}>
-                  <X className="w-3 h-3 hover:text-badge-discount" />
+                <span>{t("store.shop.ui.sizeIs", { size: s })}</span>
+                <button onClick={() => onToggleSize(s)} aria-label={t("store.shop.ui.clearFilter", { name: s })} className="sp-ico sp-red sp-xs">
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </span>
             ))}
 
-            {max < PRICE_MAX && (
+            {priceLabel && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-surface-subtle text-primary border border-border-light rounded text-xs">
-                <span>Up to ৳ {max}</span>
-                <button onClick={() => onPriceRange(PRICE_MIN, PRICE_MAX)} aria-label="Clear price filter">
-                  <X className="w-3 h-3 hover:text-badge-discount" />
+                <span>{priceLabel}</span>
+                <button onClick={() => onPriceRange(null, null)} aria-label={t("store.shop.ui.clearFilter", { name: t("store.shop.ui.price") })} className="sp-ico sp-red sp-xs">
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </span>
             )}
 
             {inStockOnly && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-secondary-fixed text-on-surface rounded text-xs font-medium">
-                <span>In Stock Only</span>
-                <button onClick={onToggleInStock} aria-label="Clear stock filter">
-                  <X className="w-3 h-3 hover:text-badge-discount" />
+                <span>{t("store.shop.ui.inStock")}</span>
+                <button onClick={onToggleInStock} aria-label={t("store.shop.ui.clearFilter", { name: t("store.shop.ui.inStock") })} className="sp-ico sp-red sp-xs">
+                  <X className="w-2.5 h-2.5" />
                 </button>
               </span>
             )}
@@ -152,11 +168,11 @@ export function FilterSidebar({
           onClick={() => setCategoryOpen(!categoryOpen)}
           className="w-full flex items-center justify-between font-display text-xs font-bold uppercase tracking-wider text-primary"
         >
-          <span>Category Tree</span>
+          <span>{t("store.shop.ui.categories")}</span>
           {categoryOpen ? (
-            <ChevronUp className="w-4 h-4 text-text-muted" />
+            <span className="sp-ico sp-tennis sp-sm"><ChevronUp className="w-4 h-4" /></span>
           ) : (
-            <ChevronDown className="w-4 h-4 text-text-muted" />
+            <span className="sp-ico sp-tennis sp-sm"><ChevronDown className="w-4 h-4" /></span>
           )}
         </button>
 
@@ -164,27 +180,27 @@ export function FilterSidebar({
           <div className="flex flex-col gap-2 pt-2 text-xs">
             <button
               onClick={() => onCategory("all")}
-              className={`flex items-center justify-between py-1.5 px-2 rounded transition-colors text-left ${
+              className={`sp-nav flex items-center justify-between py-1.5 px-2 rounded transition-colors text-left [&>:first-child]:mr-auto ${
                 !category || category === "all"
                   ? "bg-primary/10 text-primary font-bold"
                   : "hover:bg-surface-subtle text-on-surface-variant"
               }`}
             >
-              <span>All Categories</span>
+              <span>{t("store.shop.ui.allCategories")}</span>
             </button>
             {parents.map((item) => (
               <button
                 key={item.id}
                 onClick={() => onCategory(item.slug || item.id)}
-                className={`flex items-center justify-between py-1.5 px-2 rounded transition-colors text-left ${
+                className={`sp-nav flex items-center justify-between py-1.5 px-2 rounded transition-colors text-left [&>:first-child]:mr-auto ${
                   category === item.slug || category === item.id
                     ? "bg-primary/10 text-primary font-bold"
                     : "hover:bg-surface-subtle text-on-surface-variant"
                 }`}
               >
-                <span>{item.name}</span>
+                <span>{label(item)}</span>
                 {item.children && item.children.length > 0 && (
-                  <span className="text-[10px] text-text-muted">{item.children.length}</span>
+                  <span className="text-[10px] text-text-muted">{item.children.length.toLocaleString(locale === "bn" ? "bn-BD" : "en-IN")}</span>
                 )}
               </button>
             ))}
@@ -196,7 +212,7 @@ export function FilterSidebar({
       {children.length > 0 && (
         <div className="bg-surface-card p-space-base rounded-lg border border-border-light shadow-sm flex flex-col gap-2">
           <span className="font-display text-xs font-bold uppercase tracking-wider text-primary">
-            Sub-Category
+            {t("store.shop.ui.subCategory")}
           </span>
           <div className="flex flex-col gap-1.5 pt-1 text-xs">
             {children.map((item) => (
@@ -210,76 +226,31 @@ export function FilterSidebar({
                   onChange={() => onSubCategory(subCategory === item.name ? "" : item.name)}
                   className="w-3.5 h-3.5 rounded text-primary focus:ring-0 border-border-light"
                 />
-                <span>{item.name}</span>
+                <span>{label(item)}</span>
               </label>
             ))}
           </div>
         </div>
       )}
 
-      {/* 4. Price Range (BDT) Slider */}
+      {/* 4. Price sliders, when there is more than one price */}
+      {priceRange && priceRange.max > priceRange.min && (
       <div className="bg-surface-card p-space-base rounded-lg border border-border-light shadow-sm flex flex-col gap-2">
         <button
           onClick={() => setPriceOpen(!priceOpen)}
           className="w-full flex items-center justify-between font-display text-xs font-bold uppercase tracking-wider text-primary"
         >
-          <span>Price Range (BDT)</span>
+          <span>{t("store.shop.ui.price")} (৳)</span>
           {priceOpen ? (
-            <ChevronUp className="w-4 h-4 text-text-muted" />
+            <span className="sp-ico sp-tennis sp-sm"><ChevronUp className="w-4 h-4" /></span>
           ) : (
-            <ChevronDown className="w-4 h-4 text-text-muted" />
+            <span className="sp-ico sp-tennis sp-sm"><ChevronDown className="w-4 h-4" /></span>
           )}
         </button>
 
-        {priceOpen && (
-          <div className="pt-2">
-            <div className="flex justify-between text-xs font-semibold text-secondary mb-2">
-              <span>৳ {PRICE_MIN}</span>
-              <span className="font-bold text-primary">৳ {max.toLocaleString()}</span>
-              <span>৳ {PRICE_MAX.toLocaleString()}</span>
-            </div>
-
-            <input
-              type="range"
-              min={PRICE_MIN}
-              max={PRICE_MAX}
-              step={50}
-              value={max}
-              onChange={(e) => onPriceRange(min, Number(e.target.value))}
-              aria-label="Maximum price"
-              className="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary"
-            />
-
-            <input
-              type="range"
-              min={PRICE_MIN}
-              max={PRICE_MAX}
-              step={50}
-              value={min}
-              onChange={(e) =>
-                onPriceRange(
-                  Math.min(Number(e.target.value), max - 50),
-                  max
-                )
-              }
-              aria-label="Minimum price"
-              className="w-full h-1.5 bg-surface-container rounded-lg appearance-none cursor-pointer accent-primary mt-2"
-            />
-
-            <div className="flex items-center justify-between gap-2 mt-3 text-xs">
-              <div className="flex-1 bg-surface-subtle px-2 py-1.5 rounded border border-border-light">
-                <span className="text-[10px] text-text-muted block">Min</span>
-                <span className="font-bold text-primary">৳ {min.toLocaleString()}</span>
-              </div>
-              <span className="text-text-muted">-</span>
-              <div className="flex-1 bg-surface-subtle px-2 py-1.5 rounded border border-border-light">
-                <span className="text-[10px] text-text-muted block">Max</span>
-                <span className="font-bold text-primary">৳ {max.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {priceOpen && <PriceFilter range={priceRange} min={priceMin} max={priceMax} onChange={onPriceRange} />}
       </div>
+      )}
 
       {/* 5. Filter by Size */}
       <div className="bg-surface-card p-space-base rounded-lg border border-border-light shadow-sm flex flex-col gap-2">
@@ -287,16 +258,16 @@ export function FilterSidebar({
           onClick={() => setSizeOpen(!sizeOpen)}
           className="w-full flex items-center justify-between font-display text-xs font-bold uppercase tracking-wider text-primary"
         >
-          <span>Filter by Size</span>
+          <span>{t("store.shop.ui.size")}</span>
           {sizeOpen ? (
-            <ChevronUp className="w-4 h-4 text-text-muted" />
+            <span className="sp-ico sp-tennis sp-sm"><ChevronUp className="w-4 h-4" /></span>
           ) : (
-            <ChevronDown className="w-4 h-4 text-text-muted" />
+            <span className="sp-ico sp-tennis sp-sm"><ChevronDown className="w-4 h-4" /></span>
           )}
         </button>
 
         {sizeOpen && (
-          <div className="grid grid-cols-4 gap-1.5 pt-2">
+          <div className="grid grid-cols-4 gap-x-1.5 gap-y-3 pt-2">
             {SIZES.map((size) => {
               const active = sizes.includes(size);
               return (
@@ -304,11 +275,7 @@ export function FilterSidebar({
                   key={size}
                   onClick={() => onToggleSize(size)}
                   aria-pressed={active}
-                  className={`py-2 rounded text-xs font-bold transition-all text-center border ${
-                    active
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-surface-subtle hover:bg-surface-container text-on-surface border-border-light"
-                  }`}
+                  className={`sp-size ${active ? "sp-on" : ""} h-11 pt-1 text-xs font-bold text-center`}
                 >
                   {size}
                 </button>
@@ -321,19 +288,19 @@ export function FilterSidebar({
       {/* 6. In-Stock Filter */}
       <div className="bg-surface-card p-space-base rounded-lg border border-border-light shadow-sm flex items-center justify-between">
         <span className="font-display text-xs font-bold uppercase tracking-wider text-primary">
-          In Stock Only
+          {t("store.shop.ui.inStock")}
         </span>
         <button
           onClick={onToggleInStock}
           role="switch"
           aria-checked={inStockOnly}
-          aria-label="In stock only"
-          className={`w-10 h-5 rounded-full p-0.5 transition-colors ${
+          aria-label={t("store.shop.ui.inStock")}
+          className={`sp-switch w-10 h-5 rounded-full p-0.5 transition-colors ${
             inStockOnly ? "bg-primary" : "bg-surface-container"
           }`}
         >
           <div
-            className={`w-4 h-4 rounded-full bg-surface-card transition-transform ${
+            className={`sp-knob w-4 h-4 rounded-full transition-transform ${
               inStockOnly ? "translate-x-5" : "translate-x-0"
             }`}
           />
@@ -343,9 +310,9 @@ export function FilterSidebar({
       {onCloseMobile && (
         <button
           onClick={onCloseMobile}
-          className="lg:hidden w-full py-3 bg-primary text-primary-foreground font-display uppercase tracking-wider text-xs font-bold rounded-lg mt-2"
+          className="sp-btn sp-goal lg:hidden w-full py-3 font-display uppercase tracking-wider text-xs font-bold mt-2"
         >
-          Show Results
+          {t("store.shop.ui.showResults")}
         </button>
       )}
     </aside>

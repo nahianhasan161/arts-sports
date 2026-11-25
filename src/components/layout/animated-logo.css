@@ -1,0 +1,108 @@
+/* The header logo: the dot of the mark is the ball (AnimatedLogo.tsx).
+   Lengths are in the logo's own units (viewBox 578 x 144). */
+.as-logo {
+  --lap: 4.4s;
+  overflow: visible;
+}
+.as-logo-ball, .as-logo-ripple { opacity: 0; }
+.as-logo-body, .as-logo-ripple { fill: var(--logo-ball); }
+.as-logo-body { opacity: 0; }
+.as-logo-stripe { transform-box: fill-box; transform-origin: 50% 100%; }
+.as-logo-hit { transform-box: fill-box; transform-origin: 50% 100%; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .as-logo .as-logo-x { animation: as-logo-x var(--lap) linear both; }
+  .as-logo .as-logo-y { animation: as-logo-y var(--lap) both; }
+  .as-logo .as-logo-size { animation: as-logo-size var(--lap) linear both; }
+  .as-logo .as-logo-ball { animation: as-logo-ball var(--lap) linear both; }
+  .as-logo .as-logo-stripe { animation: as-logo-kick 0.75s cubic-bezier(0.3, 0.7, 0.3, 1) calc(var(--i) * 45ms) both; }
+  .as-logo .as-logo-hit { animation: as-logo-hit 0.5s ease-out calc(var(--lap) * var(--at)) both; }
+  .as-logo .as-logo-body { animation: as-logo-paint 1.3s ease-out calc(var(--lap) * var(--at)) both; }
+  .as-logo .as-logo-ripple { animation: as-logo-dust 0.6s ease-out calc(var(--lap) * 0.86) both; }
+  .as-logo .as-logo-ripple ellipse { animation: as-logo-ripple 0.6s ease-out calc(var(--lap) * 0.86) both; }
+}
+
+/* The path: one lap over the letters, then a lob back to the dot. */
+@keyframes as-logo-x {
+  0% { transform: translateX(103px); }
+  7% { transform: translateX(103px); }
+  17% { transform: translateX(174px); }
+  26% { transform: translateX(249px); }
+  36% { transform: translateX(343px); }
+  45% { transform: translateX(429px); }
+  53% { transform: translateX(492px); }
+  61% { transform: translateX(538px); }
+  86% { transform: translateX(103px); }
+  93% { transform: translateX(103px); }
+  97% { transform: translateX(103px); }
+  100% { transform: translateX(103px); }
+}
+@keyframes as-logo-y {
+  0% { transform: translateY(117.3px); animation-timing-function: linear; }
+  7% { transform: translateY(117.3px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  13.4% { transform: translateY(-34px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  17% { transform: translateY(14px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  21.8% { transform: translateY(-36px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  26% { transform: translateY(2px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  30.7% { transform: translateY(-40px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  36% { transform: translateY(13px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  40.5% { transform: translateY(-36px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  45% { transform: translateY(13px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  49.3% { transform: translateY(-34px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  53% { transform: translateY(1px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  56.6% { transform: translateY(-22px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  61% { transform: translateY(13px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  70.8% { transform: translateY(-62px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  86% { transform: translateY(117.3px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  89.5% { transform: translateY(88px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  93% { transform: translateY(117.3px); animation-timing-function: cubic-bezier(0.33, 0.67, 0.67, 1); }
+  95% { transform: translateY(108px); animation-timing-function: cubic-bezier(0.33, 0, 0.67, 0.33); }
+  97% { transform: translateY(117.3px); animation-timing-function: linear; }
+  100% { transform: translateY(117.3px); animation-timing-function: linear; }
+}
+/* Dot -> full size ball -> dot. */
+@keyframes as-logo-size {
+  0%, 100% { transform: scale(1); }
+  4% { transform: scale(1.12, 0.8); }
+  7% { transform: scale(0.95, 1.15); }
+  14%, 72% { transform: scale(2.08); }
+  85% { transform: scale(1.25); }
+  86.5% { transform: scale(1.4, 0.75); }
+  89% { transform: scale(1); }
+}
+/* Spins forward over the letters and back on the lob. */
+@keyframes as-logo-ball {
+  0%, 5% { opacity: 0; transform: rotate(0deg); }
+  9% { opacity: 1; }
+  61% { transform: rotate(900deg); }
+  88% { opacity: 1; }
+  94% { opacity: 0; transform: rotate(0deg); }
+  100% { opacity: 0; transform: rotate(0deg); }
+}
+/* Lean back, swing, settle. */
+@keyframes as-logo-kick {
+  0% { transform: skewX(0); }
+  35% { transform: skewX(6deg) scaleY(0.97); }
+  60% { transform: skewX(-7deg) scaleY(1.03); }
+  100% { transform: skewX(0); }
+}
+@keyframes as-logo-hit {
+  0% { transform: none; }
+  20% { transform: scale(1.05, 0.86); }
+  55% { transform: scale(0.98, 1.06); }
+  100% { transform: none; }
+}
+@keyframes as-logo-paint {
+  0% { opacity: 0; }
+  10%, 55% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes as-logo-dust {
+  0% { opacity: 0; }
+  15% { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+@keyframes as-logo-ripple {
+  from { transform: scale(0.3); }
+  to { transform: scale(1.5, 1); }
+}

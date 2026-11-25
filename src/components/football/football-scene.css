@@ -1,0 +1,130 @@
+/* Home hero: stadium + three mini footballers. Only transforms are animated. */
+
+/* ---------------------------------------------------------------- stadium */
+/* Horizon: below 1024px the scene is under the text, so the pitch starts no higher than the scene. */
+.fb-stadium { --hz: min(44%, calc(3.5rem + 0.76 * min(100vw - 2rem, 36rem))); position: absolute; inset: 0; overflow: hidden; background: linear-gradient(#04150f, #0a3222 62%); }
+.fb-crowd {
+  position: absolute; inset: 0 0 var(--hz); opacity: .5;
+  background-image:
+    radial-gradient(circle at 5px 6px, #f5d67b 2.5px, transparent 3px),
+    radial-gradient(circle at 15px 12px, #7fc4f4 2.5px, transparent 3px),
+    radial-gradient(circle at 25px 5px, #f3f7f4 2.5px, transparent 3px),
+    radial-gradient(circle at 34px 14px, #e2665f 2.5px, transparent 3px);
+  background-size: 38px 19px, 43px 21px, 47px 23px, 53px 20px;
+  -webkit-mask-image: linear-gradient(transparent 15%, rgb(0 0 0 / .3) 60%, #000);
+  mask-image: linear-gradient(transparent 15%, rgb(0 0 0 / .3) 60%, #000);
+}
+.fb-light { position: absolute; top: -30%; width: 60%; height: 95%; background: radial-gradient(ellipse at center, rgb(255 250 220 / .3), transparent 65%); }
+.fb-light-l { left: -18%; }
+.fb-light-r { right: -18%; }
+.fb-boards {
+  position: absolute; left: 0; right: 0; bottom: var(--hz); height: 16px;
+  background: repeating-linear-gradient(90deg, #c89b3c 0 120px, #f6f8f6 120px 126px, #0f5132 126px 246px, #f6f8f6 246px 252px);
+  box-shadow: 0 5px 12px rgb(0 0 0 / .4);
+}
+.fb-grass { position: absolute; inset: auto 0 0; height: var(--hz); overflow: hidden; perspective: 420px; perspective-origin: 50% 0; background: #17683a; }
+.fb-turf {
+  position: absolute; inset: 0 -60% -70%; transform: rotateX(48deg); transform-origin: 50% 0;
+  background:
+    radial-gradient(circle at 50% 42%, transparent 0 148px, rgb(255 255 255 / .55) 149px 154px, transparent 155px),
+    linear-gradient(90deg, transparent calc(50% - 3px), rgb(255 255 255 / .55) calc(50% - 3px) calc(50% + 3px), transparent calc(50% + 3px)),
+    repeating-linear-gradient(90deg, #1c7a44 0 110px, #17693a 110px 220px);
+}
+
+/* Wide screens: the hero text sits on the left, so quiet the stadium behind it. */
+@media (min-width: 1024px) {
+  .fb-stadium { --hz: 44%; }
+  .fb-boards { -webkit-mask-image: linear-gradient(90deg, transparent 46%, #000 56%); mask-image: linear-gradient(90deg, transparent 46%, #000 56%); }
+  .fb-stadium::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(3 24 15 / .72), transparent 58%); }
+}
+
+/* ------------------------------------------------------------------ scene */
+/* 1cqw = 1% of the scene's width, so everything scales together. Off screen,
+   content-visibility stops the browser drawing and animating it. */
+.fb-scene { container-type: inline-size; position: relative; width: 100%; aspect-ratio: 10 / 7.6; content-visibility: auto; }
+.fb-stage { position: absolute; inset: 0; }
+.fb-goal {
+  position: absolute; left: 26cqw; right: 26cqw; bottom: 25cqw; height: 25cqw;
+  border: 1cqw solid #f4f7f5; border-bottom: 0; border-radius: 1cqw 1cqw 0 0; opacity: .9;
+  background:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / .28) 0 1px, transparent 1px 2.2cqw),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / .28) 0 1px, transparent 1px 2.2cqw);
+}
+
+/* ---------------------------------------------------------------- players */
+.fb-player {
+  --skin: #eeb88f; --skin-d: #b87a52; --shirt: #fff; --shirt-d: #ccd6dd; --shorts: #1c2430; --sock: #fff; --boot: #f2b705; --ink: #14202c;
+  position: absolute; left: calc(var(--x) * 1cqw); bottom: calc(var(--y) * 1cqw);
+  font-size: calc(var(--size) * 1cqw); width: 6em; height: 10.4em; margin-left: -3em; perspective: 30em;
+}
+.fb-player span { position: absolute; display: block; }
+.fb-ten { --shirt: repeating-linear-gradient(90deg, #f8fbff 0 .5em, #74b9e8 .5em 1em); --shorts: #1b2533; --sock: #f8fbff; }
+.fb-seven { --skin: #dfa277; --skin-d: #a5673f; --shirt: #c8202f; --shorts: #14683c; --sock: #c8202f; --boot: #f4f7f5; --ink: #ffe9a8; }
+.fb-eleven { --skin: #c98d60; --skin-d: #8d5833; --shirt: #f8d423; --shorts: #1f4fae; --sock: #f4f7f5; --boot: #22c5a0; --ink: #0d6b3c; }
+
+.fb-figure { position: absolute; inset: 0; transform-style: preserve-3d; transform-origin: 50% 100%; animation: fb-sway 6s ease-in-out var(--delay) infinite; }
+.fb-player .fb-shadow { left: .6em; right: .6em; bottom: -.35em; height: 1em; border-radius: 50%; background: radial-gradient(closest-side, rgb(0 0 0 / .5), transparent); }
+
+.fb-head { position: absolute; left: .25em; top: -1.95em; width: 5.5em; height: 6.6em; transform-style: preserve-3d; transform: translateZ(.5em); }
+.fb-layer-face { transform: translateZ(.3em); }
+.fb-layer-hair { transform: translateZ(.45em); }
+.fb-neck { left: 2.4em; top: 3.5em; width: 1.2em; height: 1.1em; border-radius: .3em; background: var(--skin-d); transform: translateZ(.1em); }
+
+.fb-torso { left: 1.4em; top: 4.05em; width: 3.2em; height: 3em; border-radius: 1.1em 1.1em .5em .5em; background: var(--shirt); transform: translateZ(.2em); box-shadow: inset -.45em -.2em .6em rgb(0 0 0 / .28), inset .3em .2em .4em rgb(255 255 255 / .35); }
+.fb-torso b { position: absolute; inset: .75em 0 auto; text-align: center; font: 700 1.5em/1 var(--font-oswald); color: var(--ink); }
+.fb-ten .fb-torso b { -webkit-text-stroke: .16em #f8fbff; paint-order: stroke fill; }
+.fb-shorts { left: 1.45em; top: 6.75em; width: 3.1em; height: 1.35em; border-radius: .2em .2em .5em .5em; background: var(--shorts); transform: translateZ(.15em); box-shadow: inset -.4em -.2em .5em rgb(0 0 0 / .35); }
+.fb-arm { top: 4.35em; width: .95em; height: 2.7em; border-radius: .5em; transform-origin: 50% .4em; background: linear-gradient(transparent 46%, var(--skin) 46%), var(--shirt); box-shadow: inset -.2em 0 .3em rgb(0 0 0 / .22); }
+.fb-arm-l { left: .85em; animation: fb-arm-l 6s ease-in-out var(--delay) infinite; }
+.fb-arm-r { right: .85em; animation: fb-arm-r 6s ease-in-out var(--delay) infinite; }
+/* Tattoo sleeves. */
+.fb-ten .fb-arm-r, .fb-eleven .fb-arm { background:
+  repeating-linear-gradient(38deg, transparent 0 .24em, rgb(38 46 60 / .5) .24em .31em) 0 100% / 100% 42% no-repeat,
+  repeating-linear-gradient(-32deg, transparent 0 .36em, rgb(38 46 60 / .5) .36em .42em) 0 100% / 100% 42% no-repeat,
+  linear-gradient(transparent 46%, var(--skin) 46%), var(--shirt); }
+.fb-leg { top: 7.5em; width: 1.1em; height: 2.6em; border-radius: .4em; transform-origin: 50% .2em; background: linear-gradient(var(--skin) 38%, var(--sock) 38%); box-shadow: inset -.25em 0 .35em rgb(0 0 0 / .25); }
+.fb-leg::after { content: ""; position: absolute; bottom: -.3em; left: 50%; width: 1.75em; height: .8em; margin-left: calc(-.875em + var(--dir) * .25em); border-radius: .6em .6em .25em .25em; background: var(--boot); box-shadow: inset 0 -.2em 0 rgb(0 0 0 / .35); }
+/* The kicking leg is the one nearer the ball. */
+.fb-leg-kick { left: calc(2.45em + var(--dir) * .75em); animation: fb-kick 6s var(--delay) infinite; }
+.fb-leg-stand { left: calc(2.45em - var(--dir) * .75em); }
+
+/* ------------------------------------------------------------------- ball */
+.fb-ball-path { position: absolute; left: 0; bottom: 0; width: 6.4cqw; height: 6.4cqw; animation: fb-path 6s linear infinite; }
+.fb-ball-arc { position: absolute; inset: 0; animation: fb-arc 6s infinite; }
+.fb-ball { width: 100%; height: 100%; animation: fb-spin 1.5s linear infinite; }
+.fb-ball-arc::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 34% 28%, transparent 35%, rgb(0 0 0 / .42)); }
+.fb-ball-shadow { position: absolute; left: 0; bottom: -1cqw; width: 100%; height: 2cqw; border-radius: 50%; background: radial-gradient(closest-side, rgb(0 0 0 / .5), transparent); }
+
+/* Kicks land at 10% (striped 10), 40% (no. 7) and 70% (yellow 10) of the loop. */
+@keyframes fb-path {
+  0%, 10% { transform: translate(23cqw, -5cqw); }
+  36%, 40% { transform: translate(52cqw, -15cqw); }
+  66%, 70% { transform: translate(71cqw, -5cqw); }
+  96%, 100% { transform: translate(23cqw, -5cqw); }
+}
+@keyframes fb-arc {
+  0%, 10%, 36%, 40%, 66%, 70%, 96%, 100% { transform: none; animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  23%, 53% { transform: translateY(-22cqw); animation-timing-function: cubic-bezier(.6, 0, .8, .3); }
+  83% { transform: translateY(-50cqw); animation-timing-function: cubic-bezier(.6, 0, .8, .3); }
+}
+@keyframes fb-spin { to { transform: rotate(360deg); } }
+@keyframes fb-kick {
+  0%, 2%, 22%, 100% { transform: none; }
+  7% { transform: rotate(calc(var(--dir) * 42deg)); animation-timing-function: ease-in; }
+  10% { transform: rotate(calc(var(--dir) * -40deg)); }
+  13% { transform: rotate(calc(var(--dir) * -68deg)); }
+}
+@keyframes fb-sway {
+  0%, 100% { transform: rotateY(calc(var(--dir) * 16deg)); }
+  10% { transform: translateY(-.35em) rotateY(calc(var(--dir) * 24deg)) rotate(calc(var(--dir) * -5deg)); }
+  20%, 84% { transform: rotateY(calc(var(--dir) * 10deg)); }
+  32%, 48%, 64%, 78% { transform: translateY(-.3em) rotateY(calc(var(--dir) * -12deg)); }
+  40%, 56%, 71% { transform: rotateY(calc(var(--dir) * -14deg)); }
+}
+@keyframes fb-arm-l { 0%, 25%, 50%, 75%, 100% { transform: rotate(16deg); } 10% { transform: rotate(62deg); } 37%, 62%, 87% { transform: rotate(30deg); } }
+@keyframes fb-arm-r { 0%, 25%, 50%, 75%, 100% { transform: rotate(-16deg); } 10% { transform: rotate(-62deg); } 37%, 62%, 87% { transform: rotate(-30deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-scene *, .fb-scene *::after { animation: none !important; }
+  .fb-ball-path { transform: translate(23cqw, -5cqw); }
+}

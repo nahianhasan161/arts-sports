@@ -6,12 +6,15 @@ import Link from "next/link";
 import {
   AlertCircle,
   ArrowRight,
+  Ban,
   CalendarDays,
   Check,
+  Droplet,
   FileText,
   Images,
   Clock,
   ExternalLink,
+  Layers,
   Loader2,
   Lock,
   MapPin,
@@ -19,6 +22,9 @@ import {
   Palette,
   Phone,
   Plus,
+  Printer,
+  Shirt,
+  Spool,
   Store,
   Truck,
   Upload,
@@ -26,6 +32,7 @@ import {
 } from "lucide-react";
 import { usePasteDrop } from "./usePasteDrop";
 import { OurDesignsPicker, type GalleryDesign } from "./OurDesignsPicker";
+import { ChipIcon, FullSleeveIcon, type ChipIconType } from "@/components/ui/ChipIcon";
 import { useT } from "@/i18n/client";
 import { formatMoney, localized, type MessageKey } from "@/i18n";
 import { Turnstile, TURNSTILE_ENABLED } from "@/components/checkout/Turnstile";
@@ -52,6 +59,8 @@ const textarea =
   "w-full rounded-xl border border-border-light bg-surface-card p-3.5 text-sm text-on-surface placeholder:text-text-muted focus:outline-none focus:border-accent-gold focus:ring-2 focus:ring-accent-gold/25 transition";
 const label = "text-xs font-semibold text-on-surface-variant";
 
+const LOGO_ICONS: Record<LogoType, ChipIconType> = { print: Printer, dtf: Layers, silicon: Droplet, embroidery: Spool };
+
 type SectionId = "cj-design" | "cj-fabric" | "cj-style" | "cj-quantity" | "cj-date" | "cj-contact" | "cj-submit";
 
 /** A selectable card: gold ring and tick when chosen. */
@@ -61,7 +70,7 @@ function OptionCard({ active, onClick, children, className = "" }: { active: boo
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`relative text-left rounded-xl border p-3.5 transition-all ${
+      className={`sp-tile ${active ? "sp-on" : ""} relative text-left rounded-xl border p-3.5 transition-all ${
         active
           ? "border-accent-gold bg-accent-gold-soft ring-2 ring-accent-gold/30"
           : "border-border-light bg-surface-card hover:border-on-surface-variant/40 hover:shadow-sm"
@@ -84,9 +93,7 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`h-10 px-4 rounded-full border text-sm font-semibold inline-flex items-center gap-1.5 transition-colors ${
-        active ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border-light bg-surface-card text-on-surface hover:border-on-surface-variant/50"
-      }`}
+      className={`sp-chip ${active ? "sp-on" : ""} h-10 text-sm font-semibold inline-flex items-center gap-1.5`}
     >
       {children}
     </button>
@@ -130,7 +137,7 @@ function ErrorNote({ text }: { text: string }) {
 function AddOn({ checked, onChange, title, price }: { checked: boolean; onChange: (v: boolean) => void; title: string; price: string | null }) {
   return (
     <label
-      className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 cursor-pointer transition-all ${
+      className={`sp-tile ${checked ? "sp-on" : ""} flex items-center gap-3 rounded-xl border px-3.5 py-3 cursor-pointer transition-all ${
         checked ? "border-accent-gold bg-accent-gold-soft ring-2 ring-accent-gold/30" : "border-border-light bg-surface-card hover:border-on-surface-variant/40"
       }`}
     >
@@ -499,6 +506,7 @@ export function CustomJerseyForm() {
                     setTemplateId(null);
                   }}
                 >
+                  <ChipIcon of={[s]} className="w-4 h-4 shrink-0" />
                   {t(`customJersey.sport.${s}`)}
                 </Pill>
               ))}
@@ -529,7 +537,7 @@ export function CustomJerseyForm() {
                           type="button"
                           onClick={() => pickTemplate(tpl)}
                           aria-pressed={on}
-                          className={`group rounded-xl border p-2 pb-2.5 flex flex-col items-center gap-1.5 transition-all ${
+                          className={`sp-tile ${on ? "sp-on" : ""} group rounded-xl border p-2 pb-2.5 flex flex-col items-center gap-1.5 transition-all ${
                             on ? "border-accent-gold bg-accent-gold-soft ring-2 ring-accent-gold/30" : "border-border-light bg-surface-subtle hover:border-on-surface-variant/40"
                           }`}
                         >
@@ -557,7 +565,7 @@ export function CustomJerseyForm() {
                           type="button"
                           onClick={() => setSide(s)}
                           aria-pressed={side === s}
-                          className={`h-8 px-4 rounded-full text-xs font-bold transition-colors ${side === s ? "bg-primary text-primary-foreground" : "text-on-surface-variant"}`}
+                          className={`sp-chip ${side === s ? "sp-on" : ""} h-8 text-xs font-bold`}
                         >
                           {t(`customJersey.template.${s}`)}
                         </button>
@@ -606,7 +614,7 @@ export function CustomJerseyForm() {
                       </label>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <label className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl border border-border-light bg-surface-card font-semibold text-on-surface cursor-pointer hover:border-on-surface-variant/40">
+                      <label className="sp-btn sp-racket inline-flex items-center gap-1.5 h-10 font-semibold cursor-pointer">
                         <Images className="w-4 h-4" /> {t("customJersey.template.logo")}
                         <input
                           type="file"
@@ -619,7 +627,7 @@ export function CustomJerseyForm() {
                         />
                       </label>
                       {logo ? (
-                        <button type="button" className="text-text-muted hover:text-badge-discount inline-flex items-center gap-1" onClick={() => setLogo(null)}>
+                        <button type="button" className="sp-btn sp-red py-1 inline-flex items-center gap-1" onClick={() => setLogo(null)}>
                           <X className="w-3.5 h-3.5" /> {t("customJersey.upload.remove")}
                         </button>
                       ) : (
@@ -676,8 +684,9 @@ export function CustomJerseyForm() {
             <div className="flex flex-col gap-2">
               <span className={label}>{t("customJersey.options.sleeve")}</span>
               <div className="flex flex-wrap gap-2">
-                <Pill active={sleeve === "short"} onClick={() => setSleeve("short")}>{t("customJersey.options.short")}</Pill>
+                <Pill active={sleeve === "short"} onClick={() => setSleeve("short")}><Shirt className="w-4 h-4 shrink-0" />{t("customJersey.options.short")}</Pill>
                 <Pill active={sleeve === "full"} onClick={() => setSleeve("full")}>
+                  <FullSleeveIcon className="w-4 h-4 shrink-0" />
                   {t("customJersey.options.full")}
                   {extras.full_sleeve > 0 && <span className="text-[11px] opacity-70 tabular-nums">+{money(extras.full_sleeve)}</span>}
                 </Pill>
@@ -706,13 +715,13 @@ export function CustomJerseyForm() {
                 <strong className="block text-sm text-on-surface">{t("customJersey.options.collarPicture")}</strong>
                 {collarFile ? t("customJersey.options.collarPictureAdded") : t("customJersey.options.collarPictureHint")}
               </span>
-              <label className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-surface-card px-3 py-2 text-xs font-semibold text-on-surface cursor-pointer hover:bg-surface-subtle">
+              <label className="sp-btn sp-racket inline-flex items-center gap-1.5 py-2 text-xs font-semibold cursor-pointer">
                 {collarUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                 {t("customJersey.options.collarPictureAdd")}
                 <input type="file" accept="image/*" className="sr-only" disabled={collarUploading} onChange={(e) => { void addCollarPicture(e.target.files?.[0]); e.target.value = ""; }} />
               </label>
               {collarFile && (
-                <button type="button" onClick={() => setFiles((prev) => prev.filter((f) => f !== collarFile))} className="p-2 rounded-lg text-text-muted hover:text-badge-discount" aria-label={t("customJersey.upload.remove")}>
+                <button type="button" onClick={() => setFiles((prev) => prev.filter((f) => f !== collarFile))} className="sp-ico sp-red sp-sm" aria-label={t("customJersey.upload.remove")}>
                   <X className="w-4 h-4" />
                 </button>
               )}
@@ -722,11 +731,13 @@ export function CustomJerseyForm() {
           <div className="flex flex-col gap-2">
             <span className={label}>{t("customJersey.options.logo")} <span className="font-normal normal-case text-text-muted">· {t("customJersey.options.logoHint")}</span></span>
             <div className="flex flex-wrap gap-2">
-              <Pill active={!logoType} onClick={() => setLogoType(null)}>{t("customJersey.options.logoTypes.none")}</Pill>
+              <Pill active={!logoType} onClick={() => setLogoType(null)}><Ban className="w-4 h-4 shrink-0" />{t("customJersey.options.logoTypes.none")}</Pill>
               {LOGO_TYPES.map((lt) => {
                 const price = logoPrice(config.pricing, lt);
+                const LogoIcon = LOGO_ICONS[lt];
                 return (
                   <Pill key={lt} active={logoType === lt} onClick={() => setLogoType(lt)}>
+                    <LogoIcon className="w-4 h-4 shrink-0" />
                     {t(`customJersey.options.logoTypes.${lt}`)}
                     <span className="text-[11px] opacity-70 tabular-nums">{price > 0 ? `+${money(price)}` : t("customJersey.options.free")}</span>
                   </Pill>
@@ -747,8 +758,8 @@ export function CustomJerseyForm() {
             <p className="text-sm font-semibold text-on-surface bg-surface-subtle rounded-xl px-4 py-3">{t("customJersey.quantity.fromRoster", { count: num(activeRoster.length) })}</p>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
-              <div className="inline-flex items-center rounded-xl border border-border-light bg-surface-card overflow-hidden">
-                <button type="button" className="w-11 h-11 flex items-center justify-center text-on-surface hover:bg-surface-subtle disabled:opacity-40" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} aria-label="-">
+              <div className="sp-stepper gap-1">
+                <button type="button" className="sp-ico sp-plate sp-lg" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} aria-label="-">
                   <Minus className="w-4 h-4" />
                 </button>
                 <input
@@ -760,7 +771,7 @@ export function CustomJerseyForm() {
                   onChange={(e) => setQuantity(Math.max(1, Math.min(2000, Math.floor(Number(e.target.value)) || 1)))}
                   aria-label={t("customJersey.quantity.label")}
                 />
-                <button type="button" className="w-11 h-11 flex items-center justify-center text-on-surface hover:bg-surface-subtle" onClick={() => setQuantity((q) => Math.min(2000, q + 1))} aria-label="+">
+                <button type="button" className="sp-ico sp-plate sp-lg" onClick={() => setQuantity((q) => Math.min(2000, q + 1))} aria-label="+">
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
@@ -774,9 +785,7 @@ export function CustomJerseyForm() {
                   key={q.n}
                   type="button"
                   onClick={() => setQuantity(q.n)}
-                  className={`h-8 px-3 rounded-full border text-xs font-semibold transition-colors ${
-                    quantity >= q.n ? "border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400" : "border-border-light text-on-surface-variant hover:border-on-surface-variant/50"
-                  }`}
+                  className={`sp-chip ${quantity >= q.n ? "sp-on" : ""} h-8 text-xs font-semibold`}
                 >
                   {q.text}
                 </button>
@@ -797,7 +806,7 @@ export function CustomJerseyForm() {
               <input type="date" className={`${input} w-56 pl-10`} value={neededBy} min={minDateValue} onChange={(e) => setNeededBy(e.target.value)} aria-label={t("customJersey.date.label")} />
             </div>
             {neededBy && (
-              <button type="button" onClick={() => setNeededBy("")} className="text-xs text-text-muted hover:text-on-surface inline-flex items-center gap-1">
+              <button type="button" onClick={() => setNeededBy("")} className="sp-btn sp-red py-1 text-xs inline-flex items-center gap-1">
                 <X className="w-3.5 h-3.5" /> {t("customJersey.upload.remove")}
               </button>
             )}
@@ -846,8 +855,8 @@ export function CustomJerseyForm() {
           {!pickup && (
             <>
               <div className="flex flex-wrap gap-2">
-                <Pill active={zone === "dhaka"} onClick={() => setZone("dhaka")}>{t("customJersey.contact.dhaka", { fee: money(config.delivery.dhaka) })}</Pill>
-                <Pill active={zone === "outside"} onClick={() => setZone("outside")}>{t("customJersey.contact.outside", { fee: money(config.delivery.outside) })}</Pill>
+                <Pill active={zone === "dhaka"} onClick={() => setZone("dhaka")}><MapPin className="w-4 h-4 shrink-0" />{t("customJersey.contact.dhaka", { fee: money(config.delivery.dhaka) })}</Pill>
+                <Pill active={zone === "outside"} onClick={() => setZone("outside")}><Truck className="w-4 h-4 shrink-0" />{t("customJersey.contact.outside", { fee: money(config.delivery.outside) })}</Pill>
               </div>
               <textarea className={textarea} rows={2} maxLength={500} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t("customJersey.contact.address")} aria-label={t("customJersey.contact.address")} autoComplete="street-address" />
             </>
@@ -954,7 +963,7 @@ export function CustomJerseyForm() {
               <button
                 type="submit"
                 disabled={submitting || uploading}
-                className="h-12 rounded-xl bg-accent-gold text-white font-display text-sm font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 shadow-lg shadow-accent-gold/25 hover:brightness-110 active:scale-[0.99] transition disabled:opacity-60"
+                className="sp-btn sp-goal h-12 font-display text-sm font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {submitting ? t("customJersey.submitting") : t("customJersey.submit")}
@@ -967,7 +976,7 @@ export function CustomJerseyForm() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border-light bg-surface-card px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-light bg-surface-card px-4 py-3">
           <a href="tel:+8801911904618" className="flex items-center gap-2.5 min-w-0">
             <span className="shrink-0 w-9 h-9 rounded-full bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
               <Phone className="w-4 h-4" />
@@ -977,7 +986,7 @@ export function CustomJerseyForm() {
               <span className="block text-sm font-semibold text-on-surface">+880 1911-904618</span>
             </span>
           </a>
-          <Link href="/custom-jersey/gallery" className="shrink-0 text-xs font-semibold text-on-surface underline underline-offset-4 decoration-accent-gold">
+          <Link href="/custom-jersey/gallery" className="sp-btn sp-ticket shrink-0 py-2 text-xs font-semibold">
             {t("customJersey.seeGallery")}
           </Link>
         </div>
@@ -985,7 +994,7 @@ export function CustomJerseyForm() {
 
       {/* Phones: running total + send, above the bottom menu, until the real button scrolls into view. */}
       <div
-        className={`lg:hidden fixed inset-x-0 bottom-16 z-40 px-3 pb-2 transition-all duration-300 ${submitVisible ? "translate-y-4 opacity-0 pointer-events-none" : "translate-y-0 opacity-100"}`}
+        className={`lg:hidden fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 pb-2 transition-all duration-300 ${submitVisible ? "translate-y-4 opacity-0 pointer-events-none" : "translate-y-0 opacity-100"}`}
       >
         <div className="flex items-center gap-3 rounded-2xl bg-primary-container text-white pl-4 pr-2 py-2 shadow-2xl shadow-black/30 ring-1 ring-white/10">
           <div className="min-w-0 flex-1">
@@ -997,7 +1006,7 @@ export function CustomJerseyForm() {
           <button
             type="submit"
             disabled={submitting || uploading}
-            className="h-11 px-5 rounded-xl bg-accent-gold text-white font-display text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5 disabled:opacity-60"
+            className="sp-btn sp-goal h-11 font-display text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {t("customJersey.submit")}
@@ -1041,7 +1050,7 @@ function PickupShop({ shop }: { shop: NonNullable<CustomJerseyConfig["pickup"]> 
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
-          <a href={shop.map.link} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-primary border-t border-border-light hover:bg-surface-card">
+          <a href={shop.map.link} target="_blank" rel="noreferrer" className="sp-btn sp-flag m-3 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold">
             <ExternalLink className="w-3.5 h-3.5" /> {t("home.cj.store.map")}
           </a>
         </>
@@ -1134,7 +1143,7 @@ function DesignFiles({ files, setFiles, uploading, onAdd }: {
         <button
           type="button"
           onClick={() => setPicking(true)}
-          className="sm:w-44 rounded-2xl border border-border-light bg-surface-card p-4 text-sm font-semibold text-on-surface inline-flex sm:flex-col items-center justify-center gap-2 hover:border-accent-gold/60 hover:shadow-sm transition"
+          className="sp-tile sm:w-44 rounded-2xl border border-border-light bg-surface-card p-4 text-sm font-semibold text-on-surface inline-flex sm:flex-col items-center justify-center gap-2 hover:border-accent-gold/60 hover:shadow-sm transition"
         >
           <span className="w-10 h-10 rounded-full bg-accent-gold-soft text-accent-gold flex items-center justify-center">
             <Images className="w-5 h-5" />
@@ -1174,7 +1183,7 @@ function DesignFiles({ files, setFiles, uploading, onAdd }: {
                     type="button"
                     onClick={() => remove(f.path)}
                     aria-label={t("customJersey.upload.remove")}
-                    className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-badge-discount"
+                    className="sp-ico sp-red sp-sm absolute top-2 left-2"
                   >
                     <X className="w-4 h-4" />
                   </button>

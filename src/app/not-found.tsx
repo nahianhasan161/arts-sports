@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Ball } from "@/components/football/Ball";
 import { Home, ShoppingBag } from "lucide-react";
 
 /**
@@ -15,8 +16,8 @@ export default function NotFound() {
   return (
     <div className="w-full bg-surface">
       <div className="max-w-2xl mx-auto px-space-base py-space-3xl text-center">
-        <p className="font-display text-6xl sm:text-7xl font-bold text-primary/20 mb-2">
-          404
+        <p className="font-display text-6xl sm:text-7xl font-bold text-primary mb-2">
+          4<Ball className="inline-block w-[0.8em] h-[0.8em] mx-1 align-[-0.06em] as-bounce" />4
         </p>
         <h1 className="font-display text-2xl sm:text-3xl uppercase font-bold text-primary mb-3">
           We couldn&apos;t find that page
@@ -29,14 +30,14 @@ export default function NotFound() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center mb-space-xl">
           <Link
             href="/shop"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-primary-container transition-colors shadow-sm"
+            className="sp-btn sp-pitch inline-flex items-center justify-center gap-2 py-3 font-display uppercase tracking-wider text-xs font-bold"
           >
             <ShoppingBag className="w-4 h-4" />
             Browse Catalogue
           </Link>
           <Link
             href="/"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border-light bg-surface-card text-primary font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-surface-subtle transition-colors"
+            className="sp-btn sp-flag inline-flex items-center justify-center gap-2 py-3 font-display uppercase tracking-wider text-xs font-bold"
           >
             <Home className="w-4 h-4" />
             Go Home
@@ -61,7 +62,7 @@ export default function NotFound() {
               <Link
                 key={link.href + link.label}
                 href={link.href}
-                className="px-3 py-1.5 rounded-md bg-surface-card border border-border-light text-xs font-semibold text-primary hover:bg-surface-subtle transition-colors"
+                className="sp-chip py-1.5 text-xs font-semibold"
               >
                 {link.label}
               </Link>

@@ -99,7 +99,7 @@ export function NewReturnButton() {
     return (
       <button
         onClick={handleOpen}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-display text-xs uppercase tracking-wider font-bold rounded-lg hover:bg-primary-container transition-colors"
+        className="sp-btn sp-yellow inline-flex items-center gap-2 py-2 font-display text-xs uppercase tracking-wider font-bold"
       >
         <Plus className="w-4 h-4" />
         <span>New Return</span>
@@ -114,7 +114,7 @@ export function NewReturnButton() {
           <h3 className="font-display text-lg font-bold text-primary">Request a Return</h3>
           <button
             onClick={() => setOpen(false)}
-            className="p-1.5 rounded-lg text-text-muted hover:bg-surface-subtle"
+            className="sp-ico sp-red sp-sm"
           >
             <X className="w-4 h-4" />
           </button>
@@ -148,7 +148,7 @@ export function NewReturnButton() {
                 </span>
                 <button
                   onClick={() => setSelectedOrder(null)}
-                  className="text-xs text-text-muted hover:text-on-surface underline"
+                  className="sp-btn sp-dumbbell py-1.5 text-xs"
                 >
                   Change order
                 </button>
@@ -211,14 +211,14 @@ export function NewReturnButton() {
         <div className="p-6 border-t border-border-light flex justify-end gap-2">
           <button
             onClick={() => setOpen(false)}
-            className="px-4 py-2 text-sm font-medium text-text-muted hover:bg-surface-subtle rounded-lg transition-colors"
+            className="sp-btn sp-red py-2 text-sm font-medium"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting || !selectedOrder}
-            className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary-container disabled:opacity-50 transition-colors"
+            className="sp-btn sp-goal py-2 text-sm font-bold"
           >
             {submitting ? "Submitting..." : "Submit Return Request"}
           </button>

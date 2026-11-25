@@ -6,6 +6,7 @@ import { readFileSync } from "fs";
  *
  *   node --env-file=.env.local scripts/demo-data.mjs seed --dry-run   # try it, change nothing
  *   node --env-file=.env.local scripts/demo-data.mjs seed             # add the demo rows
+ *   node --env-file=.env.local scripts/demo-data.mjs accessories      # add only the demo accessories
  *   node --env-file=.env.local scripts/demo-data.mjs remove           # delete them again
  *
  * Everything runs in one transaction: if any statement fails, nothing is
@@ -19,8 +20,8 @@ const projectRef = process.env.SUPABASE_PROJECT_REF ?? "khebwqdhucrdfpfadxry";
 const action = process.argv[2];
 const dryRun = process.argv.includes("--dry-run");
 
-if (action !== "seed" && action !== "remove") {
-  console.error("Usage: node scripts/demo-data.mjs <seed|remove> [--dry-run]");
+if (action !== "seed" && action !== "remove" && action !== "accessories") {
+  console.error("Usage: node scripts/demo-data.mjs <seed|accessories|remove> [--dry-run]");
   process.exit(1);
 }
 if (!accessToken) {
@@ -29,9 +30,9 @@ if (!accessToken) {
 }
 
 const remove = readFileSync("supabase/demo/remove.sql", "utf8");
-const seed = action === "seed" ? readFileSync("supabase/demo/seed.sql", "utf8") : "";
+const seed = action === "seed" ? ["seed", "seed-extra", "seed-accessories"].map((f) => readFileSync(`supabase/demo/${f}.sql`, "utf8")).join("\n") : action === "accessories" ? readFileSync("supabase/demo/seed-accessories.sql", "utf8") : "";
 const sql = `BEGIN;
-${remove}
+${action === "accessories" ? "" : remove}
 ${seed}
 ${dryRun ? "ROLLBACK" : "COMMIT"};
 `;
@@ -46,5 +47,5 @@ if (resp.status >= 400) {
   console.error(`FAILED — nothing was changed.\n${text.substring(0, 1500)}`);
   process.exit(1);
 }
-console.log(dryRun ? `Dry run OK: the ${action} script runs without errors. Nothing was changed.` : action === "seed" ? "Demo data added." : "Demo data removed.");
+console.log(dryRun ? `Dry run OK: the ${action} script runs without errors. Nothing was changed.` : action !== "remove" ? "Demo data added." : "Demo data removed.");
 if (!dryRun && action === "seed") console.log("Open /admin to look around. Remove it later with: node --env-file=.env.local scripts/demo-data.mjs remove");

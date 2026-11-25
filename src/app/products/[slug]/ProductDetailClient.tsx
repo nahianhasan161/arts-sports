@@ -52,7 +52,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
     product.colors[0]?.name || "Default"
   );
   const [selectedSize, setSelectedSize] = useState<string>(
-    product.sizes.find((s) => s.stock > 0)?.size || product.sizes[0]?.size || "M"
+    product.sizes.find((s) => s.stock > 0)?.size || product.sizes[0]?.size || ""
   );
   const [quantity, setQuantity] = useState(1);
   const [sizeModalOpen, setSizeModalOpen] = useState(false);
@@ -126,6 +126,8 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
 
   const isLiked = isInWishlist(product.id);
   const currentSizeObj = product.sizes.find((s) => s.size === selectedSize);
+  // "3U / G5", "0.68 mm"...: a variation that is not a clothing size.
+  const isOption = product.sizes.some((s) => !/^(x*[sml]|\d*xl)$/i.test(s.size.trim()));
   const availableStock = currentSizeObj ? currentSizeObj.stock : product.stock;
 
   const eventItem = () => ({
@@ -226,15 +228,12 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                 </div>
 
                 {/* Floating Wishlist & Share */}
-                <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+                <div className="absolute top-4 right-4 z-20 flex flex-col gap-4">
                   <button
                     onClick={() => toggleWishlist(product)}
                     aria-label="Wishlist"
-                    className={`w-9 h-9 rounded-full bg-surface-card/90 backdrop-blur-md shadow-md flex items-center justify-center transition-all ${
-                      isLiked
-                        ? "text-badge-discount scale-110"
-                        : "text-text-muted hover:text-badge-discount"
-                    }`}
+                    aria-pressed={isLiked}
+                    className="sp-ico sp-medal"
                   >
                     <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
                   </button>
@@ -248,7 +247,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                       }
                     }}
                     aria-label="Share"
-                    className="w-9 h-9 rounded-full bg-surface-card/90 backdrop-blur-md shadow-md text-text-muted hover:text-primary transition-all flex items-center justify-center"
+                    className="sp-ico sp-basket"
                   >
                     <Share2 className="w-4 h-4" />
                   </button>
@@ -389,7 +388,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                       title={c.name}
                     >
                       <span
-                        className="block w-7 h-7 rounded-full shadow-inner border border-black/10"
+                        className="sp-swatch block w-7 h-7 rounded-full shadow-inner border border-black/10"
                         style={{ backgroundColor: c.hex }}
                       />
                     </button>
@@ -399,21 +398,23 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
 
               )}
 
-              {/* Size Selector Matrix */}
+              {/* Size Selector Matrix (hidden for products without sizes) */}
               <div>
+                {product.sizes.length > 0 && (
+                <>
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-display text-xs uppercase text-primary font-bold">
-                    {t("store.pdp.size")}: <span className="text-on-surface font-bold">{selectedSize}</span>
+                    {isOption ? t("store.pdp.option") : t("store.pdp.size")}: <span className="text-on-surface font-bold">{selectedSize}</span>
                     {currentSizeObj?.chest && <span className="text-text-muted font-normal normal-case"> · {t("store.pdp.chest", { value: currentSizeObj.chest })}</span>}
                   </span>
-                  <button
+                  {!isOption && <button
                     type="button"
                     onClick={() => setSizeModalOpen(true)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-accent-gold transition-colors"
+                    className="sp-btn sp-whistle h-8 inline-flex items-center gap-1 text-xs font-semibold"
                   >
                     <Ruler className="w-3.5 h-3.5" />
-                    <u>{t("store.pdp.sizeGuide")}</u>
-                  </button>
+                    {t("store.pdp.sizeGuide")}
+                  </button>}
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {product.sizes.map((s) => {
@@ -425,22 +426,18 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                         disabled={s.stock === 0}
                         onClick={() => setSelectedSize(s.size)}
                         aria-pressed={isSelected}
-                        className={`relative overflow-hidden py-3 px-2 rounded-xl text-center transition-all border ${
-                          s.stock === 0
-                            ? "bg-surface-subtle border-dashed border-border-light text-text-muted cursor-not-allowed"
-                            : isSelected
-                              ? "bg-primary text-primary-foreground border-primary shadow-md"
-                              : "bg-surface-card border-border-light hover:border-on-surface text-on-surface"
-                        }`}
+                        className={`sp-size ${isOption ? "sp-option py-3" : "min-h-16 py-2.5"} px-1 text-center ${isSelected ? "sp-on" : ""}`}
                       >
                         <div className={`font-bold text-sm ${s.stock === 0 ? "line-through" : ""}`}>{s.size}</div>
-                        <div className={`text-[10px] ${isSelected && s.stock > 0 ? "opacity-75" : "text-text-muted"}`}>
-                          {s.stock === 0 ? t("store.pdp.soldOut") : t("store.pdp.chest", { value: s.chest })}
+                        <div className="text-[10px] leading-tight opacity-80">
+                          {s.stock === 0 ? t("store.pdp.soldOut") : s.chest ? t("store.pdp.chest", { value: s.chest }) : null}
                         </div>
                       </button>
                     );
                   })}
                 </div>
+                </>
+                )}
 
                 {/* Scarcity and social proof: real stock, real orders, live viewers. */}
                 <SocialProof productId={product.id} stock={availableStock} size={selectedSize} />
@@ -450,23 +447,23 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
               <div className="flex flex-col gap-2.5 pt-2">
                 <div className="flex items-center gap-3">
                   {/* Quantity Stepper */}
-                  <div className="flex items-center bg-surface-subtle rounded-lg border border-border-light h-12 w-32 shrink-0">
+                  <div className="sp-stepper h-12 w-32 shrink-0">
                     <button
                       type="button"
                       aria-label="Decrease quantity"
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-10 h-full flex items-center justify-center text-on-surface hover:text-primary"
+                      className="sp-ico sp-plate sp-lg"
                     >
                       <Minus className="w-4 h-4" />
                     </button>
-                    <span className="w-12 text-center font-bold text-sm text-primary">
+                    <span className="w-12 text-center font-bold text-sm">
                       {quantity}
                     </span>
                     <button
                       type="button"
                       aria-label="Increase quantity"
                       onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
-                      className="w-10 h-full flex items-center justify-center text-on-surface hover:text-primary"
+                      className="sp-ico sp-plate sp-lg"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -477,7 +474,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                     type="button"
                     onClick={handleAddToCart}
                     disabled={availableStock <= 0}
-                    className="flex-1 h-12 bg-primary hover:opacity-90 text-primary-foreground font-display text-xs uppercase tracking-wider font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="sp-btn sp-basket flex-1 h-12 font-display text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2"
                   >
                     <ShoppingBag className="w-4 h-4" />
                     <span>{availableStock > 0 ? t("store.pdp.addToCart", { price: formatMoney(displayPrice * quantity, locale) }) : t("store.pdp.soldOut")}</span>
@@ -489,7 +486,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   type="button"
                   onClick={handleBuyNow}
                   disabled={availableStock <= 0}
-                  className="w-full h-12 bg-accent-gold hover:brightness-110 text-white font-display text-xs uppercase tracking-wider font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-accent-gold/20 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="sp-btn sp-leather w-full h-12 font-display text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2"
                 >
                   <Zap className="w-4 h-4" />
                   <span>{t("store.pdp.buyNow")}</span>
@@ -534,10 +531,10 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
       </section>
 
       {/* Mobile: buy button stays on screen while scrolling (above the bottom nav). */}
-      <div className="lg:hidden fixed bottom-16 inset-x-0 z-30 bg-surface-card/95 backdrop-blur border-t border-border-light px-4 py-2.5 flex items-center gap-3">
+      <div className="lg:hidden fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] inset-x-0 z-30 bg-surface-card/95 backdrop-blur border-t border-border-light px-4 py-2.5 flex items-center gap-3">
         <div className="min-w-0">
           <p className="text-[11px] text-text-muted truncate">
-            {selectedSize} · {selectedColor}
+            {[selectedSize, product.colors.length > 0 && selectedColor].filter(Boolean).join(" · ")}
           </p>
           <p className="font-display font-bold text-on-surface tabular-nums">{formatMoney(displayPrice * quantity, locale)}</p>
         </div>
@@ -545,7 +542,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
           type="button"
           onClick={handleBuyNow}
           disabled={availableStock <= 0}
-          className="flex-1 h-11 bg-accent-gold text-white font-display text-xs uppercase tracking-wider font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+          className="sp-btn sp-leather flex-1 h-11 font-display text-xs uppercase tracking-wider font-bold flex items-center justify-center gap-2"
         >
           <Zap className="w-4 h-4" /> {availableStock > 0 ? t("store.pdp.buyNow") : t("store.pdp.soldOut")}
         </button>

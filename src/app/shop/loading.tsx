@@ -14,7 +14,7 @@ export default function ShopLoading() {
       </div>
       <div className="max-w-container-max mx-auto px-space-base py-space-lg flex gap-space-xl">
         <Skeleton className="hidden lg:block w-[280px] h-[500px] shrink-0" />
-        <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-space-sm sm:gap-space-md">
+        <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4">
           <ProductGridSkeleton count={8} />
         </div>
       </div>

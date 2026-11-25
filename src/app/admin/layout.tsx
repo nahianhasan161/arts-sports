@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Shield } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import "@/i18n/admin-messages";
 import { useT } from "@/i18n/client";
 import PageSkeleton from "@/components/ui/PageSkeleton";
 import { AdminAccessProvider, buildAccess, type AdminAccess } from "@/components/admin/access";

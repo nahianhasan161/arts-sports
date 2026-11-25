@@ -60,7 +60,13 @@ export interface PurchaseRow {
   created_at: string;
 }
 
+/** Purchase lines name a product without sizes/colours as "product:<id>" in `variant_id`. */
+const PLAIN = "product:";
+export const plainItemId = (productId: string) => `${PLAIN}${productId}`;
+export const plainProductId = (itemId: string) => (itemId.startsWith(PLAIN) ? itemId.slice(PLAIN.length) : null);
+
 export interface PurchaseItem {
+  /** A variant id, or "product:<id>". */
   variant_id: string;
   title: string;
   label: string;

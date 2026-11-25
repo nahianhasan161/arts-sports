@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /** Delivery fees and the free-delivery line, as set by admin (same values the order RPC uses). */
 export interface CheckoutSettings {
@@ -22,14 +21,22 @@ export const DEFAULT_CHECKOUT_SETTINGS: CheckoutSettings = {
 
 let cache: Promise<CheckoutSettings> | null = null;
 
+async function read(): Promise<CheckoutSettings> {
+  // Loaded on demand: the cart drawer uses this and is on every page.
+  const { getSupabaseBrowserClient } = await import("@/lib/supabase/client");
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return DEFAULT_CHECKOUT_SETTINGS;
+  const { data, error } = await supabase.rpc("checkout_settings");
+  return error || !data ? DEFAULT_CHECKOUT_SETTINGS : { ...DEFAULT_CHECKOUT_SETTINGS, ...(data as Partial<CheckoutSettings>) };
+}
+
 function load(): Promise<CheckoutSettings> {
   if (!cache) {
-    const supabase = getSupabaseBrowserClient();
-    cache = supabase
-      ? Promise.resolve(supabase.rpc("checkout_settings")).then(({ data, error }) =>
-          error || !data ? DEFAULT_CHECKOUT_SETTINGS : { ...DEFAULT_CHECKOUT_SETTINGS, ...(data as Partial<CheckoutSettings>) }
-        )
-      : Promise.resolve(DEFAULT_CHECKOUT_SETTINGS);
+    cache = read();
+    // A failed load (slow or lost connection) is tried again by the next caller.
+    cache.catch(() => {
+      cache = null;
+    });
   }
   return cache;
 }

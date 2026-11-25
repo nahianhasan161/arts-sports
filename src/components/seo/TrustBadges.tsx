@@ -77,7 +77,7 @@ export function StickyMobileCTA() {
         </span>
         <a
           href="/shop"
-          className="inline-flex items-center justify-center gap-1 px-4 py-2 bg-accent-gold text-primary font-display text-xs uppercase tracking-wider font-bold rounded hover:bg-secondary transition-colors"
+          className="sp-btn sp-pitch inline-flex items-center justify-center gap-1 py-2 font-display text-xs uppercase tracking-wider font-bold"
         >
           Shop Now
         </a>

@@ -115,7 +115,7 @@ export default function SizeGuideModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-text-muted hover:text-primary"
+            className="sp-ico sp-red sp-sm"
             aria-label="Close size guide"
           >
             <X className="w-5 h-5" />
@@ -136,11 +136,7 @@ export default function SizeGuideModal({
                 key={code}
                 type="button"
                 onClick={() => selectRegion(code)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  region === code
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-surface-subtle text-text-muted hover:text-primary"
-                }`}
+                className={`sp-chip ${region === code ? "sp-on" : ""} py-1.5 text-xs font-semibold`}
               >
                 {REGION_LABELS[code]}
               </button>
@@ -202,7 +198,7 @@ export default function SizeGuideModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 bg-primary text-white font-display uppercase text-xs font-bold rounded-lg hover:bg-primary-container transition-colors"
+            className="sp-btn sp-wicket w-full py-2.5 font-display uppercase text-xs font-bold"
           >
             Got it, close
           </button>

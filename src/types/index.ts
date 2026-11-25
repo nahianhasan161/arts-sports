@@ -272,6 +272,7 @@ export interface Category {
   parent_id: string | null;
   slug: string;
   name: string;
+  name_bn?: string | null;
   children?: Category[];
   depth?: number;
 }

@@ -12,7 +12,7 @@
 DO $$
 DECLARE
     -- The first admin "owns" the demo shop sales and reviews.
-    v_admin UUID := (SELECT id FROM public.profiles WHERE role IN ('super_admin', 'admin') ORDER BY created_at LIMIT 1);
+    v_admin UUID := (SELECT id FROM public.profiles WHERE role IN ('super_admin', 'admin') ORDER BY (role = 'super_admin') DESC, id LIMIT 1);
     v_main TEXT := (SELECT id FROM public.showrooms WHERE is_active AND id NOT LIKE 'demo-%' ORDER BY fulfillment_priority LIMIT 1);
     v_branch TEXT := 'demo-shop-uttara';
     p RECORD;

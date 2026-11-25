@@ -1,0 +1,317 @@
+/* ---- Every button of the customer site is a thing from sport ----
+   Shape class + item class, e.g. `sp-btn sp-goal`, `sp-ico sp-tennis`:
+     sp-btn   a button with text: sp-football sp-leather sp-tennis sp-basket sp-volley
+              (balls), sp-jersey sp-bat sp-goal sp-ticket sp-board sp-whistle sp-flag
+              sp-racket sp-armband sp-dumbbell sp-shuttle sp-medal sp-pitch sp-locker
+              sp-wicket sp-yellow sp-red
+     sp-ico   a round (or card shaped) icon button: the balls, sp-medal sp-plate
+              sp-tactics sp-yellow sp-red
+     sp-chip  a filter / choice chip; each one in a row is the next ball, `sp-on` = chosen
+     sp-size  a size, printed on a jersey; `sp-option` for longer text (scoreboard)
+   Colours are fixed (same in light and dark). Everything is under `.pitch`, so the
+   admin and the POS keep the plain button when they share a component.
+   Height, width and font size stay with the caller's Tailwind classes. */
+
+.pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size):not(.absolute, .fixed, .sticky) { position: relative; }
+.pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size) {
+  isolation: isolate;
+  overflow: visible;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  opacity: 1;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.3, 1), filter 0.2s;
+}
+.pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size):hover { background: none; color: var(--ink); filter: none; text-decoration: none; }
+.pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size)::before,
+.pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size)::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; }
+.pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size)::after { z-index: -2; background: var(--body); }
+.pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size):focus-visible { outline: 2px solid rgb(var(--c-accent-gold)); outline-offset: 3px; }
+.pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size):active:not(:disabled) { transform: scale(0.97); }
+.pitch :is(.sp-btn, .sp-ico, .sp-size):is(:disabled, [aria-disabled="true"]) { filter: grayscale(0.75); opacity: 0.55; cursor: not-allowed; }
+.pitch .sp-btn { --e: 1em; border-radius: 12px; padding-inline: var(--pl, 1.6em) var(--pr, var(--pl, 1.6em)); text-shadow: none; }
+.pitch .sp-btn:is(.inline-block, .block) { text-align: center; }
+.pitch .sp-btn::before { display: none; }
+.pitch .sp-btn::after { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18), inset 0 -2px 4px rgb(0 0 0 / 0.16), 0 3px 8px -3px rgb(0 0 0 / 0.45); }
+
+/* ---- The balls: one drawing for buttons, icons and chips ---- */
+.pitch :is(.sp-football, .sp-chip:nth-child(6n + 1)) {
+  --ink: #14181d;
+  --line: rgb(var(--c-on-surface) / 0.75);
+  --body:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 40'%3E%3Cpath d='M0 12l6 4v8l-6 4zM3 0h10l-2 5-5 1zM3 40h10l-2-5-5-1z' fill='%2314181d'/%3E%3Cpath d='M6 16l8-4-3-7M6 24l8 4-3 7M14 12v16' fill='none' stroke='%2314181d'/%3E%3C/svg%3E") left / auto 100% no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 40'%3E%3Cg transform='matrix(-1 0 0 1 20 0)'%3E%3Cpath d='M0 12l6 4v8l-6 4zM3 0h10l-2 5-5 1zM3 40h10l-2-5-5-1z' fill='%2314181d'/%3E%3Cpath d='M6 16l8-4-3-7M6 24l8 4-3 7M14 12v16' fill='none' stroke='%2314181d'/%3E%3C/g%3E%3C/svg%3E") right / auto 100% no-repeat,
+    linear-gradient(#fff, #e6eaee);
+}
+.pitch :is(.sp-leather, .sp-chip:nth-child(6n + 2)) {
+  --ink: #fff;
+  --line: #c22a3a;
+  --seam: #f6e2bd;
+  --body: repeating-linear-gradient(0deg, var(--seam) 0 2px, #0000 2px 5px) calc(var(--e) * 0.62) 0 / calc(var(--e) * 0.42) 100% no-repeat, repeating-linear-gradient(0deg, var(--seam) 0 2px, #0000 2px 5px) calc(100% - var(--e) * 0.62) 0 / calc(var(--e) * 0.42) 100% no-repeat, linear-gradient(90deg, #0000 calc(var(--e) * 0.78), var(--seam) 0 calc(var(--e) * 0.88), #0000 0 calc(100% - var(--e) * 0.88), var(--seam) 0 calc(100% - var(--e) * 0.78), #0000 0), radial-gradient(130% 130% at 30% 0, #c92c3d, #a31526 55%, #7d0d1b);
+}
+.pitch :is(.sp-tennis, .sp-chip:nth-child(6n + 3)) { --ink: #212b06; --line: #94b313; --seam: #fff; --ball: radial-gradient(130% 130% at 30% 0, #e9f877, #cbe236 55%, #aac41f); }
+.pitch :is(.sp-basket, .sp-chip:nth-child(6n + 4)) { --ink: #260e01; --line: #dd6a1b; --seam: #3a1804; --ball: linear-gradient(var(--seam), var(--seam)) left / calc(var(--e) * 0.95) 2px no-repeat, linear-gradient(var(--seam), var(--seam)) right / calc(var(--e) * 0.95) 2px no-repeat, radial-gradient(130% 130% at 30% 0, #ff9d4a, #ee7f2b 60%, #d96a17); }
+.pitch :is(.sp-tennis, .sp-basket, .sp-chip:nth-child(6n + 3), .sp-chip:nth-child(6n + 4)) {
+  --body: radial-gradient(circle at calc(var(--e) * -0.5) 50%, #0000 calc(var(--e) * 1.28), var(--seam) calc(var(--e) * 1.34) calc(var(--e) * 1.5), #0000 calc(var(--e) * 1.56)), radial-gradient(circle at calc(100% + var(--e) * 0.5) 50%, #0000 calc(var(--e) * 1.28), var(--seam) calc(var(--e) * 1.34) calc(var(--e) * 1.5), #0000 calc(var(--e) * 1.56)), var(--ball);
+}
+.pitch :is(.sp-volley, .sp-chip:nth-child(6n + 5)) {
+  --ink: #0f2347;
+  --line: #2c66c4;
+  --body: radial-gradient(circle at calc(var(--e) * -0.6) 50%, #1f55b0 calc(var(--e) * 1.2), #fff calc(var(--e) * 1.26) calc(var(--e) * 1.5), #0000 calc(var(--e) * 1.56)), radial-gradient(circle at calc(100% + var(--e) * 0.6) 50%, #1f55b0 calc(var(--e) * 1.2), #fff calc(var(--e) * 1.26) calc(var(--e) * 1.5), #0000 calc(var(--e) * 1.56)), radial-gradient(130% 130% at 30% 0, #ffe27a, #ffcf33 60%, #eeb816);
+}
+/* Badminton net, the sixth chip. */
+.pitch .sp-chip:nth-child(6n) { --ink: #fff; --line: #128a81; --body: linear-gradient(#fff, #fff) top / 100% 3px no-repeat, repeating-linear-gradient(90deg, rgb(255 255 255 / 0.2) 0 1px, #0000 1px 5px), repeating-linear-gradient(0deg, rgb(255 255 255 / 0.2) 0 1px, #0000 1px 5px), #0c655e; }
+.pitch .sp-btn:is(.sp-football, .sp-leather, .sp-tennis, .sp-basket, .sp-volley) { --pl: 2em; border-radius: 999px; }
+.pitch .sp-btn.sp-football { --pl: 2.6em; }
+/* A pale rim, so the black patches do not eat into the shape on dark pages. */
+.pitch .sp-btn.sp-football::after { box-shadow: inset 0 0 0 2px #dfe4e9, 0 0 0 1px rgb(0 0 0 / 0.25), 0 3px 8px -3px rgb(0 0 0 / 0.45); }
+/* WhatsApp keeps its green, with the ball's seams on it. */
+.pitch .sp-tennis.sp-wa { --ball: linear-gradient(#35d97a, #22c063); --ink: #04230f; }
+
+/* ---- Objects ---- */
+/* Jersey: collar on top, a sleeve on each side. */
+.pitch .sp-btn.sp-jersey { padding-top: 0.55em; padding-bottom: 0.1em; }
+.pitch .sp-jersey { --ink: #1a2a12; --pl: 2.5em; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35)); }
+.pitch .sp-btn.sp-jersey:hover { filter: drop-shadow(0 5px 6px rgb(0 0 0 / 0.4)); }
+.pitch .sp-jersey::after {
+  border-radius: 0;
+  box-shadow: none;
+  background:
+    radial-gradient(circle at 50% -0.3em, #0000 0.78em, #0b5332 0.82em 0.98em, #0000 1.02em),
+    linear-gradient(rgb(90 60 0 / 0.5), rgb(90 60 0 / 0.5)) 1.4em 0 / 1.5px 100% no-repeat, linear-gradient(rgb(90 60 0 / 0.5), rgb(90 60 0 / 0.5)) calc(100% - 1.4em) 0 / 1.5px 100% no-repeat,
+    linear-gradient(30deg, #0b5332 1.05em, #0000 1.1em) 0 0 / 1.4em 100% no-repeat, linear-gradient(330deg, #0b5332 1.05em, #0000 1.1em) 100% 0 / 1.4em 100% no-repeat,
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.14) 0 8px, #0000 8px 16px), linear-gradient(#ffd94d, #f7c21c);
+  clip-path: polygon(1.4em 0, calc(50% - 0.8em) 0, calc(50% - 0.45em) 0.36em, 50% 0.48em, calc(50% + 0.45em) 0.36em, calc(50% + 0.8em) 0, calc(100% - 1.4em) 0, 100% 64%, calc(100% - 0.85em) 82%, calc(100% - 1.4em) 58%, calc(100% - 1.4em) 100%, 1.4em 100%, 1.4em 58%, 0.85em 82%, 0 64%);
+}
+
+/* Cricket bat: gripped handle, then the blade the text is on. */
+.pitch .sp-bat { --ink: #3a2206; --pl: 4.1em; --pr: 1.6em; transform-origin: 0 50%; }
+.pitch .sp-bat::after { left: 2.7em; border-radius: 0.7em 1.3em 1.3em 0.7em; background: linear-gradient(rgb(255 255 255 / 0.5), #0000 22%, #0000 46%, rgb(120 74 20 / 0.22) 50%, #0000 54%), repeating-linear-gradient(2deg, rgb(140 90 30 / 0.13) 0 2px, #0000 2px 7px), linear-gradient(#f3d8a6, #dcb272); }
+.pitch .sp-bat::before { display: block; inset: calc(50% - 0.52em) auto auto 0; width: 3.1em; height: 1.04em; border-radius: 0.4em 0 0 0.4em; background: linear-gradient(rgb(255 255 255 / 0.35), #0000 45%, rgb(0 0 0 / 0.25)), repeating-linear-gradient(100deg, #1c4fae 0 0.26em, #163f8d 0.26em 0.52em); }
+
+/* Goal: posts, net and a ball that goes in. */
+.pitch .sp-goal { --ink: #fff; --pl: 3.1em; --pr: 1.8em; text-shadow: 0 1px 2px rgb(0 0 0 / 0.55); }
+.pitch .sp-goal::after { border: 3px solid #fff; border-bottom: 0; border-radius: 5px 5px 0 0; background: linear-gradient(0deg, #2fa35c 4px, #0000 0), repeating-linear-gradient(45deg, rgb(255 255 255 / 0.13) 0 1px, #0000 1px 8px), repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.13) 0 1px, #0000 1px 8px), linear-gradient(#0a6136, #074827); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.28), 0 4px 9px -3px rgb(0 0 0 / 0.5); }
+.pitch .sp-goal::before { display: block; inset: auto auto 4px 0.8em; width: 1.6em; height: 1.6em; border-radius: 50%; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23fff' stroke='%2314181d' stroke-width='1.500'/%3E%3Cpath d='M16 10l6 4.300-2.300 7h-7.400l-2.300-7zM11 1.800h10l-5 4zM29 8l2 8-5-1.500zM26 27l-7 3.500 1.500-5zM6 27l7 3.500-1.500-5zM3 8l-2 8 5-1.500z' fill='%2314181d'/%3E%3Cpath d='M16 10V5M22 14.300l5-1M19.700 21.300l2 5M12.300 21.300l-2 5M10 14.300l-5-1' stroke='%2314181d' stroke-width='1.300'/%3E%3C/svg%3E") center / contain no-repeat; }
+
+/* Match ticket: notched ends, tear line and barcode. */
+.pitch .sp-ticket { --ink: #172038; --pl: 1.7em; --pr: 4.3em; filter: drop-shadow(0 0 0.6px rgb(0 0 0 / 0.6)) drop-shadow(0 2px 3px rgb(0 0 0 / 0.25)); }
+.pitch .sp-btn.sp-ticket:hover { filter: drop-shadow(0 0 0.6px rgb(0 0 0 / 0.6)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.3)); }
+.pitch .sp-ticket::after { border-radius: 5px; box-shadow: none; background: linear-gradient(#1b4fa0, #1b4fa0) top / 100% 4px no-repeat, repeating-linear-gradient(0deg, rgb(23 32 56 / 0.5) 0 4px, #0000 4px 8px) calc(100% - 3.1em) 0 / 1.5px 100% no-repeat, linear-gradient(#fff6dc, #ffe9b0); -webkit-mask: radial-gradient(circle 0.5em at 0 50%, #0000 96%, #000) left / 51% 100% no-repeat, radial-gradient(circle 0.5em at 100% 50%, #0000 96%, #000) right / 51% 100% no-repeat; mask: radial-gradient(circle 0.5em at 0 50%, #0000 96%, #000) left / 51% 100% no-repeat, radial-gradient(circle 0.5em at 100% 50%, #0000 96%, #000) right / 51% 100% no-repeat; }
+.pitch .sp-ticket::before { display: block; inset: 26% 0.95em 22% auto; width: 1.6em; border-radius: 0; background: repeating-linear-gradient(90deg, #172038 0 2px, #0000 2px 3px, #172038 3px 4px, #0000 4px 7px); }
+
+/* Scoreboard. */
+.pitch :is(.sp-board, .sp-option) { --ink: #ffb52e; }
+.pitch .sp-board { --pl: 2.1em; --pr: 1.6em; border-radius: 7px; text-shadow: 0 0 8px rgb(255 150 0 / 0.5); }
+.pitch .sp-board::after { background: radial-gradient(rgb(255 255 255 / 0.08) 1px, #0000 1.4px) 0 0 / 5px 5px, #12161b; box-shadow: inset 0 0 0 2.5px #414b56, inset 0 0 0 3.5px #000, 0 3px 8px -3px rgb(0 0 0 / 0.6); }
+.pitch .sp-board::before { display: block; inset: calc(50% - 0.85em) auto auto 0.85em; width: 0.4em; height: 1.7em; border-radius: 0; background: radial-gradient(circle closest-side, #4be06d 85%, #0000) 0 0 / 100% 33.3% no-repeat, radial-gradient(circle closest-side, #ffb52e 85%, #0000) 0 50% / 100% 33.3% no-repeat, radial-gradient(circle closest-side, #ff4b3a 85%, #0000) 0 100% / 100% 33.3% no-repeat; }
+
+/* Referee's whistle: mouthpiece on the left. */
+.pitch .sp-whistle { --ink: #2b1e00; --pl: 2.9em; --pr: 2.7em; }
+.pitch .sp-whistle::after { left: 1.5em; border-radius: 0.35em 999px 999px 1.4em; background: radial-gradient(circle at calc(100% - 1.25em) 50%, #2b1e00 0.28em, #0000 0.32em 0.52em, rgb(43 30 0 / 0.55) 0.56em 0.64em, #0000 0.68em), linear-gradient(#ffd451, #f5ad0c); }
+.pitch .sp-whistle::before { display: block; z-index: -3; inset: 0 auto auto 0; width: 2.6em; height: 52%; border-radius: 4px 0 0 4px; background: linear-gradient(90deg, #2b1e00 0.28em, #0000 0), linear-gradient(90deg, #0000 1.6em, #2b1e00 0 1.95em, #0000 0) 0 30% / 100% 45% no-repeat, linear-gradient(#f0b21f, #d18f06); }
+
+/* Corner flag. */
+.pitch .sp-flag { --ink: #fff; --pl: 1.9em; --pr: 2.3em; transform-origin: 0 100%; }
+.pitch .sp-flag::after { left: 0.35em; border-radius: 0; box-shadow: none; background: linear-gradient(90deg, rgb(0 0 0 / 0.28), #0000 1.4em, rgb(255 255 255 / 0.16) 42%, rgb(0 0 0 / 0.12) 70%, rgb(255 255 255 / 0.1)), linear-gradient(0deg, #ffcf33 5px, #0000 0), #bf2f16; clip-path: polygon(0 0, 100% 4%, calc(100% - 0.95em) 50%, 100% 96%, 0 100%); }
+.pitch .sp-flag::before { display: block; inset: -4px auto -6px 0; width: 0.42em; border-radius: 99px; background: linear-gradient(90deg, #fffdf2, #e0c25a 60%, #a8861d); box-shadow: 0 1px 3px rgb(0 0 0 / 0.4); }
+
+/* Badminton racket: strings under the text, grip on the right. */
+.pitch .sp-racket { --ink: #10283f; --pl: 2em; --pr: 4.9em; transform-origin: 100% 50%; }
+.pitch .sp-racket::after { right: 2.9em; border-radius: 999px; background: repeating-linear-gradient(90deg, rgb(16 40 63 / 0.13) 0 1px, #0000 1px 6px), repeating-linear-gradient(0deg, rgb(16 40 63 / 0.13) 0 1px, #0000 1px 6px), #f4f8fb; box-shadow: inset 0 0 0 3px #1479c9, inset 0 0 0 4px rgb(0 0 0 / 0.25), 0 3px 8px -3px rgb(0 0 0 / 0.45); }
+.pitch .sp-racket::before { display: block; inset: calc(50% - 0.36em) 0 auto auto; width: 3em; height: 0.72em; border-radius: 0 5px 5px 0; background: linear-gradient(rgb(255 255 255 / 0.35), #0000 50%, rgb(0 0 0 / 0.3)), linear-gradient(90deg, #8d98a3 0.8em, #0000 0), repeating-linear-gradient(105deg, #23282e 0 0.3em, #39424b 0.3em 0.5em); }
+
+/* Captain's armband. */
+.pitch .sp-armband { --ink: #fff; --pl: 3.3em; --pr: 1.8em; border-radius: 9px / 50%; }
+.pitch .sp-armband::after { background: linear-gradient(#ffd451 4px, #0000 0 calc(100% - 4px), #ffd451 0), repeating-linear-gradient(90deg, rgb(255 255 255 / 0.07) 0 2px, #0000 2px 5px), linear-gradient(90deg, #0f3585, #2157c4 50%, #0f3585); }
+.pitch .sp-armband::before { display: grid; place-items: center; content: "C"; inset: calc(50% - 0.78em) auto auto 1em; width: 1.56em; height: 1.56em; border-radius: 50%; background: #fff; color: #0f3585; font: 800 0.95em/1 var(--font-plus-jakarta); letter-spacing: 0; }
+
+/* Dumbbell. */
+.pitch :is(.sp-dumbbell, .sp-stepper) { --plates: linear-gradient(90deg, #3c454f, #14181d) 0 50% / 0.5em 62% no-repeat, linear-gradient(90deg, #d3122a, #8e0a1b) 0.56em 50% / 0.6em 100% no-repeat, linear-gradient(90deg, #8e0a1b, #d3122a) calc(100% - 0.56em) 50% / 0.6em 100% no-repeat, linear-gradient(90deg, #14181d, #3c454f) 100% 50% / 0.5em 62% no-repeat; }
+.pitch .sp-dumbbell { --ink: #14181d; --pl: 2.3em; border-radius: 4px; }
+.pitch .sp-dumbbell::after { inset: 14% 0.9em; border-radius: 3px; background: linear-gradient(#f3f6f8, #c9d0d7 45%, #a8b2bc 55%, #d7dde2); }
+.pitch .sp-dumbbell::before { display: block; background: var(--plates); }
+
+/* Shuttlecock: cork, then the feathers opening out. */
+.pitch .sp-shuttle { --ink: #1c2b3a; --pl: 2.9em; --pr: 1.7em; filter: drop-shadow(0 0 0.7px rgb(0 0 0 / 0.7)) drop-shadow(0 2px 3px rgb(0 0 0 / 0.25)); }
+.pitch .sp-btn.sp-shuttle:hover { filter: drop-shadow(0 0 0.7px rgb(0 0 0 / 0.7)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.3)); }
+.pitch .sp-shuttle::after { left: 1.4em; border-radius: 0; box-shadow: none; background: repeating-linear-gradient(0deg, rgb(28 43 58 / 0.14) 0 1px, #0000 1px 7px), linear-gradient(90deg, #0000 calc(100% - 4px), rgb(28 43 58 / 0.14) 0), #fff; clip-path: polygon(0 20%, 100% 0, calc(100% - 0.4em) 25%, 100% 50%, calc(100% - 0.4em) 75%, 100% 100%, 0 80%); }
+.pitch .sp-shuttle::before { display: block; inset: 20% auto 20% 0; width: 1.8em; border-radius: 1.2em 0 0 1.2em; background: linear-gradient(90deg, #0000 1.15em, #c8102e 0 1.45em, #0000 0), linear-gradient(#f2e3c4, #d9bd8a); }
+
+/* Medal on its ribbon. */
+.pitch .sp-medal { --ink: #3a2700; --pl: 3em; --pr: 1.8em; }
+.pitch .sp-btn.sp-medal { border-radius: 999px; }
+.pitch .sp-medal::after { background: linear-gradient(160deg, rgb(255 255 255 / 0.55), #0000 40%), linear-gradient(#f9d56a, #d9a12a); box-shadow: inset 0 0 0 1px #9a6c0b, inset 0 0 0 3px #fbe6a6, inset 0 0 0 4px rgb(154 108 11 / 0.5), 0 3px 8px -3px rgb(0 0 0 / 0.45); }
+.pitch .sp-btn.sp-medal::before { display: block; inset: -3px auto -3px 1.1em; width: 1.2em; border-radius: 2px; background: linear-gradient(90deg, #0b5332 33%, #fff 0 66%, #c8102e 0); box-shadow: 0 1px 2px rgb(0 0 0 / 0.35); }
+
+/* The pitch from above. */
+.pitch .sp-pitch { --ink: #fff; --pl: 2.3em; border-radius: 7px; text-shadow: 0 1px 2px rgb(0 0 0 / 0.6); }
+.pitch .sp-pitch::after { background: repeating-linear-gradient(90deg, #14703c 0 1.4em, #0f6133 1.4em 2.8em); }
+.pitch .sp-pitch::before { display: block; inset: 4px; border: 1.5px solid rgb(255 255 255 / 0.75); border-radius: 2px; background: radial-gradient(circle at 50%, #0000 0.82em, rgb(255 255 255 / 0.16) 0.86em 0.96em, #0000 1em), linear-gradient(90deg, #0000 calc(50% - 0.75px), rgb(255 255 255 / 0.16) 0 calc(50% + 0.75px), #0000 0), linear-gradient(90deg, rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.75)) 0.75em 50% / 1.5px 56% no-repeat, linear-gradient(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.75)) calc(100% - 0.75em) 50% / 1.5px 56% no-repeat, linear-gradient(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.75)) 0 22% / 0.75em 1.5px no-repeat, linear-gradient(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.75)) 0 78% / 0.75em 1.5px no-repeat, linear-gradient(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.75)) 100% 22% / 0.75em 1.5px no-repeat, linear-gradient(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.75)) 100% 78% / 0.75em 1.5px no-repeat; }
+
+/* Dressing-room locker. */
+.pitch .sp-locker { --ink: #fff; --pl: 2.7em; border-radius: 6px; transform-origin: 0 50%; }
+.pitch .sp-locker::after { background: linear-gradient(#14243a, #14243a) 0.9em 34% / 1em 2px no-repeat, linear-gradient(#14243a, #14243a) 0.9em 50% / 1em 2px no-repeat, linear-gradient(#14243a, #14243a) 0.9em 66% / 1em 2px no-repeat, linear-gradient(100deg, #44699a, #2f4d73 45%, #26405f); box-shadow: inset 0 0 0 1px #1b304a, inset 0 0 0 3px rgb(255 255 255 / 0.15), 0 3px 8px -3px rgb(0 0 0 / 0.5); }
+.pitch .sp-locker::before { display: block; inset: 24% 0.9em 24% auto; width: 0.45em; border-radius: 3px; background: linear-gradient(90deg, #8b97a5, #eef2f6 45%, #98a4b1); box-shadow: 0 1px 3px rgb(0 0 0 / 0.5); }
+
+/* Wicket: three stumps with bails, on the cricket pitch. */
+.pitch .sp-wicket { --ink: #2e1b08; --pl: 3.4em; --pr: 1.8em; border-radius: 7px; }
+.pitch .sp-wicket::after { background: linear-gradient(90deg, #0000 2.6em, #fff 0 2.75em, #0000 0), repeating-linear-gradient(90deg, rgb(120 78 24 / 0.08) 0 3px, #0000 3px 11px), #e2bd86; }
+.pitch .sp-wicket::before { display: block; inset: -4px auto 12% 0.75em; width: 1.5em; border-radius: 0; background: linear-gradient(#7a4a12, #7a4a12) 0 0 / 46% 3px no-repeat, linear-gradient(#7a4a12, #7a4a12) 100% 0 / 46% 3px no-repeat, repeating-linear-gradient(90deg, #8f5a1c 0 0.12em, #b67a30 0.12em 0.3em, #0000 0.3em 0.6em) 0 4px / 100% 100% no-repeat; }
+
+/* Referee's cards. */
+.pitch .sp-yellow { --ink: #1f1a00; --card: #ffd60a; --other: #d3122a; }
+.pitch .sp-red { --ink: #fff; --card: #c8102e; --other: #ffd60a; }
+.pitch :is(.sp-btn, .sp-ico):is(.sp-yellow, .sp-red) { border-radius: 5px; --body: linear-gradient(120deg, rgb(255 255 255 / 0.3) 0 26%, #0000 26.5%) var(--card); }
+.pitch .sp-btn:is(.sp-yellow, .sp-red)::before { display: block; z-index: -3; background: var(--other); transform: translate(3px, -3px) rotate(1.2deg); box-shadow: 0 1px 3px rgb(0 0 0 / 0.3); }
+
+/* ---- Icon buttons ---- */
+.pitch .sp-ico { --e: 7px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; }
+.pitch .sp-ico.hidden { display: none; }
+@media (min-width: 768px) { .pitch .sp-ico.md\:flex { display: flex; } }
+@media (min-width: 1024px) { .pitch .sp-ico.lg\:hidden { display: none; } }
+.pitch .sp-ico::after { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25), inset -2px -3px 5px rgb(0 0 0 / 0.2), 0 2px 5px -1px rgb(0 0 0 / 0.4); }
+.pitch .sp-ico::before { display: none; }
+.pitch .sp-ico > svg { stroke-width: 2.6; }
+/* Nothing of the ball's drawing runs under the icon. */
+.pitch .sp-ico.sp-basket { --ball: radial-gradient(130% 130% at 30% 0, #ff9d4a, #ee7f2b 60%, #d96a17); }
+.pitch .sp-ico.sp-football::after { background-size: 27% auto, 27% auto, auto; background-position: 0 50%, 100% 50%, 0 0; }
+.pitch .sp-ico.sp-sm { --e: 5px; width: 28px; height: 28px; }
+.pitch .sp-ico.sp-xs { --e: 4px; width: 20px; height: 20px; }
+.pitch .sp-ico.sp-lg { --e: 8px; width: 42px; height: 42px; }
+@media (max-width: 639px) {
+  .pitch header .sp-ico.sp-lg { --e: 7px; width: 34px; height: 34px; }
+  .pitch header .sp-btn.sp-board { --pl: 1.5em; --pr: 0.8em; height: 40px; }
+  .pitch header .sp-btn.sp-board::before { left: 0.55em; }
+}
+.pitch .sp-ico:is(.sp-yellow, .sp-red) { width: 26px; height: 34px; transform: rotate(6deg); }
+.pitch .sp-ico:is(.sp-yellow, .sp-red).sp-sm { width: 21px; height: 27px; border-radius: 4px; }
+.pitch .sp-ico:is(.sp-yellow, .sp-red).sp-xs { width: 14px; height: 18px; border-radius: 2.5px; font-size: 10px; }
+/* Medal: the ribbon's two tails hang behind the disc, under the heart. */
+.pitch .sp-ico.sp-medal::before { display: block; z-index: -3; inset: auto 15% -24% 15%; height: 60%; border-radius: 0; background: linear-gradient(90deg, #0b5332 42%, #0000 0 58%, #c8102e 0); clip-path: polygon(0 0, 42% 0, 42% 100%, 21% 82%, 0 100%, 0 0, 58% 0, 100% 0, 100% 100%, 79% 82%, 58% 100%, 58% 0); }
+.pitch .sp-ico.sp-medal[aria-pressed="true"] { --ink: #c8102e; }
+/* Weight plate. */
+.pitch .sp-plate { --ink: #fff; --body: radial-gradient(circle, #14181d 0 34%, #c9d0d7 35% 40%, #23282e 41% 66%, #d3122a 67% 78%, #23282e 79%); }
+/* Coach's board. */
+.pitch .sp-ico.sp-tactics { --ink: #fff; border-radius: 8px; --body: repeating-linear-gradient(0deg, #14703c 0 8px, #0f6133 8px 16px); }
+.pitch .sp-ico.sp-tactics::after { box-shadow: inset 0 0 0 2px #c9d0d7, 0 2px 5px -1px rgb(0 0 0 / 0.4); }
+
+/* A quantity stepper built as a dumbbell: plates to press, the number on the bar. */
+.pitch .sp-stepper { position: relative; isolation: isolate; border: 0; background: none; overflow: visible; display: inline-flex; align-items: center; justify-content: space-between; }
+.pitch .sp-stepper::before { content: ""; position: absolute; z-index: -1; inset: 24% 14px; border-radius: 3px; background: linear-gradient(#f3f6f8, #c9d0d7 45%, #a8b2bc 55%, #d7dde2); box-shadow: 0 2px 5px -1px rgb(0 0 0 / 0.4); }
+.pitch .sp-stepper > :is(span, input) { color: #14181d; }
+
+/* ---- Chips ---- */
+.pitch .sp-chip { --e: 0.8em; border-radius: 999px; padding-inline: 1.5em; color: rgb(var(--c-on-surface)); }
+.pitch .sp-chip:nth-child(6n + 1) { padding-inline: 1.9em; }
+.pitch .sp-chip:hover { color: rgb(var(--c-on-surface)); }
+.pitch .sp-chip::before { display: none; }
+.pitch .sp-chip::after { background: radial-gradient(circle at calc(var(--e) * -0.6) 50%, var(--line) calc(var(--e) * 1.2), #0000 calc(var(--e) * 1.26)), radial-gradient(circle at calc(100% + var(--e) * 0.6) 50%, var(--line) calc(var(--e) * 1.2), #0000 calc(var(--e) * 1.26)), rgb(var(--c-surface-card)); box-shadow: inset 0 0 0 1.5px var(--line); }
+.pitch .sp-chip.sp-on, .pitch .sp-chip.sp-on:hover { color: var(--ink); }
+.pitch .sp-chip.sp-on::after { background: var(--body); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25), inset 0 -2px 4px rgb(0 0 0 / 0.16), 0 2px 6px -2px rgb(0 0 0 / 0.5); }
+
+.pitch .sp-chip.sp-on:nth-child(6n + 1)::after { box-shadow: inset 0 0 0 2px #dfe4e9, 0 0 0 1px rgb(0 0 0 / 0.35), 0 2px 6px -2px rgb(0 0 0 / 0.5); }
+
+/* ---- Sizes: the number on the jersey ---- */
+.pitch .sp-size { --ink: rgb(var(--c-on-surface)); --kit: rgb(var(--c-surface-card)); --trim: rgb(var(--c-on-surface) / 0.45); filter: drop-shadow(0 0 0.8px rgb(var(--c-on-surface) / 0.9)) drop-shadow(0 1px 2px rgb(0 0 0 / 0.2)); }
+.pitch .sp-size:hover { filter: drop-shadow(0 0 0.8px rgb(var(--c-on-surface) / 0.9)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.3)); }
+.pitch .sp-size::before { display: none; }
+.pitch .sp-size::after { border-radius: 0; background: radial-gradient(circle at 50% -2px, #0000 8px, var(--trim) 8.5px 10.5px, #0000 11px), linear-gradient(90deg, var(--trim) 2px, #0000 0 calc(100% - 2px), var(--trim) 0), var(--kit); clip-path: polygon(22% 0, calc(50% - 8px) 0, calc(50% - 5px) 5px, 50% 7px, calc(50% + 5px) 5px, calc(50% + 8px) 0, 78% 0, 100% 34%, 88% 52%, 80% 42%, 80% 100%, 20% 100%, 20% 42%, 12% 52%, 0 34%); }
+.pitch .sp-size.sp-on { --ink: #1a2a12; --kit: linear-gradient(#ffd94d, #f7c21c); --trim: #0b5332; }
+.pitch .sp-size:disabled { --trim: rgb(var(--c-on-surface) / 0.25); }
+.pitch .sp-size > * { color: inherit; }
+.pitch .sp-size.sp-option { --ink: rgb(var(--c-on-surface)); filter: none; }
+.pitch .sp-size.sp-option::after { border-radius: 6px; clip-path: none; background: linear-gradient(#39424c, #39424c) 50% 0 / 24px 3px no-repeat, rgb(var(--c-surface-card)); box-shadow: inset 0 0 0 2px rgb(var(--c-on-surface) / 0.35); }
+.pitch .sp-size.sp-option.sp-on { --ink: #ffb52e; }
+.pitch .sp-size.sp-option.sp-on::after { background: radial-gradient(rgb(255 255 255 / 0.08) 1px, #0000 1.4px) 0 0 / 5px 5px, #12161b; box-shadow: inset 0 0 0 2.5px #414b56, inset 0 0 0 3.5px #000; }
+
+/* ---- Choice tiles: the corner arcs of a pitch ---- */
+.pitch .sp-tile { --arc: rgb(var(--c-primary) / 0.28); background-image: radial-gradient(circle at 0 0, #0000 11px, var(--arc) 11.5px 13px, #0000 13.5px), radial-gradient(circle at 100% 0, #0000 11px, var(--arc) 11.5px 13px, #0000 13.5px), radial-gradient(circle at 0 100%, #0000 11px, var(--arc) 11.5px 13px, #0000 13.5px), radial-gradient(circle at 100% 100%, #0000 11px, var(--arc) 11.5px 13px, #0000 13.5px); }
+.pitch .sp-tile.sp-on { --arc: rgb(var(--c-accent-gold)); }
+
+/* Colour swatch: a ball in that colour. */
+.pitch .sp-swatch { background-image: radial-gradient(circle at -30% 50%, #0000 46%, rgb(0 0 0 / 0.35) 48% 53%, #0000 55%), radial-gradient(circle at 130% 50%, #0000 46%, rgb(255 255 255 / 0.55) 48% 53%, #0000 55%), radial-gradient(circle at 32% 25%, rgb(255 255 255 / 0.45), #0000 45%); }
+
+/* On/off switch: a football that rolls across the grass. */
+.pitch .sp-switch { background-image: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.1) 0 6px, #0000 6px 12px); }
+.pitch .sp-knob, .pitch .sp-knob-after::after { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15.500' fill='%23fff' stroke='%2314181d'/%3E%3Cpath d='M16 10l6 4.300-2.300 7h-7.400l-2.300-7zM10 1.800h12l-6 4zM29 7l2 9-5-1.500zM27 27l-8 3.500 1.500-5zM5 27l8 3.500-1.500-5zM3 7l-2 9 5-1.500z' fill='%2314181d'/%3E%3C/svg%3E") center / cover no-repeat; }
+
+/* Search bar: a pitch to type on, a racket as the search icon, the goal (button) on the right. */
+.pitch .sp-search { isolation: isolate; --mark: rgb(255 255 255 / 0.6); }
+.pitch .sp-search::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border-radius: 10px;
+  background: repeating-linear-gradient(90deg, #14703c 0 36px, #0f6133 36px 72px);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.3), inset 0 2px 5px rgb(0 0 0 / 0.3), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  transition: box-shadow 0.2s;
+}
+.pitch .sp-search::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  z-index: -1;
+  border: 1.5px solid var(--mark);
+  border-radius: 6px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50%, #0000 14px, rgb(255 255 255 / 0.16) 14.5px 16px, #0000 16.5px),
+    linear-gradient(90deg, #0000 calc(50% - 0.75px), rgb(255 255 255 / 0.16) 0 calc(50% + 0.75px), #0000 0);
+}
+.pitch .sp-search:focus-within::before { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.3), 0 0 0 3px rgb(var(--c-accent-gold)), 0 2px 8px -2px rgb(0 0 0 / 0.4); }
+.pitch .sp-search > input { color: #fff; caret-color: #ffd451; color-scheme: dark; text-shadow: 0 1px 2px rgb(0 0 0 / 0.5); }
+.pitch .sp-search > input::placeholder { color: rgb(255 255 255 / 0.88); opacity: 1; }
+.pitch .sp-search > .sp-goal { --pl: 1.5em; --pr: 1.5em; }
+.pitch .sp-search > .sp-goal::before { display: none; }
+.pitch .sp-search-racket { position: absolute; left: 9px; color: #fff; pointer-events: none; transform-origin: 75% 75%; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5)); }
+.pitch .sp-search-btn { color: #fff; filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5)); transition: transform 0.2s; }
+.pitch .sp-search-btn:active { transform: rotate(-18deg); }
+.pitch .sp-search-btn:focus-visible { outline: 2px solid rgb(var(--c-accent-gold)); outline-offset: -2px; border-radius: 8px; }
+.pitch .sp-search-ball { position: absolute; left: 22px; opacity: 0; border-radius: 50%; pointer-events: none; filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.45)); transition: left 0.45s cubic-bezier(0.3, 0.7, 0.3, 1), transform 0.45s; }
+
+/* Menu lists (account menu, shop filters): a small ball in front of each link. */
+.pitch .sp-nav::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: var(--dot); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2), inset -1px -1px 2px rgb(0 0 0 / 0.25); }
+.pitch .sp-nav { --dot: linear-gradient(90deg, #0000 40%, #f6e2bd 0 60%, #0000 0) #b3202f; }
+.pitch .sp-nav:nth-child(5n + 1) { --dot: radial-gradient(circle, #14181d 0 2px, #0000 2.4px) #fff; }
+.pitch .sp-nav:nth-child(5n + 2) { --dot: linear-gradient(90deg, #0000 45%, #3a1804 0 58%, #0000 0) #ee7f2b; }
+.pitch .sp-nav:nth-child(5n + 3) { --dot: radial-gradient(circle at -10% 50%, #0000 45%, #fff 48% 62%, #0000 65%) #cbe236; }
+.pitch .sp-nav:nth-child(5n + 4) { --dot: linear-gradient(90deg, #1f55b0 36%, #0000 0) #ffcf33; }
+
+/* Phone bottom bar: the icons sit on balls. */
+.pitch .sp-tab > svg { box-sizing: content-box; padding: 4px; border-radius: 50%; margin-bottom: 1px; width: 17px; height: 17px; color: var(--ink); background: var(--dot); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25), inset -2px -2px 4px rgb(0 0 0 / 0.18); }
+.pitch .sp-tab:nth-child(1) { --ink: #14181d; --dot: linear-gradient(#fff, #e3e8ec); }
+.pitch .sp-tab:nth-child(2) { --ink: #212b06; --dot: linear-gradient(#e9f877, #b9d32a); }
+.pitch .sp-tab:nth-child(3) { --ink: #0f2347; --dot: linear-gradient(#ffe27a, #f0bd1d); }
+.pitch .sp-tab:nth-child(4) { --ink: #260e01; --dot: linear-gradient(#ff9d4a, #df701c); }
+.pitch .sp-tab:nth-child(5) { --ink: #fff; --dot: linear-gradient(#c92c3d, #8e1121); }
+
+/* ---- Motion ---- */
+.pitch :is(.sp-btn, .sp-ico)::before, .pitch :is(.sp-btn, .sp-ico)::after { transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.pitch .sp-goal.sp-btn::before { transition: left 0.5s cubic-bezier(0.3, 0.7, 0.3, 1), transform 0.5s; }
+@keyframes sp-shake { 20%, 60% { transform: rotate(-2.5deg); } 40%, 80% { transform: rotate(2.5deg); } }
+@keyframes sp-swing { 35% { transform: rotate(-28deg); } 65% { transform: rotate(14deg); } }
+@keyframes sp-wave { 50% { transform: skewY(2.5deg) scaleX(0.97); } }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .pitch .sp-btn:not(:disabled):hover { transform: translateY(-2px); }
+  .pitch .sp-ico:not(:disabled, .sp-yellow, .sp-red):hover { transform: rotate(-12deg) scale(1.08); }
+  .pitch .sp-ico:is(.sp-yellow, .sp-red):not(:disabled):hover { transform: translateY(-3px) rotate(-6deg); }
+  .pitch .sp-chip:hover { transform: translateY(-1px); }
+  .pitch .sp-size:not(:disabled):hover { transform: translateY(-2px); }
+  .pitch .sp-btn.sp-bat:not(:disabled):hover { transform: rotate(-2deg); }
+  .pitch .sp-btn.sp-racket:not(:disabled):hover { transform: rotate(2deg); }
+  .pitch .sp-btn.sp-goal:not(:disabled):hover::before { left: calc(100% - 2.1em); transform: rotate(540deg); }
+  .pitch .sp-search:focus-within .sp-search-racket, .pitch .sp-search:has(.sp-goal:hover) .sp-search-racket { animation: sp-swing 0.5s ease-in-out; }
+  .pitch .sp-search:has(.sp-goal:hover) .sp-search-ball { opacity: 1; left: calc(100% - 7.2rem); transform: rotate(900deg); }
+  .pitch .sp-search > .sp-goal:not(:disabled):hover { transform: none; }
+  .pitch .sp-btn.sp-whistle:not(:disabled):hover { animation: sp-shake 0.45s; }
+  .pitch .sp-btn.sp-flag:not(:disabled):hover::after { animation: sp-wave 0.7s ease-in-out infinite; transform-origin: 0 50%; }
+  .pitch .sp-btn.sp-locker:not(:disabled):hover { transform: perspective(500px) rotateY(-9deg); }
+  .pitch .sp-btn:is(.sp-yellow, .sp-red):not(:disabled):hover::before { transform: translate(5px, -5px) rotate(4deg); }
+  .pitch .sp-btn.sp-wicket:not(:disabled):hover::before { transform: translateY(-3px) rotate(-7deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pitch .sp-search-ball, .pitch :is(.sp-btn, .sp-ico, .sp-chip, .sp-size), .pitch :is(.sp-btn, .sp-ico)::before, .pitch :is(.sp-btn, .sp-ico)::after { transition: none !important; }
+}

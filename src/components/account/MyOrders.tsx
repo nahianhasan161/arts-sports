@@ -104,14 +104,14 @@ export function MyOrders() {
                   <span className="capitalize">{o.status}</span>
                 </p>
               </div>
-              <Link href={`/track?order=${encodeURIComponent(o.id)}`} className="h-8 px-3 inline-flex items-center rounded-lg border border-border-light font-bold uppercase text-[11px]">
+              <Link href={`/track?order=${encodeURIComponent(o.id)}`} className="sp-btn sp-ticket h-8 inline-flex items-center font-bold uppercase text-[11px]">
                 Track
               </Link>
               <button
                 type="button"
                 disabled={busy === o.id}
                 onClick={() => void reorder(o)}
-                className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-bold uppercase text-[11px] disabled:opacity-60"
+                className="sp-btn sp-basket h-8 inline-flex items-center gap-1.5 font-bold uppercase text-[11px]"
               >
                 {busy === o.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Order again
               </button>

@@ -105,18 +105,18 @@ export function RosterEditor({
       <p className="text-xs text-text-muted">{t("customJersey.roster.hint")}</p>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={tool} onClick={() => fileInput.current?.click()}>
+        <button type="button" className={`${tool} sp-btn sp-board`} onClick={() => fileInput.current?.click()}>
           <FileSpreadsheet className="w-4 h-4" /> {t("customJersey.roster.importFile")}
         </button>
         <input ref={fileInput} type="file" accept=".csv,.tsv,.txt,.xlsx" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-        <button type="button" className={tool} onClick={() => setPasteOpen((v) => !v)}>
+        <button type="button" className={`${tool} sp-btn sp-racket`} onClick={() => setPasteOpen((v) => !v)}>
           <ClipboardPaste className="w-4 h-4" /> {t("customJersey.roster.paste")}
         </button>
-        <button type="button" className={tool} onClick={downloadSample}>
+        <button type="button" className={`${tool} sp-btn sp-ticket`} onClick={downloadSample}>
           <Download className="w-4 h-4" /> {t("customJersey.roster.sample")}
         </button>
         {rows.length > 0 && (
-          <button type="button" className={`${tool} ml-auto text-badge-discount`} onClick={() => onChange([])}>
+          <button type="button" className={`${tool} sp-btn sp-red ml-auto text-badge-discount`} onClick={() => onChange([])}>
             <Trash2 className="w-4 h-4" /> {t("customJersey.roster.clear")}
           </button>
         )}
@@ -133,7 +133,7 @@ export function RosterEditor({
           />
           <button
             type="button"
-            className="self-start h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase"
+            className="sp-btn sp-wicket self-start h-9 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-bold uppercase"
             onClick={() => {
               append(rowsToRoster(parseDelimited(pasted), defaultSleeve));
               setPasted("");
@@ -150,12 +150,12 @@ export function RosterEditor({
 
       {rows.length > 0 && (
         <div className="overflow-x-auto -mx-1 px-1">
-          <table className="w-full min-w-[520px] text-sm">
+          <table className={`w-full ${pant ? "min-w-[740px]" : "min-w-[630px]"} text-sm`}>
             <thead>
               <tr className="text-left text-[11px] uppercase tracking-wider text-text-muted">
-                <th className="w-8 font-semibold pb-1">#</th>
-                <th className="font-semibold pb-1">{t("customJersey.roster.name")}</th>
-                <th className="w-20 font-semibold pb-1">{t("customJersey.roster.number")}</th>
+                <th className="w-6 sm:w-8 font-semibold pb-1">#</th>
+                <th className="min-w-[8.5rem] font-semibold pb-1">{t("customJersey.roster.name")}</th>
+                <th className="w-16 sm:w-20 font-semibold pb-1">{t("customJersey.roster.number")}</th>
                 <th className="w-24 font-semibold pb-1">{t("customJersey.roster.fit")}</th>
                 <th className="w-24 font-semibold pb-1">{t("customJersey.roster.size")}</th>
                 {!noSleeve && <th className="w-32 font-semibold pb-1">{t("customJersey.roster.sleeve")}</th>}
@@ -234,11 +234,11 @@ export function RosterEditor({
                       disabled={custom}
                       title={t("customJersey.roster.measure")}
                       aria-label={t("customJersey.roster.measure")}
-                      className={`p-1 hover:text-primary ${showMeasure ? "text-primary" : "text-text-muted"}`}
+                      className={`sp-ico sp-tennis sp-sm p-1 hover:text-primary ${showMeasure ? "text-primary" : "text-text-muted"}`}
                     >
                       <Ruler className="w-4 h-4" />
                     </button>
-                    <button type="button" onClick={() => { setMeasureOpen(new Set()); onChange(rows.filter((_, x) => x !== i)); }} aria-label={t("customJersey.roster.remove")} className="p-1 text-text-muted hover:text-badge-discount">
+                    <button type="button" onClick={() => { setMeasureOpen(new Set()); onChange(rows.filter((_, x) => x !== i)); }} aria-label={t("customJersey.roster.remove")} className="sp-ico sp-red sp-sm p-1 text-text-muted hover:text-badge-discount">
                       <X className="w-4 h-4" />
                     </button>
                   </td>
@@ -269,7 +269,7 @@ export function RosterEditor({
         </div>
       )}
 
-      <button type="button" className={`${tool} self-start`} onClick={addRow}>
+      <button type="button" className={`${tool} sp-btn sp-whistle self-start`} onClick={addRow}>
         <Plus className="w-4 h-4" /> {t("customJersey.roster.addRow")}
       </button>
 

@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { explainPosError, listShowrooms, loadVariants, staffNames } from "./server";
+import { plainItemId, plainProductId } from "./purchase-types";
 import type { AuditEntry, PurchaseEdit, PurchaseRow, PurchaseItem, SupplierPayment } from "./purchase-types";
 
 /**
@@ -82,19 +83,35 @@ export async function listPurchases(db: SupabaseClient, by: { supplierId?: strin
   });
 }
 
+/** Names of purchase lines: variants, and products without options ("product:<id>"). */
+async function itemsById(db: SupabaseClient, itemIds: string[]): Promise<Map<string, { title: string; label: string; code: string }>> {
+  const ids = [...new Set(itemIds)];
+  const productIds = ids.map(plainProductId).filter((id): id is string => Boolean(id));
+  const [variants, products] = await Promise.all([
+    loadVariants(db, { variantIds: ids.filter((id) => plainProductId(id) === null) }),
+    productIds.length ? db.from("products").select("id, title").in("id", productIds) : null,
+  ]);
+  if (products?.error) throw new Error(explainPosError(products.error.message));
+  return new Map([
+    ...variants.map((v) => [v.variant_id, { title: v.title, label: v.label, code: v.barcode ?? v.sku ?? "" }] as const),
+    ...(products?.data ?? []).map((p) => [plainItemId(p.id as string), { title: p.title as string, label: "", code: "" }] as const),
+  ]);
+}
+
 /** The lines of one purchase. */
 export async function purchaseItems(db: SupabaseClient, receiptId: string): Promise<PurchaseItem[]> {
-  const { data, error } = await db.from("stock_receipt_items").select("variant_id, quantity, unit_cost").eq("receipt_id", receiptId);
+  // "*": product_id arrives with migration 20261125100000.
+  const { data, error } = await db.from("stock_receipt_items").select("*").eq("receipt_id", receiptId);
   if (error) throw new Error(explainPosError(error.message));
-  const variants = await loadVariants(db, { variantIds: [...new Set((data ?? []).map((i) => i.variant_id as string))] });
-  const byId = new Map(variants.map((v) => [v.variant_id, v]));
+  const idOf = (i: { variant_id: string | null; product_id?: string | null }) => i.variant_id ?? plainItemId(i.product_id ?? "");
+  const byId = await itemsById(db, (data ?? []).map(idOf));
   return (data ?? []).map((i) => {
-    const v = byId.get(i.variant_id as string);
+    const v = byId.get(idOf(i));
     return {
-      variant_id: i.variant_id as string,
+      variant_id: idOf(i),
       title: v?.title ?? "(deleted)",
       label: v?.label ?? "",
-      code: v?.barcode ?? v?.sku ?? "",
+      code: v?.code ?? "",
       quantity: num(i.quantity),
       unit_cost: i.unit_cost === null ? null : num(i.unit_cost),
     };
@@ -136,7 +153,7 @@ export async function purchaseEdits(db: SupabaseClient, receiptId: string): Prom
   const rows = data ?? [];
   const variantIds = new Set<string>();
   for (const r of rows) for (const side of [r.before_state, r.after_state] as { items?: { variant_id: string }[] }[]) for (const i of side?.items ?? []) variantIds.add(i.variant_id);
-  const [staff, variants] = await Promise.all([staffNames(db, rows.map((r) => r.edited_by as string | null)), loadVariants(db, { variantIds: [...variantIds] })]);
+  const [staff, items] = await Promise.all([staffNames(db, rows.map((r) => r.edited_by as string | null)), itemsById(db, [...variantIds])]);
   return {
     edits: rows.map((r) => ({
       id: r.id as string,
@@ -147,7 +164,7 @@ export async function purchaseEdits(db: SupabaseClient, receiptId: string): Prom
       staff: r.edited_by ? staff.get(r.edited_by as string) ?? "Staff" : "",
       created_at: r.created_at as string,
     })),
-    names: Object.fromEntries(variants.map((v) => [v.variant_id, `${v.title} ${v.label}`.trim()])),
+    names: Object.fromEntries([...items].map(([id, v]) => [id, `${v.title} ${v.label}`.trim()])),
   };
 }
 

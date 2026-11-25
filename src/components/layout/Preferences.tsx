@@ -20,7 +20,7 @@ export function LanguageToggle({ tone = "plain" }: { tone?: Tone }) {
     <button
       type="button"
       onClick={() => setLocale(locale === "bn" ? "en" : "bn")}
-      className={`${base} ${tones[tone]}`}
+      className={`${base} ${tones[tone]} sp-btn sp-ticket`}
       title={t("common.language")}
       aria-label={t("common.language")}
     >
@@ -36,7 +36,7 @@ export function ThemeToggle({ tone = "plain" }: { tone?: Tone }) {
   const { theme, toggle } = useTheme();
   const label = theme === "dark" ? t("common.lightMode") : t("common.darkMode");
   return (
-    <button type="button" onClick={toggle} className={`${base} ${tones[tone]}`} title={label} aria-label={label}>
+    <button type="button" onClick={toggle} className={`${base} ${tones[tone]} sp-ico sp-tennis sp-sm`} title={label} aria-label={label}>
       {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
     </button>
   );

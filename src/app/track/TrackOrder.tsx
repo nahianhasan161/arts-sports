@@ -82,7 +82,7 @@ export function TrackOrder() {
           <label htmlFor="tr-phone" className="block text-xs font-semibold mb-1">Phone number</label>
           <input id="tr-phone" className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="01XXXXXXXXX" required />
         </div>
-        <button type="submit" disabled={loading} className="h-10 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-60">
+        <button type="submit" disabled={loading} className="sp-btn sp-ticket h-10 text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2">
           {loading && <Loader2 className="w-4 h-4 animate-spin" />} Track
         </button>
         {error && (

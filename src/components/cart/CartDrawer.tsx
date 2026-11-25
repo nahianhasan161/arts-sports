@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { Ball } from "@/components/football/Ball";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Truck } from "lucide-react";
@@ -64,7 +65,7 @@ export function CartDrawer() {
             </div>
             <button
               onClick={closeCart}
-              className="p-1 rounded-md text-text-muted hover:text-primary hover:bg-surface-container transition-colors"
+              className="sp-ico sp-red sp-sm"
               aria-label="Close cart"
             >
               <X className="w-5 h-5" />
@@ -85,11 +86,13 @@ export function CartDrawer() {
                 </span>
               )}
             </div>
-            <div className="w-full bg-surface-card h-2 rounded-full overflow-hidden border border-accent-gold/20">
+            <div className="relative w-full bg-surface-card h-2 rounded-full border border-accent-gold/20">
               <div
                 className="bg-accent-gold h-full rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
+              {/* The ball rolls to the end as the bag fills up. */}
+              <Ball className="absolute top-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 transition-all duration-500" style={{ left: `clamp(8px, ${progress}%, calc(100% - 8px))`, rotate: `${progress * 7}deg` }} />
             </div>
           </div>
 
@@ -108,7 +111,7 @@ export function CartDrawer() {
                 </p>
                 <button
                   onClick={closeCart}
-                  className="px-6 py-2.5 bg-primary text-white font-display uppercase tracking-wider text-xs font-semibold rounded-lg hover:bg-primary-container transition-colors shadow-sm"
+                  className="sp-btn sp-pitch py-2.5 font-display uppercase tracking-wider text-xs font-semibold"
                 >
                   Start Shopping
                 </button>
@@ -140,7 +143,7 @@ export function CartDrawer() {
                         </Link>
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="text-text-muted hover:text-badge-discount transition-colors p-1"
+                          className="sp-ico sp-yellow sp-sm"
                           aria-label="Remove item"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -148,9 +151,9 @@ export function CartDrawer() {
                       </div>
 
                       <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
-                        <span className="bg-surface-subtle px-1.5 py-0.5 rounded font-medium border border-border-light">
+                        {item.size && <span className="bg-surface-subtle px-1.5 py-0.5 rounded font-medium border border-border-light">
                           Size: <strong className="text-primary font-bold">{item.size}</strong>
-                        </span>
+                        </span>}
                         <span className="bg-surface-subtle px-1.5 py-0.5 rounded font-medium border border-border-light truncate max-w-[120px]">
                           {item.color}
                         </span>
@@ -159,10 +162,10 @@ export function CartDrawer() {
 
                     <div className="flex items-center justify-between mt-3">
                       {/* Quantity Stepper */}
-                      <div className="flex items-center bg-surface-subtle rounded border border-border-light">
+                      <div className="sp-stepper">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="p-1 hover:bg-surface-container text-on-surface transition-colors"
+                          className="sp-ico sp-plate sp-sm"
                           aria-label="Decrease quantity"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -173,7 +176,7 @@ export function CartDrawer() {
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           disabled={item.quantity >= item.maxStock}
-                          className="p-1 hover:bg-surface-container text-on-surface transition-colors disabled:opacity-30"
+                          className="sp-ico sp-plate sp-sm"
                           aria-label="Increase quantity"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -224,7 +227,7 @@ export function CartDrawer() {
 
               <button
                 onClick={handleProceedCheckout}
-                className="w-full h-12 bg-primary hover:bg-primary-container text-white font-display uppercase tracking-wider text-xs font-bold rounded-lg flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.99]"
+                className="sp-btn sp-goal w-full h-12 font-display uppercase tracking-wider text-xs font-bold flex items-center justify-center gap-2"
               >
                 <span>PROCEED TO CHECKOUT</span>
                 <ArrowRight className="w-4 h-4" />

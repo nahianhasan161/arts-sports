@@ -1,5 +1,5 @@
 import { bn } from "./messages/bn";
-import { en, type Messages } from "./messages/en";
+import { en, type AdminMessages, type Messages, type SiteMessages } from "./messages/en";
 
 /**
  * Bangla / English text.
@@ -21,7 +21,12 @@ export const DEFAULT_LOCALE: Locale = "bn";
 /** Cookie the language switch will set. */
 export const LOCALE_COOKIE = "lang";
 
-const dictionaries: Record<Locale, Messages> = { bn, en };
+const dictionaries: Record<Locale, SiteMessages & Partial<AdminMessages>> = { bn: { ...bn }, en: { ...en } };
+
+/** Adds text that only some pages need; see admin-messages.ts. */
+export function addMessages(locale: Locale, messages: AdminMessages) {
+  Object.assign(dictionaries[locale], messages);
+}
 
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
@@ -39,8 +44,8 @@ export type MessageKey = Paths<Messages>;
 
 export type Vars = Record<string, string | number | null | undefined>;
 
-function lookup(dict: Messages, key: string): string | undefined {
-  let node: unknown = dict;
+function lookup(dict: unknown, key: string): string | undefined {
+  let node = dict;
   for (const part of key.split(".")) {
     if (node && typeof node === "object") node = (node as Record<string, unknown>)[part];
     else return undefined;

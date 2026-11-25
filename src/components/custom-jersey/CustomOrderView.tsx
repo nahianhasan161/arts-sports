@@ -30,8 +30,9 @@ interface Payload {
 
 const card = "bg-surface-card border border-border-light rounded-xl p-4 sm:p-5 flex flex-col gap-3";
 const heading = "font-display uppercase font-bold text-primary text-sm tracking-wider";
-const primaryBtn = "h-11 px-5 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-50";
-const ghostBtn = "h-10 px-4 border border-border-light bg-surface-card rounded-lg text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-50";
+const primaryBtn = "sp-btn sp-goal h-11 text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2";
+const cardBtn = "sp-btn h-10 text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2";
+const ghostBtn = `${cardBtn} sp-shuttle`;
 const WHATSAPP = process.env.NEXT_PUBLIC_STORE_WHATSAPP?.replace(/[^\d]/g, "");
 
 export function CustomOrderView({ token }: { token: string }) {
@@ -199,7 +200,7 @@ export function CustomOrderView({ token }: { token: string }) {
           <p>{t("customJersey.order.saveLink")}</p>
           <button
             type="button"
-            className="self-start inline-flex items-center gap-1.5 text-xs font-bold uppercase underline underline-offset-2"
+            className="sp-btn sp-ticket py-1.5 self-start inline-flex items-center gap-1.5 text-xs font-bold uppercase"
             onClick={() => {
               void navigator.clipboard?.writeText(`${window.location.origin}/custom-jersey/order/${token}`);
               setCopied(true);
@@ -312,7 +313,7 @@ export function CustomOrderView({ token }: { token: string }) {
                 <button type="button" className={primaryBtn} disabled={!accept || busy !== null} onClick={() => act("approve", { accept_terms: true })}>
                   {busy === "approve" && <Loader2 className="w-4 h-4 animate-spin" />} {t("customJersey.order.approveButton")}
                 </button>
-                <button type="button" className={ghostBtn} onClick={() => setChangeOpen((v) => !v)}>
+                <button type="button" className={`${cardBtn} sp-yellow`} onClick={() => setChangeOpen((v) => !v)}>
                   {t("customJersey.order.requestChange")}
                 </button>
               </div>
@@ -535,7 +536,7 @@ export function CustomOrderView({ token }: { token: string }) {
       {beforeApproval && (
         <button
           type="button"
-          className="self-start text-xs text-text-muted underline underline-offset-2 hover:text-badge-discount"
+          className="sp-btn sp-red py-1 self-start text-xs"
           disabled={busy !== null}
           onClick={() => {
             if (confirm(t("customJersey.order.cancelConfirm"))) void act("cancel");

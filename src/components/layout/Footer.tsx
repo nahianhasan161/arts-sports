@@ -2,7 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { HoverLink as Link } from "@/components/ui/HoverLink";
 import { 
   ShieldCheck, 
   Truck, 
@@ -14,9 +14,12 @@ import { useT } from "@/i18n/client";
 export function Footer() {
   const { t } = useT();
   return (
-    <footer className="w-full bg-[#111923] text-[#a0aec0] pt-space-2xl border-t border-border-light/10">
+    <footer className="relative w-full bg-primary-container text-white/75">
+      <div className="as-touchline" aria-hidden />
+      <div className="absolute inset-0 as-pitch-lines opacity-40 pointer-events-none" aria-hidden />
+      <div className="relative pt-space-2xl">
       {/* 1. Value Proposition Strip */}
-      <div className="max-w-container-max mx-auto px-space-base pb-space-2xl border-b border-[#2d3748]">
+      <div className="max-w-container-max mx-auto px-space-base pb-space-2xl border-b border-white/15">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-lg">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-accent-gold shrink-0">
@@ -26,7 +29,7 @@ export function Footer() {
               <h4 className="text-white font-display uppercase tracking-wider text-sm font-semibold">
                 {t("site.footer.deliveryTitle")}
               </h4>
-              <p className="text-xs text-[#718096] mt-1">
+              <p className="text-xs text-on-primary-container mt-1">
                 {t("site.footer.deliveryText")}
               </p>
             </div>
@@ -40,7 +43,7 @@ export function Footer() {
               <h4 className="text-white font-display uppercase tracking-wider text-sm font-semibold">
                 {t("site.footer.fabricTitle")}
               </h4>
-              <p className="text-xs text-[#718096] mt-1">
+              <p className="text-xs text-on-primary-container mt-1">
                 {t("site.footer.fabricText")}
               </p>
             </div>
@@ -60,7 +63,7 @@ export function Footer() {
                   behind it. The badge strip elsewhere on the site said
                   "14-Day Returns" for the same policy — that is fixed too,
                   and this link is the one number that governs. */}
-              <p className="text-xs text-[#718096] mt-1">
+              <p className="text-xs text-on-primary-container mt-1">
                 <Link href="/returns" className="hover:text-white underline">
                   {t("site.footer.returnDays")}
                 </Link>{" "}
@@ -77,7 +80,7 @@ export function Footer() {
               <h4 className="text-white font-display uppercase tracking-wider text-sm font-semibold">
                 {t("site.footer.supportTitle")}
               </h4>
-              <p className="text-xs text-[#718096] mt-1">
+              <p className="text-xs text-on-primary-container mt-1">
                 {t("site.footer.supportText")}
               </p>
             </div>
@@ -102,13 +105,13 @@ export function Footer() {
                  />
               </div>
             </Link>
-            <p className="text-xs leading-relaxed max-w-sm text-[#718096]">
+            <p className="text-xs leading-relaxed max-w-sm text-on-primary-container">
               {t("site.footer.about")}
             </p>
             <div className="flex items-center gap-3 pt-2">
               <a
                 href="#"
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-accent-gold hover:text-primary transition-all flex items-center justify-center text-white"
+                className="sp-ico sp-football"
                 aria-label="Facebook"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -117,7 +120,7 @@ export function Footer() {
               </a>
               <a
                 href="#"
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-accent-gold hover:text-primary transition-all flex items-center justify-center text-white"
+                className="sp-ico sp-leather"
                 aria-label="Instagram"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -126,7 +129,7 @@ export function Footer() {
               </a>
               <a
                 href="#"
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-accent-gold hover:text-primary transition-all flex items-center justify-center text-white"
+                className="sp-ico sp-basket"
                 aria-label="YouTube"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -141,19 +144,19 @@ export function Footer() {
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
               {t("site.footer.shopCollections")}
             </h5>
-            <Link href="/shop?category=men" className="text-xs hover:text-white transition-colors">
+            <Link href="/shop?category=men" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.menTees")}
             </Link>
-            <Link href="/shop?category=men" className="text-xs hover:text-white transition-colors">
+            <Link href="/shop?category=men" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.polos")}
             </Link>
-            <Link href="/shop?category=women" className="text-xs hover:text-white transition-colors">
+            <Link href="/shop?category=women" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.womenTops")}
             </Link>
-            <Link href="/shop?category=men" className="text-xs hover:text-white transition-colors">
+            <Link href="/shop?category=men" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.trousers")}
             </Link>
-            <Link href="/shop?category=sports" className="text-xs hover:text-white transition-colors">
+            <Link href="/shop?category=sports" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.sportsEditions")}
             </Link>
           </div>
@@ -163,22 +166,22 @@ export function Footer() {
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
               {t("site.footer.customerCare")}
             </h5>
-            <Link href="/custom-jersey" className="text-xs hover:text-white transition-colors">
+            <Link href="/custom-jersey" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.customJersey")}
             </Link>
-            <Link href="/returns" className="text-xs hover:text-white transition-colors">
+            <Link href="/returns" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.returnPolicy")}
             </Link>
-            <Link href="/refund-policy" className="text-xs hover:text-white transition-colors">
+            <Link href="/refund-policy" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.refundPolicy")}
             </Link>
-            <Link href="/shipping-policy" className="text-xs hover:text-white transition-colors">
+            <Link href="/shipping-policy" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.shippingPolicy")}
             </Link>
-            <Link href="/account" className="text-xs hover:text-white transition-colors">
+            <Link href="/account" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.trackOrder")}
             </Link>
-            <Link href="mailto:support@artssports.com" className="text-xs hover:text-white transition-colors">
+            <Link href="mailto:support@artssports.com" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.contact")}
             </Link>
           </div>
@@ -188,19 +191,19 @@ export function Footer() {
             <h5 className="font-display uppercase tracking-wider text-white text-xs font-bold mb-2">
               {t("site.footer.company")}
             </h5>
-            <Link href="/privacy-policy" className="text-xs hover:text-white transition-colors">
+            <Link href="/privacy-policy" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.privacy")}
             </Link>
-            <Link href="/terms" className="text-xs hover:text-white transition-colors">
+            <Link href="/terms" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.terms")}
             </Link>
-            <Link href="mailto:corporate@artssports.com" className="text-xs hover:text-white transition-colors">
+            <Link href="mailto:corporate@artssports.com" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               {t("site.footer.bulk")}
             </Link>
-            <a href="tel:+8801911904618" className="text-xs hover:text-white transition-colors">
+            <a href="tel:+8801911904618" className="py-1 lg:py-0 text-xs hover:text-white transition-colors">
               +880 1911-904618
             </a>
-            <span className="text-xs text-[#718096]">{t("site.footer.hours")}</span>
+            <span className="text-xs text-on-primary-container">{t("site.footer.hours")}</span>
           </div>
 
           {/* Payment & Security */}
@@ -223,7 +226,7 @@ export function Footer() {
                 list Visa / Mastercard, which the payment step cannot process,
                 so it promised a method every customer would have been turned
                 away from. */}
-            <p className="text-[11px] text-[#718096] mt-2">
+            <p className="text-[11px] text-on-primary-container mt-2">
               All transactions are secured with 256-bit SSL encryption. We never
               ask for your card details or your bKash PIN.
             </p>
@@ -232,29 +235,30 @@ export function Footer() {
       </div>
 
       {/* 3. Copyright Strip */}
-      <div className="bg-[#0b1017] py-4 border-t border-white/5">
-        <div className="max-w-container-max mx-auto px-space-base flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#4a5568] gap-2">
+      <div className="bg-black/30 py-4 border-t border-white/5">
+        <div className="max-w-container-max mx-auto px-space-base flex flex-col sm:flex-row items-center justify-between text-[11px] text-on-primary-container gap-2">
           <span>
             © {new Date().getFullYear()} Arts Sports Ltd. All rights reserved.
           </span>
-          <div className="flex items-center gap-4">
-            <Link href="/privacy-policy" className="hover:text-white transition-colors">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 gap-y-1">
+            <Link href="/privacy-policy" className="py-1.5 hover:text-white transition-colors">
               {t("site.footer.privacy")}
             </Link>
             <span>•</span>
-            <Link href="/terms" className="hover:text-white transition-colors">
+            <Link href="/terms" className="py-1.5 hover:text-white transition-colors">
               {t("site.footer.terms")}
             </Link>
             <span>•</span>
-            <Link href="/returns" className="hover:text-white transition-colors">
+            <Link href="/returns" className="py-1.5 hover:text-white transition-colors">
               {t("site.footer.returns")}
             </Link>
             <span>•</span>
-            <Link href="/shipping-policy" className="hover:text-white transition-colors">
+            <Link href="/shipping-policy" className="py-1.5 hover:text-white transition-colors">
               {t("site.footer.shipping")}
             </Link>
           </div>
         </div>
+      </div>
       </div>
     </footer>
   );

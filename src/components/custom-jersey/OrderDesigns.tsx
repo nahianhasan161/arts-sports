@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
 import { FileText } from "lucide-react";
+import "@/i18n/admin-messages"; // shop.customReg.* and the Lightbox text
 import { useT } from "@/i18n/client";
 import { itemSummary, type ItemEstimate } from "@/lib/custom-jersey/items";
 import { sizeSummary } from "@/lib/custom-jersey/pricing";

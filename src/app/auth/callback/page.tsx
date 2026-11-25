@@ -111,7 +111,7 @@ function OAuthCallbackContent() {
 
           <Link
             href={safeRedirectTo}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-primary-container transition-colors shadow-sm"
+            className="sp-btn sp-locker inline-flex items-center gap-2 py-3 font-display uppercase tracking-wider text-xs font-bold"
           >
             <span>Go to Account</span>
             <ArrowRight className="w-4 h-4" />
@@ -144,7 +144,7 @@ function OAuthCallbackContent() {
           <div className="flex flex-col gap-3">
             <Link
               href="/sign-in"
-              className="px-6 py-3 bg-primary text-white font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-primary-container transition-colors shadow-sm"
+              className="sp-btn sp-whistle py-3 font-display uppercase tracking-wider text-xs font-bold"
             >
               Try Again
             </Link>

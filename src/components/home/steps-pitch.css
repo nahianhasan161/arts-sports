@@ -1,0 +1,145 @@
+/* "How custom works" as a move on a pitch (StepsPitch.tsx). Only transforms and
+   opacity move; content-visibility stops it off screen. Same colours in light
+   and dark.
+   The ball goes through 9 points (--x1 --y1 ... --x9 --y9): in and out of each
+   shirt, then the goal. The pass lines are drawn between the same points. */
+.as-sp {
+  --lap: 9s;
+  --line: rgb(255 255 255 / 0.55);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  content-visibility: auto;
+  border-radius: 24px;
+  color: #fff;
+  background: radial-gradient(90% 90% at 50% 40%, transparent, rgb(0 0 0 / 0.28)), repeating-linear-gradient(var(--mow), #17783f 0 72px, #136a36 72px 144px);
+  box-shadow: 0 14px 30px -18px rgb(0 0 0 / 0.6);
+}
+.as-sp i { position: absolute; display: block; pointer-events: none; }
+
+/* Touchlines, halfway line, centre circle and spot. */
+.as-sp-lines { z-index: -1; border: 2px solid var(--line); border-radius: 3px; }
+.as-sp-lines::before { content: ""; position: absolute; background: var(--line); }
+.as-sp-lines::after { content: ""; position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px; border: 2px solid var(--line); border-radius: 50%; background: radial-gradient(circle, #fff 0 4px, transparent 5px); opacity: 0.75; }
+/* Penalty area with the goal area in it. */
+.as-sp-box { z-index: -1; border: 2px solid var(--line); }
+.as-sp-box::before { content: ""; position: absolute; border: 2px solid var(--line); }
+/* Goal, seen from above. */
+.as-sp-goal { z-index: 0; border: 4px solid #fff; }
+.as-sp-goal i { inset: 0; background: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.55) 0 1px, transparent 1px 8px), repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.55) 0 1px, transparent 1px 8px), rgb(0 0 0 / 0.22); }
+
+.as-sp-field { position: relative; container-type: inline-size; }
+.as-sp-field li { position: relative; min-width: 0; }
+.as-sp-kit { position: relative; display: block; flex: none; width: var(--kit); height: var(--kit); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.3, 1.3); }
+.as-sp-hop { display: block; position: relative; height: 100%; }
+.as-sp-shirt { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 6px 5px rgb(0 0 0 / 0.35)); }
+[data-step="1"] .as-sp-shirt { filter: none; }
+.as-sp-num { font: 700 38px var(--font-oswald), sans-serif; }
+html[lang="bn"] .as-sp-num { font-family: var(--nf-hind), sans-serif; font-size: 44px; }
+.as-sp-prop { position: absolute; right: -6px; bottom: -4px; width: 38%; aspect-ratio: 1; filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.4)); }
+.as-sp-prop svg { width: 100%; height: 100%; }
+.as-sp-field li p { position: relative; border-radius: 10px; background: #062c1a; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16), 0 6px 12px -6px rgb(0 0 0 / 0.5); font-weight: 600; line-height: 1.4; text-wrap: balance; }
+.as-sp-pass { position: absolute; overflow: visible; pointer-events: none; }
+.as-sp-pass path { fill: none; stroke: #fff; stroke-width: 2.5; stroke-dasharray: 2 9; stroke-linecap: round; }
+
+.as-sp-ball { position: absolute; left: -13px; top: -13px; width: 26px; height: 26px; pointer-events: none; filter: drop-shadow(0 3px 2px rgb(0 0 0 / 0.45)); transform: translate(var(--x9), var(--y9)); }
+.as-sp-ball svg { display: block; width: 100%; height: 100%; }
+.as-sp-cheer { position: absolute; padding: 2px 12px; border-radius: 8px; background: #f5c542; color: #2b1c00; font: 700 20px/1.5 var(--font-oswald), sans-serif; text-transform: uppercase; box-shadow: 0 6px 14px -4px rgb(0 0 0 / 0.5); opacity: 0; }
+html[lang="bn"] .as-sp-cheer { font-family: var(--nf-hind), sans-serif; }
+
+/* Phones: the pitch stands up, shirts left and right in turn. */
+@media (max-width: 767px) {
+  .as-sp { --mow: 180deg; --kit: 88px; --row: 9.25rem; padding: 26px 22px 74px; }
+  .as-sp-lines { inset: 12px 10px 44px; }
+  .as-sp-lines::before { left: 0; right: 0; top: calc(50% - 1px); height: 2px; }
+  .as-sp-box { left: 50%; bottom: 44px; width: 220px; height: 92px; margin-left: -110px; border-bottom: 0; }
+  .as-sp-box::before { left: 50%; bottom: 0; width: 120px; height: 36px; margin-left: -60px; border-bottom: 0; }
+  .as-sp-box-own { top: 12px; bottom: auto; transform: scaleY(-1); }
+  .as-sp-goal { left: 50%; bottom: 8px; width: 108px; height: 38px; margin-left: -54px; border-top: 0; border-radius: 0 0 8px 8px; }
+  .as-sp-field ol { display: grid; grid-auto-rows: var(--row); }
+  .as-sp-field li { display: flex; align-items: center; gap: 16px; }
+  .as-sp-field li:nth-child(even) { flex-direction: row-reverse; }
+  .as-sp-field li p { flex: 0 1 15rem; padding: 10px 12px; font-size: 0.9375rem; }
+  .as-sp-pass { left: 44px; width: calc(100% - 88px); top: calc(50% + 50px); height: calc(var(--row) - 100px); }
+  li:nth-child(even) .as-sp-pass { transform: scaleX(-1); }
+  li:nth-child(4) .as-sp-pass { width: calc(50% - 44px); left: 50%; height: calc(var(--row) / 2 - 22px); }
+  .as-sp-ball {
+    --l: 44px; --r: calc(100cqw - 44px);
+    --x1: var(--l); --y1: calc(var(--row) * 0.5 - 50px); --x2: var(--l); --y2: calc(var(--row) * 0.5 + 50px);
+    --x3: var(--r); --y3: calc(var(--row) * 1.5 - 50px); --x4: var(--r); --y4: calc(var(--row) * 1.5 + 50px);
+    --x5: var(--l); --y5: calc(var(--row) * 2.5 - 50px); --x6: var(--l); --y6: calc(var(--row) * 2.5 + 50px);
+    --x7: var(--r); --y7: calc(var(--row) * 3.5 - 50px); --x8: var(--r); --y8: calc(var(--row) * 3.5 + 50px);
+    --x9: 50cqw; --y9: calc(var(--row) * 4 + 48px);
+  }
+  .as-sp-cheer { left: calc(50% + 66px); bottom: 6px; }
+}
+
+/* From md: lying down, shirts high and low in turn. */
+@media (min-width: 768px) {
+  .as-sp { --mow: 90deg; --kit: 96px; --up: 92px; --low: 138px; --h: 22rem; --reach: 62px; height: var(--h); padding: 0 64px; }
+  .as-sp-lines { inset: 18px 46px; }
+  .as-sp-lines::before { top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; }
+  .as-sp-box { right: 46px; top: 50%; width: 148px; height: 232px; margin-top: -116px; border-right: 0; }
+  .as-sp-box::before { right: 0; top: 50%; width: 52px; height: 128px; margin-top: -64px; border-right: 0; }
+  .as-sp-box-own { right: auto; left: 46px; transform: scaleX(-1); }
+  .as-sp-goal { right: 9px; top: 50%; width: 39px; height: 104px; margin-top: -52px; border-left: 0; border-radius: 0 8px 8px 0; }
+  .as-sp-field { height: 100%; }
+  .as-sp-field ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .as-sp-field li { --c: var(--up); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: calc(var(--c) - var(--kit) / 2) 7px 0; text-align: center; }
+  .as-sp-field li:nth-child(even) { --c: var(--low); }
+  .as-sp-field li p { max-width: 15rem; padding: 8px 12px; font-size: 0.9375rem; }
+  .as-sp-pass { left: calc(50% + var(--reach)); width: calc(100% - 2 * var(--reach)); top: var(--up); height: calc(var(--low) - var(--up)); }
+  li:nth-child(even) .as-sp-pass { transform: scaleY(-1); }
+  li:nth-child(4) .as-sp-pass { transform: none; top: var(--low); height: calc(var(--h) / 2 - var(--low)); width: calc(50% - var(--reach) + 36px); }
+  .as-sp-ball {
+    --x1: calc(12.5cqw - var(--reach)); --y1: var(--up); --x2: calc(12.5cqw + var(--reach)); --y2: var(--up);
+    --x3: calc(37.5cqw - var(--reach)); --y3: var(--low); --x4: calc(37.5cqw + var(--reach)); --y4: var(--low);
+    --x5: calc(62.5cqw - var(--reach)); --y5: var(--up); --x6: calc(62.5cqw + var(--reach)); --y6: var(--up);
+    --x7: calc(87.5cqw - var(--reach)); --y7: var(--low); --x8: calc(87.5cqw + var(--reach)); --y8: var(--low);
+    --x9: calc(100cqw + 36px); --y9: calc(var(--h) / 2);
+  }
+  .as-sp-cheer { right: 12px; top: calc(50% - 98px); }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .as-sp { --kit: 88px; --reach: 56px; }
+  .as-sp-field li p { padding: 8px; font-size: 0.875rem; }
+}
+@media (min-width: 1024px) {
+  .as-sp { --kit: 132px; --up: 102px; --low: 154px; --h: 22rem; --reach: 84px; }
+  .as-sp-field li p { font-size: 1rem; }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .as-sp-field li:hover .as-sp-kit { transform: translateY(-6px) rotate(-3deg); }
+}
+
+/* Shirt n hops as the ball comes to it: at 2, 20, 38 and 56% of the lap. */
+@keyframes as-sp-ball {
+  0% { transform: translate(var(--x1), var(--y1)); opacity: 0; }
+  2% { transform: translate(var(--x1), var(--y1)); opacity: 1; }
+  7% { transform: translate(var(--x2), var(--y2)); animation-timing-function: cubic-bezier(0.2, 0.6, 0.5, 1); }
+  20% { transform: translate(var(--x3), var(--y3)); }
+  25% { transform: translate(var(--x4), var(--y4)); animation-timing-function: cubic-bezier(0.2, 0.6, 0.5, 1); }
+  38% { transform: translate(var(--x5), var(--y5)); }
+  43% { transform: translate(var(--x6), var(--y6)); animation-timing-function: cubic-bezier(0.2, 0.6, 0.5, 1); }
+  56% { transform: translate(var(--x7), var(--y7)); }
+  62% { transform: translate(var(--x8), var(--y8)); animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1); }
+  69%, 93% { transform: translate(var(--x9), var(--y9)); opacity: 1; }
+  97%, 100% { transform: translate(var(--x9), var(--y9)); opacity: 0; }
+}
+@keyframes as-sp-roll { 69%, 100% { transform: rotate(2160deg); } }
+@keyframes as-sp-hop { 0%, 9%, 100% { transform: none; } 3% { transform: translateY(-9px) scale(1.06); } 6% { transform: scale(0.98); } }
+@keyframes as-sp-coin { 0%, 10%, 100% { transform: none; } 5% { transform: translateY(-26px) rotateY(900deg); } 9.9% { transform: rotateY(1800deg); } }
+@keyframes as-sp-net { 0%, 68%, 76%, 100% { transform: none; } 71% { transform: scale(1.12); } 73% { transform: scale(0.98); } }
+@keyframes as-sp-cheer { 0%, 69% { opacity: 0; transform: scale(0.4); } 73% { opacity: 1; transform: scale(1.12) rotate(-4deg); } 76%, 90% { opacity: 1; transform: rotate(-4deg); } 94%, 100% { opacity: 0; transform: rotate(-4deg); } }
+@media (prefers-reduced-motion: no-preference) {
+  .as-sp-ball { animation: as-sp-ball var(--lap) linear infinite; }
+  .as-sp-ball svg { animation: as-sp-roll var(--lap) linear infinite; }
+  .as-sp-hop { animation: as-sp-hop var(--lap) ease-out calc(var(--lap) * 0.02) infinite; }
+  [data-step="2"] .as-sp-hop { animation-delay: calc(var(--lap) * 0.2); }
+  [data-step="3"] .as-sp-hop { animation-delay: calc(var(--lap) * 0.38); }
+  [data-step="4"] .as-sp-hop { animation-delay: calc(var(--lap) * 0.56); }
+  .as-sp-coin { animation: as-sp-coin var(--lap) ease-in-out calc(var(--lap) * 0.38) infinite; }
+  .as-sp-goal i { animation: as-sp-net var(--lap) ease-out infinite; }
+  .as-sp-cheer { animation: as-sp-cheer var(--lap) ease-out infinite; }
+}

@@ -1,8 +1,8 @@
 import { storeEn } from "./store.en";
 import { homeEn } from "./home.en";
-import { shopEn } from "./shop.en";
+import type { shopEn } from "./shop.en";
 import { siteEn } from "./site.en";
-import { adminEn } from "./admin.en";
+import type { adminEn } from "./admin.en";
 
 /**
  * English text. bn.ts must have exactly the same keys (it is typed against
@@ -19,6 +19,8 @@ export const en = {
     english: "English",
     darkMode: "Dark mode",
     lightMode: "Light mode",
+    confirm: "Confirm",
+    cancel: "Cancel",
   },
   payment: {
     received: "Payment of {amount} received",
@@ -29,7 +31,7 @@ export const en = {
   },
   customJersey: {
     title: "Custom jersey",
-    subtitle: "Your own team kit, from 1 piece. Made in 5–7 days after you confirm the design.",
+    subtitle: "Your own team kit, from 1 piece. Made in 4–6 days after you confirm the design.",
     steps: {
       one: "Send your design or pick one of ours",
       two: "Our designer sends a mockup and the final price",
@@ -370,12 +372,14 @@ export const en = {
       body: "{text}",
     },
   },
-  shop: shopEn,
   site: siteEn,
-  admin: adminEn,
   home: homeEn,
   store: storeEn,
 };
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
-export type Messages = Widen<typeof en>;
+/** What every page loads. */
+export type SiteMessages = Widen<typeof en>;
+/** The shop and admin screens' text, loaded only there (i18n/admin-messages.ts). */
+export type AdminMessages = { shop: Widen<typeof shopEn>; admin: Widen<typeof adminEn> };
+export type Messages = SiteMessages & AdminMessages;

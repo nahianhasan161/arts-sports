@@ -345,7 +345,7 @@ function CheckoutInner() {
     return (
       <div className="max-w-container-max mx-auto px-space-base py-space-3xl text-center">
         <h1 className="font-display text-2xl font-bold text-primary uppercase">Your bag is empty</h1>
-        <Link href="/shop" className="inline-block mt-4 px-5 py-3 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase">
+        <Link href="/shop" className="sp-btn sp-pitch inline-block mt-4 py-3 text-xs font-bold uppercase">
           Continue shopping
         </Link>
       </div>
@@ -386,7 +386,7 @@ function CheckoutInner() {
           <h1 className="font-display text-2xl sm:text-3xl uppercase font-bold text-primary">Checkout</h1>
           <Link
             href="/shop"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-primary border border-border-light hover:bg-surface-subtle px-3 py-2 rounded-lg"
+            className="sp-btn sp-flag inline-flex items-center gap-2 text-xs font-semibold py-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Continue shopping
           </Link>
@@ -450,7 +450,7 @@ function CheckoutInner() {
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-display text-sm font-bold uppercase tracking-wider text-primary">Delivery address</h2>
                 {savedAddress && savedAddress.district && address.district !== savedAddress.district && (
-                  <button type="button" onClick={() => setAddress(savedAddress)} className="text-[11px] font-semibold text-primary underline flex items-center gap-1">
+                  <button type="button" onClick={() => setAddress(savedAddress)} className="sp-btn sp-flag py-1.5 text-[11px] font-semibold flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> Use {savedAddress.thana}, {savedAddress.district}
                   </button>
                 )}
@@ -494,7 +494,7 @@ function CheckoutInner() {
                     return (
                       <label
                         key={p.id}
-                        className={`flex gap-3 p-3 rounded-lg border cursor-pointer ${selected ? "border-primary bg-primary/5" : "border-border-light"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                        className={`sp-tile ${selected ? "sp-on" : ""} flex gap-3 p-3 rounded-lg border cursor-pointer ${selected ? "border-primary bg-primary/5" : "border-border-light"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
                         <input type="radio" name="plan" className="mt-1 accent-primary" checked={selected} disabled={disabled} onChange={() => choosePlan(p.id)} />
                         <span className="flex-1">
@@ -515,7 +515,7 @@ function CheckoutInner() {
                     ["bkash", "bKash", "Send money from your bKash wallet, then enter the transaction ID."],
                     ["nagad", "Nagad", "Send money from your Nagad wallet, then enter the transaction ID."],
                   ] as const).map(([id, title, detail]) => (
-                    <label key={id} className={`flex gap-3 p-3 rounded-lg border cursor-pointer ${manualMethod === id ? "border-primary bg-primary/5" : "border-border-light"}`}>
+                    <label key={id} className={`sp-tile ${manualMethod === id ? "sp-on" : ""} flex gap-3 p-3 rounded-lg border cursor-pointer ${manualMethod === id ? "border-primary bg-primary/5" : "border-border-light"}`}>
                       <input type="radio" name="manual" className="mt-1 accent-primary" checked={manualMethod === id} onChange={() => setManualMethod(id)} />
                       <span>
                         <span className="block text-sm font-bold">{title}</span>
@@ -544,7 +544,7 @@ function CheckoutInner() {
             <button
               type="submit"
               disabled={placing || !mounted}
-              className="hidden lg:inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-primary text-white rounded-lg text-sm font-bold font-display uppercase tracking-wider hover:bg-primary-container disabled:opacity-60 shadow-sm"
+              className="sp-btn sp-goal hidden lg:inline-flex items-center justify-center gap-2 py-3.5 text-sm font-bold font-display uppercase tracking-wider"
             >
               {placing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
               {payNowLabel}
@@ -579,8 +579,8 @@ function CheckoutInner() {
                 <Tag className="w-3.5 h-3.5" /> Have a coupon?
               </label>
               <div className="flex gap-2">
-                <input id="ck-coupon" value={couponInput} onChange={(e) => setCouponInput(e.target.value.toUpperCase())} placeholder="ENTER CODE" className="flex-1 h-9 px-3 rounded-lg border border-border-light uppercase text-xs" />
-                <button type="button" onClick={() => void quoteCoupon(couponInput)} className="px-3 h-9 rounded-lg bg-surface-subtle border border-border-light text-xs font-bold uppercase text-primary">
+                <input id="ck-coupon" value={couponInput} onChange={(e) => setCouponInput(e.target.value.toUpperCase())} placeholder="ENTER CODE" className="flex-1 min-w-0 h-9 px-3 rounded-lg border border-border-light uppercase text-xs" />
+                <button type="button" onClick={() => void quoteCoupon(couponInput)} className="sp-btn sp-dumbbell h-9 text-xs font-bold uppercase">
                   Apply
                 </button>
               </div>
@@ -629,11 +629,11 @@ function CheckoutInner() {
           </aside>
 
           {/* Mobile: the order button stays at the bottom of the screen. */}
-          <div className="lg:hidden fixed bottom-16 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-border-light px-4 py-3">
+          <div className="lg:hidden fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] inset-x-0 z-40 bg-surface-card/95 backdrop-blur border-t border-border-light px-4 py-3">
             <button
               type="submit"
               disabled={placing || !mounted}
-              className="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-primary text-primary-foreground rounded-lg text-sm font-bold font-display uppercase tracking-wider disabled:opacity-60"
+              className="sp-btn sp-goal w-full inline-flex items-center justify-center gap-2 py-3.5 text-sm font-bold font-display uppercase tracking-wider"
             >
               {placing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
               {payNowLabel}

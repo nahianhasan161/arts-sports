@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Loader2, Search, X } from "lucide-react";
+import { Check, Loader2, Search, Shirt, X } from "lucide-react";
+import { AllIcon, ChipIcon } from "@/components/ui/ChipIcon";
 import { useT } from "@/i18n/client";
 import { categoryName, type DesignCategoryRow } from "@/lib/custom-jersey/designs";
 
@@ -55,7 +56,7 @@ export function OurDesignsPicker({ pickedIds, canAdd, onToggle, onClose }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const chip = (on: boolean) => `shrink-0 h-8 px-3 rounded-full border text-xs font-semibold ${on ? "border-primary bg-primary text-primary-foreground" : "border-border-light bg-surface-card text-on-surface"}`;
+  const chip = (on: boolean) => `sp-chip ${on ? "sp-on" : ""} shrink-0 h-8 px-3 inline-flex items-center gap-1.5 rounded-full border text-xs font-semibold ${on ? "border-primary bg-primary text-primary-foreground" : "border-border-light bg-surface-card text-on-surface"}`;
   const pick = (c: string) => { setCategory(c); setOffset(0); };
 
   return (
@@ -63,7 +64,7 @@ export function OurDesignsPicker({ pickedIds, canAdd, onToggle, onClose }: {
       <div role="dialog" aria-modal="true" aria-label={t("customJersey.upload.ourDesignsTitle")} className="w-full sm:max-w-3xl max-h-[90vh] flex flex-col bg-surface-card text-on-surface rounded-t-2xl sm:rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-2 p-4 border-b border-border-light">
           <h3 className="font-display uppercase font-bold text-primary text-sm tracking-wider">{t("customJersey.upload.ourDesignsTitle")}</h3>
-          <button type="button" onClick={onClose} aria-label={t("customJersey.upload.ourDesignsDone")} className="w-8 h-8 rounded-full hover:bg-surface-subtle flex items-center justify-center"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onClose} aria-label={t("customJersey.upload.ourDesignsDone")} className="sp-ico sp-red sp-sm w-8 h-8 rounded-full hover:bg-surface-subtle flex items-center justify-center"><X className="w-4 h-4" /></button>
         </div>
         <div className="flex flex-col gap-2 p-4 pb-2">
           <div className="relative">
@@ -71,9 +72,9 @@ export function OurDesignsPicker({ pickedIds, canAdd, onToggle, onClose }: {
             <input value={q} onChange={(e) => { setQ(e.target.value); setOffset(0); }} placeholder={t("customJersey.upload.ourDesignsSearch")} className="w-full h-10 pl-9 pr-3 rounded-lg border border-border-light bg-surface-card text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            <button type="button" className={chip(!category)} onClick={() => pick("")}>{t("customJersey.gallery.categories.all")}</button>
+            <button type="button" className={chip(!category)} onClick={() => pick("")}><AllIcon />{t("customJersey.gallery.categories.all")}</button>
             {cats.map((c) => (
-              <button key={c.slug} type="button" className={chip(category === c.slug)} onClick={() => pick(c.slug)}>{categoryName(c, locale)}</button>
+              <button key={c.slug} type="button" className={chip(category === c.slug)} onClick={() => pick(c.slug)}><ChipIcon of={[c.slug, c.name_en, c.name_bn]} fallback={Shirt} />{categoryName(c, locale)}</button>
             ))}
           </div>
         </div>
@@ -103,12 +104,12 @@ export function OurDesignsPicker({ pickedIds, canAdd, onToggle, onClose }: {
           {loading && <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-text-muted" /></div>}
           {!loading && hasMore && (
             <div className="flex justify-center pt-4">
-              <button type="button" onClick={() => setOffset(items.length)} className="h-9 px-4 rounded-lg border border-border-light text-xs font-semibold hover:bg-surface-subtle">{t("customJersey.upload.ourDesignsMore")}</button>
+              <button type="button" onClick={() => setOffset(items.length)} className="sp-btn sp-dumbbell h-9 px-4 rounded-lg border border-border-light text-xs font-semibold hover:bg-surface-subtle">{t("customJersey.upload.ourDesignsMore")}</button>
             </div>
           )}
         </div>
         <div className="p-3 border-t border-border-light flex justify-end">
-          <button type="button" onClick={onClose} className="h-10 px-5 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider">{t("customJersey.upload.ourDesignsDone")}</button>
+          <button type="button" onClick={onClose} className="sp-btn sp-wicket h-10 px-5 bg-primary text-primary-foreground rounded-lg text-xs font-bold uppercase tracking-wider">{t("customJersey.upload.ourDesignsDone")}</button>
         </div>
       </div>
     </div>

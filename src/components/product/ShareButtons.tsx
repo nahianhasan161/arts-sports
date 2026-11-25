@@ -20,8 +20,7 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
   const [copied, setCopied] = useState(false);
   const url = () => `${window.location.origin}${path}`;
   const open = (href: string) => window.open(href, "_blank", "noopener,noreferrer");
-  const btn =
-    "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg border border-border-light text-[11px] font-bold uppercase tracking-wider hover:bg-surface-subtle";
+  const btn = "sp-btn inline-flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold uppercase tracking-wider";
 
   const ask = storeWa(`${title} — eta niye jante chai: `);
 
@@ -30,7 +29,7 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className={btn}
+          className={`${btn} sp-shuttle`}
           onClick={() => {
             if (navigator.share) void navigator.share({ title, url: url() }).catch(() => {});
             else open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`);
@@ -38,12 +37,12 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
         >
           <Share2 className="w-3.5 h-3.5" /> Share
         </button>
-        <button type="button" className={btn} onClick={() => open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`)} aria-label="Share on Facebook">
+        <button type="button" className="sp-ico sp-volley" onClick={() => open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`)} aria-label="Share on Facebook">
           <span className="font-black text-[13px] leading-none">f</span>
         </button>
         <button
           type="button"
-          className={btn}
+          className="sp-ico sp-basket"
           aria-label="Send on Messenger"
           onClick={() => {
             const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
@@ -52,12 +51,12 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
         >
           <Send className="w-3.5 h-3.5" />
         </button>
-        <button type="button" className={btn} onClick={() => open(`https://wa.me/?text=${encodeURIComponent(`${title} ${url()}`)}`)} aria-label="Share on WhatsApp">
+        <button type="button" className="sp-ico sp-tennis" onClick={() => open(`https://wa.me/?text=${encodeURIComponent(`${title} ${url()}`)}`)} aria-label="Share on WhatsApp">
           <MessageCircle className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
-          className={btn}
+          className="sp-ico sp-leather"
           aria-label="Copy link"
           onClick={() => {
             void navigator.clipboard?.writeText(url()).then(() => {
@@ -66,20 +65,20 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
             });
           }}
         >
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Link2 className="w-3.5 h-3.5" />}
+          {copied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
         </button>
       </div>
       {(ask || MESSENGER_PAGE) && (
         <div className="flex flex-wrap gap-2">
           {ask && (
-            <button type="button" className={`${btn} border-[#25D366] text-[#128C7E]`} onClick={() => open(`${ask}${url()}`)}>
+            <button type="button" className={`${btn} sp-tennis sp-wa`} onClick={() => open(`${ask}${url()}`)}>
               <MessageCircle className="w-3.5 h-3.5" /> Ask on WhatsApp
             </button>
           )}
           {MESSENGER_PAGE && (
             <button
               type="button"
-              className={`${btn} border-[#0084FF] text-[#0084FF]`}
+              className={`${btn} sp-armband`}
               onClick={() => open(`https://m.me/${encodeURIComponent(MESSENGER_PAGE)}?text=${encodeURIComponent(`${title} ${url()}`)}`)}
             >
               <Send className="w-3.5 h-3.5" /> Ask on Messenger

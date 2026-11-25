@@ -122,7 +122,7 @@ const AccountPage = () => {
                   <p className="text-blue-700 text-xs font-medium mb-2">Email not yet verified</p>
                   <Link
                     href="/sign-in"
-                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors"
+                    className="sp-btn sp-whistle inline-flex items-center gap-1 py-1.5 text-xs font-semibold"
                   >
                     Verify Email
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -132,7 +132,7 @@ const AccountPage = () => {
 
               <button
                 onClick={signOut}
-                className="w-full h-10 border border-border-light rounded-lg text-xs font-semibold uppercase tracking-wider text-text-muted hover:bg-surface-subtle hover:text-primary transition-colors"
+                className="sp-btn sp-red w-full h-10 text-xs font-semibold uppercase tracking-wider"
               >
                 Sign Out
               </button>
@@ -150,7 +150,7 @@ const AccountPage = () => {
               {!editing ? (
                 <button
                   onClick={() => setEditing(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border-light rounded-lg text-xs font-semibold text-text-muted hover:bg-surface-subtle hover:text-primary transition-colors"
+                  className="sp-btn sp-racket inline-flex items-center gap-1.5 py-1.5 text-xs font-semibold"
                 >
                   <Edit className="w-3.5 h-3.5" />
                   Edit
@@ -159,14 +159,14 @@ const AccountPage = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setEditing(false)}
-                    className="px-3 py-1.5 border border-border-light rounded-lg text-xs font-semibold text-text-muted hover:bg-surface-subtle transition-colors"
+                    className="sp-btn sp-red py-1.5 text-xs font-semibold"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-primary-container transition-colors disabled:opacity-50"
+                    className="sp-btn sp-goal inline-flex items-center gap-1.5 py-1.5 text-xs font-semibold uppercase tracking-wider"
                   >
                     <Save className="w-3.5 h-3.5" />
                     {saving ? "Saving..." : "Save"}
@@ -286,7 +286,7 @@ const AccountPage = () => {
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-surface-subtle peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-card after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
+                  <div className="sp-switch sp-knob-after w-11 h-6 bg-surface-subtle peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-card after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                 </label>
               </div>
 
@@ -297,7 +297,7 @@ const AccountPage = () => {
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-surface-subtle peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-card after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
+                  <div className="sp-switch sp-knob-after w-11 h-6 bg-surface-subtle peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface-card after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                 </label>
               </div>
             </div>

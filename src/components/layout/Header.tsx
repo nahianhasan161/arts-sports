@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
-import Link from "next/link";
+import { HoverLink as Link } from "@/components/ui/HoverLink";
 import { useRouter } from "next/navigation";
 import {
   Smartphone,
   Phone,
-  Search,
   Heart,
   ShoppingBag,
   User,
@@ -17,34 +15,38 @@ import {
   LayoutGrid,
   MessageCircle,
   Shield,
-  Sparkles,
 } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { useT } from "@/i18n/client";
-import { formatMoney, type MessageKey } from "@/i18n";
+import { formatMoney } from "@/i18n";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
-
-/** `key` is translated; names that come from the database are shown as saved. */
-type NavItem = { name: string; key?: MessageKey; href: string };
+import { AnimatedLogo } from "@/components/layout/AnimatedLogo";
+import { CategoryBar, NavIcon, useNavLabel, type NavItem } from "@/components/layout/CategoryBar";
+import { RacketSearchIcon } from "@/components/ui/RacketSearchIcon";
 
 const DEFAULT_NAV: NavItem[] = [
-  { name: "Shop All", key: "site.nav.shopAll", href: "/shop" },
-  { name: "Custom Jersey", key: "site.nav.customJersey", href: "/custom-jersey" },
-  { name: "Men", key: "site.nav.men", href: "/shop?category=men" },
-  { name: "Women", key: "site.nav.women", href: "/shop?category=women" },
-  { name: "Kids", key: "site.nav.kids", href: "/shop?category=kids" },
-  { name: "Sports", key: "site.nav.sports", href: "/shop?category=sports" },
-  { name: "New Arrivals", key: "site.nav.newArrivals", href: "/shop?sort=newest" },
-  { name: "Top Selling", key: "site.nav.topSelling", href: "/shop?sort=popular" },
-  { name: "Mega Deals", key: "site.nav.megaDeals", href: "/shop?deals=true" },
+  { kind: "all", name: "Shop All", key: "site.nav.shopAll", href: "/shop" },
+  { kind: "custom", name: "Custom Jersey", key: "site.nav.customJersey", href: "/custom-jersey" },
+  { kind: "category", name: "Men", key: "site.nav.men", href: "/shop?category=men" },
+  { kind: "category", name: "Women", key: "site.nav.women", href: "/shop?category=women" },
+  { kind: "category", name: "Kids", key: "site.nav.kids", href: "/shop?category=kids" },
+  { kind: "category", name: "Sports", key: "site.nav.sports", href: "/shop?category=sports" },
+  { kind: "collection", name: "New Arrivals", key: "site.nav.newArrivals", href: "/shop?sort=newest" },
+  { kind: "collection", name: "Top Selling", key: "site.nav.topSelling", href: "/shop?sort=popular" },
+  { kind: "deal", name: "Mega Deals", key: "site.nav.megaDeals", href: "/shop?deals=true" },
 ];
+
+/** A row of /api/catalog/nav. */
+type NavRow = Pick<NavItem, "name" | "name_bn" | "slug" | "href">;
+const navItem = (kind: NavItem["kind"], { name, name_bn, slug, href }: NavRow): NavItem => ({ kind, name, name_bn, slug, href });
 
 export function Header() {
   const router = useRouter();
   const { t, locale } = useT();
+  const navLabel = useNavLabel();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -95,14 +97,14 @@ export function Header() {
     let alive = true;
     fetch("/api/catalog/nav")
       .then((r) => (r.ok ? r.json() : null))
-      .then((nav: { sports: { name: string; href: string }[]; collections: { name: string; href: string }[] } | null) => {
+      .then((nav: { sports: NavRow[]; collections: NavRow[] } | null) => {
         if (!alive || !nav || (nav.sports.length === 0 && nav.collections.length === 0)) return;
         setNavCategories([
-          { name: "Shop All", key: "site.nav.shopAll", href: "/shop" },
-          { name: "Custom Jersey", key: "site.nav.customJersey", href: "/custom-jersey" },
-          ...nav.sports.map(({ name, href }) => ({ name, href })),
-          ...nav.collections,
-          { name: "Mega Deals", key: "site.nav.megaDeals", href: "/shop?deals=true" },
+          { kind: "all", name: "Shop All", key: "site.nav.shopAll", href: "/shop" },
+          { kind: "custom", name: "Custom Jersey", key: "site.nav.customJersey", href: "/custom-jersey" },
+          ...nav.sports.map((row) => navItem("category", row)),
+          ...nav.collections.map((row) => navItem("collection", row)),
+          { kind: "deal", name: "Mega Deals", key: "site.nav.megaDeals", href: "/shop?deals=true" },
         ]);
       })
       .catch(() => {});
@@ -113,7 +115,7 @@ export function Header() {
   return (
     <header className="fixed top-0 w-full z-40 bg-surface-card shadow-sm">
       {/* 1. Utility Top Bar */}
-      <div className="bg-primary-container text-on-primary">
+      <div className="site-top bg-primary-container text-on-primary">
         <div className="max-w-container-max mx-auto px-space-base h-10 flex items-center justify-between text-[13px] font-body">
           <div className="flex items-center gap-space-md">
             {/* The utility bar was a row of links that went nowhere: "GET 5%
@@ -163,44 +165,38 @@ export function Header() {
       </div>
 
       {/* 2. Main Navigation Bar */}
-      <div className="max-w-container-max mx-auto px-space-base h-20 flex items-center justify-between gap-space-lg">
+      <div className="site-bar max-w-container-max mx-auto px-3 min-[360px]:px-space-base h-20 flex items-center justify-between gap-2 sm:gap-space-lg">
         {/* Brand Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 min-[360px]:gap-3">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-1.5 text-primary hover:bg-surface-subtle rounded-md"
+            className="sp-ico sp-tactics lg:hidden"
             aria-label={t("site.header.menu")}
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
 
           <Link href="/" className="flex items-center flex-shrink-0">
-            <Image
-              src="/main-logo-arts-sports.webp"
-              alt="arts sports"
-              width={220}
-              height={36}
-              className="h-7 sm:h-8 md:h-9 w-auto object-contain dark:brightness-0 dark:invert"
-              priority
-            />
+            <AnimatedLogo className="h-6 min-[360px]:h-7 sm:h-8 md:h-9 w-auto text-[#0a0a0a] dark:text-white" />
           </Link>
         </div>
 
         {/* Global Search Bar */}
         <div className="hidden md:flex flex-1 max-w-xl">
-          <form onSubmit={handleSearch} className="relative flex items-center w-full group">
-            <Search className="w-4 h-4 absolute left-4 text-text-muted pointer-events-none group-focus-within:text-accent-gold transition-colors" />
+          <form onSubmit={handleSearch} className="sp-search relative flex items-center w-full">
+            <RacketSearchIcon className="sp-search-racket w-8 h-8" />
+            <span className="sp-knob sp-search-ball w-5 h-5" aria-hidden />
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("site.header.searchPlaceholder")}
               aria-label={t("site.header.search")}
-              className="w-full h-11 pl-11 pr-24 bg-surface-subtle text-on-surface placeholder:text-text-muted rounded-full text-sm font-body border border-border-light focus:outline-none focus:bg-surface-card focus:border-accent-gold focus:ring-4 focus:ring-accent-gold/15 transition-all"
+              className="w-full h-11 pl-12 pr-32 bg-transparent text-sm font-body focus:outline-none"
             />
             <button
               type="submit"
-              className="absolute right-1.5 h-8 px-4 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition"
+              className="sp-btn sp-goal absolute right-2 h-8 text-xs font-bold"
             >
               {t("site.header.search")}
             </button>
@@ -208,12 +204,12 @@ export function Header() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-space-sm sm:gap-space-base flex-shrink-0">
+        <div className="flex items-center gap-1 min-[360px]:gap-space-sm sm:gap-space-base flex-shrink-0">
           {/* User Account Avatar - First (profile icon) */}
           {!user ? (
             <Link
               href="/sign-in"
-              className="p-2 rounded-lg hover:bg-surface-subtle text-on-surface-variant hover:text-primary transition-colors"
+              className="sp-ico sp-tennis sp-lg"
               aria-label={t("site.header.signIn")}
             >
               <User className="w-6 h-6" />
@@ -222,7 +218,7 @@ export function Header() {
             <div className="relative" data-user-menu="true">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-surface-subtle text-on-surface-variant hover:text-primary transition-colors"
+                className="sp-btn sp-locker max-xl:!px-1 h-11 flex items-center gap-2"
                 aria-label="Account menu"
               >
                 {/* Resolved by UserAvatar, which falls back past a stale token
@@ -231,7 +227,7 @@ export function Header() {
                     user_metadata.picture only, so the avatar vanished whenever
                     the issued JWT did not carry it. */}
                 <UserAvatar size={32} />
-                <span className="hidden sm:block text-sm font-medium text-on-surface truncate max-w-[140px]">
+                <span className="hidden xl:block text-sm font-medium truncate max-w-[140px]">
                   {user?.user_metadata?.full_name ||
                     user?.user_metadata?.name ||
                     user?.email?.split("@")[0] ||
@@ -242,7 +238,7 @@ export function Header() {
                 <div className="absolute right-0 mt-2 w-48 bg-surface-card rounded-md shadow-lg py-1 z-50 border border-border-light">
                   <Link
                     href="/account"
-                    className="block px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
+                    className="sp-nav block px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
                     onClick={() => setUserMenuOpen(false)}
                   >
                     {t("site.header.myAccount")}
@@ -250,7 +246,7 @@ export function Header() {
                   {isAdmin && (
                     <Link
                       href="/admin"
-                      className="block px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
+                      className="sp-nav block px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
                       onClick={() => setUserMenuOpen(false)}
                     >
                       <span className="flex items-center gap-2">
@@ -264,7 +260,7 @@ export function Header() {
                       signOut();
                       setUserMenuOpen(false);
                     }}
-                    className="block w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
+                    className="sp-nav block w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
                   >
                     {t("site.header.signOut")}
                   </button>
@@ -277,7 +273,7 @@ export function Header() {
           <button
             onClick={toggleWishlistDrawer}
             aria-label={t("site.header.wishlist")}
-            className="relative p-2 rounded-lg hover:bg-surface-subtle text-on-surface-variant hover:text-primary transition-colors"
+            className="sp-ico sp-medal sp-lg relative"
           >
             <Heart className="w-6 h-6" />
             {wishlistCount > 0 && (
@@ -291,76 +287,59 @@ export function Header() {
           <button
             onClick={toggleCart}
             aria-label={t("site.header.total")}
-            className="flex items-center gap-2 pl-2.5 pr-3.5 h-11 bg-surface-subtle hover:bg-surface-container border border-border-light rounded-full transition-colors cursor-pointer"
+            className="sp-btn sp-board text-sm flex items-center gap-2 h-11 cursor-pointer"
           >
-            <div className="relative flex items-center justify-center text-primary">
+            <div className="relative flex items-center justify-center">
               <ShoppingBag className="w-6 h-6" />
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent-gold text-white font-bold text-[10px] rounded-full flex items-center justify-center">
                 {totalCartCount}
               </span>
             </div>
             <div className="hidden sm:flex flex-col text-left leading-tight">
-              <span className="text-[10px] text-text-muted uppercase font-bold tracking-wider">
+              <span className="text-[10px] opacity-85 uppercase font-bold tracking-wider">
                 {t("site.header.total")}
               </span>
-              <span className="text-sm text-on-surface font-bold tabular-nums">{formatMoney(subtotal, locale)}</span>
+              <span className="text-sm font-bold tabular-nums">{formatMoney(subtotal, locale)}</span>
             </div>
           </button>
         </div>
       </div>
 
       {/* 3. Category Navigation Bar */}
-      <div className="hidden lg:block bg-surface-card border-t border-border-light">
-        <div className="max-w-container-max mx-auto px-space-base h-11 flex items-center">
-          <nav className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {navCategories.map((cat) =>
-              cat.href === "/custom-jersey" ? (
-                <Link
-                  key="custom-jersey"
-                  href={cat.href}
-                  className="mx-1 px-3.5 py-1.5 rounded-full bg-accent-gold text-white font-display uppercase tracking-wider text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5 shadow-sm hover:brightness-110 transition"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {cat.key ? t(cat.key) : cat.name}
-                </Link>
-              ) : (
-                <Link
-                  key={cat.key ? t(cat.key) : cat.name}
-                  href={cat.href}
-                  className="px-3.5 py-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-subtle rounded-full font-display uppercase tracking-wider text-xs font-semibold transition-colors whitespace-nowrap"
-                >
-                  {cat.key ? t(cat.key) : cat.name}
-                </Link>
-              )
-            )}
-          </nav>
-        </div>
-      </div>
+      <CategoryBar items={navCategories} />
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-border-light bg-surface-card px-space-base py-space-sm shadow-lg">
-          <form onSubmit={handleSearch} className="relative flex items-center w-full mb-3">
+        <div className="lg:hidden border-t border-border-light bg-surface-card px-space-base py-space-sm shadow-lg max-h-[calc(100dvh-190px-env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain">
+          <form onSubmit={handleSearch} className="sp-search relative flex items-center w-full mb-3">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("site.header.searchShort")}
-              className="w-full h-9 pl-3 pr-9 bg-surface-subtle text-sm rounded-lg border border-border-light"
+              className="w-full h-11 pl-4 pr-14 bg-transparent text-sm focus:outline-none"
             />
-            <button type="submit" className="absolute right-2 text-text-muted">
-              <Search className="w-4 h-4" />
+            <button type="submit" className="sp-search-btn absolute right-2 w-10 h-10 flex items-center justify-center" aria-label={t("site.header.search")}>
+              <RacketSearchIcon className="w-8 h-8" />
             </button>
           </form>
           <div className="grid grid-cols-2 gap-2">
             {navCategories.map((cat) => (
               <Link
-                key={cat.key ? t(cat.key) : cat.name}
+                key={cat.href}
                 href={cat.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 text-sm text-on-surface hover:bg-surface-subtle rounded font-semibold"
+                className={
+                  cat.kind === "custom"
+                    ? "sp-btn sp-jersey col-span-2 order-first h-11 text-sm font-bold inline-flex items-center justify-center gap-1.5"
+                    : "min-w-0 h-11 px-3 flex items-center gap-2 text-sm text-on-surface bg-surface-subtle hover:bg-surface-container rounded-md font-semibold"
+                }
               >
-                {cat.key ? t(cat.key) : cat.name}
+                <NavIcon
+                  item={cat}
+                  className={`w-4 h-4 shrink-0 ${cat.kind === "custom" ? "" : cat.kind === "deal" ? "text-badge-discount" : "text-primary"}`}
+                />
+                <span className="truncate">{navLabel(cat)}</span>
               </Link>
             ))}
           </div>
@@ -379,14 +358,14 @@ export function Header() {
           actually navigates. */}
       <nav
         aria-label="Primary"
-        className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface-card border-t border-border-light z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]"
+        className="lg:hidden fixed bottom-0 left-0 right-0 pb-[env(safe-area-inset-bottom)] bg-surface-card border-t border-border-light z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]"
       >
         <div className="flex items-center justify-around h-16 px-space-sm">
           {/* Home */}
           <Link
             href="/"
             onClick={() => setMobileMenuOpen(false)}
-            className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+            className="sp-tab flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
             aria-label={t("site.header.home")}
           >
             <Home className="w-5 h-5 mb-0.5" />
@@ -396,7 +375,7 @@ export function Header() {
           {/* Categories — opens the drawer, which is where the tree lives */}
           <button
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+            className="sp-tab flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
             aria-label={t("site.header.categories")}
             aria-expanded={mobileMenuOpen}
           >
@@ -408,7 +387,7 @@ export function Header() {
           <a
             href="tel:+8801911904618"
             onClick={() => setMobileMenuOpen(false)}
-            className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+            className="sp-tab flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
             aria-label={t("site.header.support")}
           >
             <MessageCircle className="w-5 h-5 mb-0.5" />
@@ -421,13 +400,13 @@ export function Header() {
               setMobileMenuOpen(false);
               openCart();
             }}
-            className="relative flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+            className="relative sp-tab flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
             aria-label={`${t("site.header.cart")} (${totalCartCount})`}
           >
             <ShoppingBag className="w-5 h-5 mb-0.5" />
             {t("site.header.cart")}
             {totalCartCount > 0 && (
-              <span className="absolute top-0 right-1/4 min-w-[16px] h-4 px-1 rounded-full bg-secondary text-white text-[9px] font-bold flex items-center justify-center">
+              <span className="absolute top-0 right-1/4 min-w-[16px] h-4 px-1 rounded-full bg-badge-discount text-white text-[10px] font-bold flex items-center justify-center">
                 {totalCartCount}
               </span>
             )}
@@ -438,7 +417,7 @@ export function Header() {
             <Link
               href="/sign-in"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+              className="sp-tab flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
               aria-label={t("site.header.signIn")}
             >
               <User className="w-5 h-5 mb-0.5" />
@@ -448,7 +427,7 @@ export function Header() {
             <Link
               href={isAdmin ? "/admin" : "/account"}
               onClick={() => setMobileMenuOpen(false)}
-              className="flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
+              className="sp-tab flex flex-1 flex-col items-center justify-center text-[11px] font-bold text-text-muted hover:text-primary transition-colors"
               aria-label={isAdmin ? t("site.header.adminPanel") : t("site.header.myAccount")}
             >
               <User className="w-5 h-5 mb-0.5" />
@@ -457,6 +436,7 @@ export function Header() {
           )}
         </div>
       </nav>
+      <div className="as-touchline" aria-hidden />
     </header>
   );
 }

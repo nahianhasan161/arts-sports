@@ -1,17 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
-import { useT } from "@/i18n/client";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
+import dynamic from "next/dynamic";
+
+// On every page but rarely opened, so it is downloaded with the first question.
+const ConfirmDialog = dynamic(() => import("./confirm-dialog"), { ssr: false });
 
 export interface ConfirmOptions {
   title: string;
@@ -33,15 +26,13 @@ const ConfirmContext = createContext<Ask | null>(null);
 
 /** Promise-based replacement for window.confirm / window.prompt. */
 export function ConfirmProvider({ children }: { children: ReactNode }) {
-  const { t } = useT();
-  const [options, setOptions] = useState<ConfirmOptions | null>(null);
-  const [reason, setReason] = useState("");
+  // The last question stays after it is answered, so the dialog can fade out with its text.
+  const [question, setQuestion] = useState<{ id: number; options: ConfirmOptions; open: boolean } | null>(null);
   const resolver = useRef<((r: ConfirmResult) => void) | null>(null);
 
-  const ask = useCallback<Ask>((o) => {
+  const ask = useCallback<Ask>((options) => {
     resolver.current?.(false);
-    setReason("");
-    setOptions(o);
+    setQuestion((q) => ({ id: (q?.id ?? 0) + 1, options, open: true }));
     return new Promise<ConfirmResult>((resolve) => {
       resolver.current = resolve;
     });
@@ -50,50 +41,13 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const finish = (result: ConfirmResult) => {
     resolver.current?.(result);
     resolver.current = null;
-    setOptions(null);
+    setQuestion((q) => q && { ...q, open: false });
   };
-
-  const needsReason = Boolean(options?.reason);
-  const canConfirm = !needsReason || reason.trim().length > 0;
 
   return (
     <ConfirmContext.Provider value={ask}>
       {children}
-      <AlertDialog open={options !== null} onOpenChange={(open) => !open && finish(false)}>
-        <AlertDialogContent>
-          <form
-            className="grid gap-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (canConfirm) finish({ reason: reason.trim() });
-            }}
-          >
-            <AlertDialogHeader>
-              <AlertDialogTitle>{options?.title}</AlertDialogTitle>
-              {options?.description && <AlertDialogDescription>{options.description}</AlertDialogDescription>}
-            </AlertDialogHeader>
-            {options?.reason && (
-              <label className="grid gap-1 text-sm font-medium text-on-surface">
-                {options.reason.label}
-                <textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder={options.reason.placeholder}
-                  maxLength={500}
-                  autoFocus
-                  className="min-h-20 rounded-md border border-border-light bg-surface-card p-2 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </label>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel type="button">{options?.cancelText ?? t("shop.common.cancel")}</AlertDialogCancel>
-              <Button type="submit" variant={options?.danger ? "destructive" : "default"} disabled={!canConfirm} autoFocus={!needsReason}>
-                {options?.confirmText ?? t("shop.common.confirm")}
-              </Button>
-            </AlertDialogFooter>
-          </form>
-        </AlertDialogContent>
-      </AlertDialog>
+      {question && <ConfirmDialog key={question.id} options={question.options} open={question.open} finish={finish} />}
     </ConfirmContext.Provider>
   );
 }

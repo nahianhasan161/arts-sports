@@ -380,6 +380,7 @@ function CategoryFormModal({
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: category?.name ?? "",
+    name_bn: category?.name_bn ?? "",
     slug: category?.slug ?? "",
   });
   const isEdit = category !== null;
@@ -391,7 +392,7 @@ function CategoryFormModal({
   ) => {
     setFormData((prev) => {
       if (field === "name" && !slugManuallyEdited) {
-        return { name: value as string, slug: slugify(value as string) };
+        return { ...prev, name: value as string, slug: slugify(value as string) };
       }
       return { ...prev, [field]: value };
     });
@@ -402,6 +403,7 @@ function CategoryFormModal({
     try {
       const body = {
         name: formData.name,
+        name_bn: formData.name_bn.trim() || null,
         slug: formData.slug,
         ...(parentId && { parent_id: parentId }),
       };
@@ -456,6 +458,17 @@ function CategoryFormModal({
               type="text"
               value={formData.name}
               onChange={(e) => handleChange("name", e.target.value)}
+              className="w-full h-9 px-3 border border-border-light rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-on-surface mb-1.5">
+              Name (Bangla)
+            </label>
+            <input
+              type="text"
+              value={formData.name_bn}
+              onChange={(e) => handleChange("name_bn", e.target.value)}
               className="w-full h-9 px-3 border border-border-light rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/20"
             />
           </div>

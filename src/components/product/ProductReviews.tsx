@@ -205,7 +205,7 @@ export function ProductReviews({
                 <img key={url} src={url} alt="" className="w-14 h-14 object-cover rounded border border-border-light" />
               ))}
               {photos.length < 4 && (
-                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary border border-dashed border-border-light rounded-lg px-3 py-2 cursor-pointer hover:bg-surface-card">
+                <label className="sp-btn sp-racket inline-flex items-center gap-1.5 text-xs font-semibold py-2 cursor-pointer">
                   <Camera className="w-4 h-4" /> {uploading ? "Uploading…" : "Add photo"}
                   <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading}
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadPhoto(f); e.target.value = ""; }} />
@@ -213,7 +213,7 @@ export function ProductReviews({
               )}
             </div>
             {reviewMsg && <p className={`text-xs ${reviewMsg.ok ? "text-emerald-700" : "text-badge-discount"}`}>{reviewMsg.text}</p>}
-            <button type="submit" disabled={sending} className="px-5 py-2 bg-primary text-primary-foreground font-display text-xs uppercase font-bold rounded-lg disabled:opacity-50">
+            <button type="submit" disabled={sending} className="sp-btn sp-medal py-2 font-display text-xs uppercase font-bold">
               {sending ? "Sending…" : "Submit review"}
             </button>
           </form>
@@ -239,7 +239,7 @@ export function ProductReviews({
           <form onSubmit={submitQuestion} className="space-y-2">
             <textarea className={input} rows={3} required minLength={3} maxLength={1000} placeholder="Ask a question about this product" value={question} onChange={(e) => setQuestion(e.target.value)} />
             {qMsg && <p className={`text-xs ${qMsg.ok ? "text-emerald-700" : "text-badge-discount"}`}>{qMsg.text}</p>}
-            <button type="submit" className="px-5 py-2 bg-primary text-primary-foreground font-display text-xs uppercase font-bold rounded-lg">Ask</button>
+            <button type="submit" className="sp-btn sp-shuttle py-2 font-display text-xs uppercase font-bold">Ask</button>
           </form>
         ) : (
           <p className="text-sm text-text-muted">

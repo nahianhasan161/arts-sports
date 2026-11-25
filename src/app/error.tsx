@@ -82,13 +82,13 @@ export default function GlobalError({
         <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
           <button
             onClick={reset}
-            className="px-6 py-3 bg-primary text-white font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-primary-container transition-colors shadow-sm"
+            className="sp-btn sp-whistle py-3 font-display uppercase tracking-wider text-xs font-bold"
           >
             Try Again
           </button>
           <Link
             href="/"
-            className="px-6 py-3 border border-border-light bg-surface-card text-primary font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-surface-subtle transition-colors"
+            className="sp-btn sp-flag py-3 font-display uppercase tracking-wider text-xs font-bold"
           >
             Go Home
           </Link>

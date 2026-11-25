@@ -44,6 +44,9 @@ const MESSAGES: Record<string, string> = {
 
 /** Turns a database error into a line a cashier can act on. */
 export function explainPosError(message: string): string {
+  if (/stock_receipt_items_variant_id_fkey/.test(message)) {
+    return "An item in this purchase was not found. For products without sizes/colours, the migration 20261125100000_purchase_plain_products.sql must be applied.";
+  }
   if (/does not exist|schema cache|Could not find/i.test(message) && /supplier_purchase_edit|supplier_payment_void|stock_receipt_edits|voided_at|void_reason|audit_log.*reason/.test(message)) {
     return "Corrections are not set up yet: the migration 20261117130000_audit_actor_and_corrections.sql has not been applied.";
   }

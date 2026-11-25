@@ -146,7 +146,7 @@ export default function SignInPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-primary transition-colors"
+              className="sp-ico sp-tennis sp-sm absolute right-2.5 top-1/2 -translate-y-1/2"
             >
               {showPassword ? (
                 <EyeOff className="w-4 h-4" />
@@ -166,7 +166,7 @@ export default function SignInPage() {
           </a>
         </div>
 
-        <Button type="submit" disabled={loading} className="w-full h-11">
+        <Button type="submit" disabled={loading} className="sp-btn sp-locker w-full h-11">
           {loading ? "Signing In..." : "Sign In"}
         </Button>
 

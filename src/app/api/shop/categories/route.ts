@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const offset = Math.max(0, Number(params.get("offset") ?? "0") || 0);
   const limit = Math.min(50, Math.max(1, Number(params.get("limit") ?? "10") || 10));
   const all = await getCategories();
-  const items = all.slice(offset, offset + limit).map(({ id, slug, name }) => ({ id, slug, name }));
+  const items = all.slice(offset, offset + limit).map(({ id, slug, name, name_bn }) => ({ id, slug, name, name_bn }));
   return NextResponse.json(
     { items, hasMore: offset + limit < all.length },
     { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } }

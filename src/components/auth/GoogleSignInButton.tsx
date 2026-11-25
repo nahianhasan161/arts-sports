@@ -57,7 +57,7 @@ export function GoogleSignInButton({
         onClick={handleGoogleSignIn}
         disabled={pending}
         variant="outline"
-        className="w-full h-11"
+        className="sp-btn sp-football w-full h-11"
       >
         {pending ? "Connecting to Google..." : "Continue with Google"}
       </Button>

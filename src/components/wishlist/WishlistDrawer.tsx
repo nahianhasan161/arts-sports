@@ -54,7 +54,7 @@ export function WishlistDrawer() {
             </div>
             <button
               onClick={closeWishlist}
-              className="p-1 rounded-md text-text-muted hover:text-primary hover:bg-surface-container transition-colors"
+              className="sp-ico sp-red sp-sm"
               aria-label="Close wishlist"
             >
               <X className="w-5 h-5" />
@@ -76,7 +76,7 @@ export function WishlistDrawer() {
                 </p>
                 <button
                   onClick={closeWishlist}
-                  className="px-6 py-2.5 bg-primary text-white font-display uppercase tracking-wider text-xs font-semibold rounded-lg hover:bg-primary-container transition-colors shadow-sm"
+                  className="sp-btn sp-medal py-2.5 font-display uppercase tracking-wider text-xs font-semibold"
                 >
                   Explore Products
                 </button>
@@ -112,7 +112,7 @@ export function WishlistDrawer() {
                         </Link>
                         <button
                           onClick={() => removeItem(product.id)}
-                          className="text-text-muted hover:text-badge-discount transition-colors p-1 shrink-0"
+                          className="sp-ico sp-yellow sp-sm shrink-0"
                           aria-label="Remove from wishlist"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -148,7 +148,7 @@ export function WishlistDrawer() {
                       <button
                         onClick={() => handleAddToCart(product)}
                         disabled={product.stock === 0}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-primary text-white text-[10px] font-bold uppercase tracking-wider rounded-md hover:bg-primary-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                        className="sp-btn sp-basket flex items-center gap-1 py-1.5 text-[10px] font-bold uppercase tracking-wider"
                       >
                         <ShoppingBag className="w-3 h-3" />
                         Add to Bag

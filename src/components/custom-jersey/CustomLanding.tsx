@@ -49,14 +49,14 @@ export function CustomHero({ startPrice, advancePercent, normalDays, freeRevisio
           <div className="flex flex-wrap gap-3 pt-1">
             <a
               href="#order"
-              className="h-12 px-6 rounded-xl bg-accent-gold text-white font-display uppercase tracking-wider text-sm font-bold inline-flex items-center gap-2 shadow-lg shadow-black/20 hover:brightness-110 transition"
+              className="sp-btn sp-bat h-12 font-display uppercase tracking-wider text-sm font-bold inline-flex items-center gap-2"
             >
               {t("home.landing.start")}
               <ArrowRight className="w-4 h-4" />
             </a>
             <Link
               href="/custom-jersey/gallery"
-              className="h-12 px-6 rounded-xl bg-white/10 border border-white/25 text-white font-display uppercase tracking-wider text-sm font-bold inline-flex items-center gap-2 hover:bg-white/20 transition"
+              className="sp-btn sp-ticket h-12 font-display uppercase tracking-wider text-sm font-bold inline-flex items-center gap-2"
             >
               <Images className="w-4 h-4" />
               {t("home.landing.catalogue")}
@@ -121,12 +121,12 @@ export function PopularDesigns({ designs, categories }: { designs: DesignRow[]; 
           </span>
           <h2 className="font-display uppercase font-bold text-on-surface text-2xl sm:text-3xl leading-tight">{t("home.landing.popular")}</h2>
         </div>
-        <Link href="/custom-jersey/gallery" className="shrink-0 inline-flex items-center gap-1.5 font-display uppercase tracking-wider text-xs font-bold text-on-surface hover:text-accent-gold">
+        <Link href="/custom-jersey/gallery" className="sp-btn sp-goal shrink-0 h-11 inline-flex items-center gap-1.5 font-display uppercase tracking-wider text-xs font-bold">
           {t("home.landing.seeAll")}
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
-      <DesignGrid designs={designs} categories={categories} limit={4} className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4" />
+      <DesignGrid designs={designs} categories={categories} limit={4} className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4" />
     </section>
   );
 }

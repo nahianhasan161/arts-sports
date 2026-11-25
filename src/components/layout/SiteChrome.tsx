@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 /**
@@ -10,13 +10,18 @@ import { usePathname } from "next/navigation";
  */
 export function SiteChrome({ header, footer, overlays, children }: { header: ReactNode; footer: ReactNode; overlays: ReactNode; children: ReactNode }) {
   const pathname = usePathname();
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return <>{children}</>;
+  const admin = pathname === "/admin" || pathname.startsWith("/admin/");
+  // The head script sets this on load; this keeps it right on client navigation.
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle("pitch", !admin);
+  }, [admin]);
+  if (admin) return <>{children}</>;
   return (
     <>
       {header}
       {overlays}
       {/* pb-16 clears the mobile bottom navigation bar; it is hidden from lg up. */}
-      <main className="flex-1 pt-[120px] lg:pt-[164px] pb-16 lg:pb-0">{children}</main>
+      <main className="site-main flex-1 pt-[120px] lg:pt-[164px] pb-16 lg:pb-0">{children}</main>
       {footer}
     </>
   );

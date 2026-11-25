@@ -38,5 +38,5 @@ export function useTheme() {
   return { theme, setTheme, toggle: () => setTheme(theme === "dark" ? "light" : "dark") };
 }
 
-/** Runs in <head> before paint: applies the saved theme and language. */
-export const PREFERENCES_SCRIPT = `(function(){try{var d=document.documentElement;if(localStorage.getItem("${THEME_KEY}")==="dark")d.classList.add("dark");var m=document.cookie.match(/(?:^|; )lang=(bn|en)/);d.lang=m?m[1]:"bn";}catch(e){}})();`;
+/** Runs in <head> before paint: applies the saved theme and language, and the football colours outside /admin. */
+export const PREFERENCES_SCRIPT = `(function(){try{var d=document.documentElement;if(!/^\\/admin(\\/|$)/.test(location.pathname))d.classList.add("pitch");if(localStorage.getItem("${THEME_KEY}")==="dark")d.classList.add("dark");var m=document.cookie.match(/(?:^|; )lang=(bn|en)/);d.lang=m?m[1]:"bn";}catch(e){}})();`;

@@ -20,6 +20,8 @@ export const siteEn = {
     wishlist: "Wishlist",
     total: "Total",
     menu: "Menu",
+    scrollLeft: "Show earlier menu items",
+    scrollRight: "Show more menu items",
     home: "Home",
     categories: "Categories",
     support: "Support",

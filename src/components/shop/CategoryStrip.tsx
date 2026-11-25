@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AllIcon, ChipIcon } from "@/components/ui/ChipIcon";
+import { useT } from "@/i18n/client";
 import { ChipSkeletons } from "./Skeletons";
 
-type Cat = { id: string; slug: string; name: string };
+type Cat = { id: string; slug: string; name: string; name_bn?: string | null };
 
 /**
  * Horizontally scrolling category chips. The first page comes from the
@@ -23,6 +25,7 @@ export function CategoryStrip({
   onSelect: (slug: string) => void;
   pageSize?: number;
 }) {
+  const { t, locale } = useT();
   const [items, setItems] = useState(initial);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
@@ -64,17 +67,14 @@ export function CategoryStrip({
   const nudge = (dir: 1 | -1) =>
     scroller.current?.scrollBy({ left: dir * scroller.current.clientWidth * 0.8, behavior: "smooth" });
 
-  const chip = (slug: string, label: string) => (
+  const chip = (slug: string, label: string, name = label) => (
     <button
       key={slug}
       onClick={() => onSelect(slug)}
       aria-pressed={active === slug}
-      className={`px-3.5 py-1.5 rounded text-xs font-display uppercase tracking-wider font-semibold whitespace-nowrap shrink-0 transition-colors border ${
-        active === slug
-          ? "bg-primary text-primary-foreground border-primary shadow-sm"
-          : "bg-surface-subtle hover:bg-surface-container text-on-surface border-border-light"
-      }`}
+      className={`sp-chip ${active === slug ? "sp-on" : ""} py-1.5 inline-flex items-center gap-1.5 text-xs font-display uppercase tracking-wider font-semibold whitespace-nowrap shrink-0`}
     >
+      {slug === "all" ? <AllIcon /> : <ChipIcon of={[slug, name]} />}
       {label}
     </button>
   );
@@ -83,8 +83,8 @@ export function CategoryStrip({
     <div className="relative flex items-center gap-1 pt-2">
       <button
         onClick={() => nudge(-1)}
-        aria-label="Scroll left"
-        className="hidden md:flex shrink-0 w-7 h-7 items-center justify-center rounded-full border border-border-light bg-surface-card hover:bg-surface-subtle"
+        aria-label={t("store.shop.ui.scrollLeft")}
+        className="sp-ico sp-tennis sp-sm hidden md:flex shrink-0"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -92,15 +92,15 @@ export function CategoryStrip({
         ref={scroller}
         className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth snap-x py-1 flex-1 min-w-0"
       >
-        {chip("all", "All")}
-        {items.map((c) => chip(c.slug, c.name))}
+        {chip("all", t("store.shop.ui.all"))}
+        {items.map((c) => chip(c.slug, (locale === "bn" && c.name_bn) || c.name, c.name))}
         {loading && <ChipSkeletons count={3} />}
         {hasMore && <div ref={sentinel} className="w-px h-6 shrink-0" />}
       </div>
       <button
         onClick={() => nudge(1)}
-        aria-label="Scroll right"
-        className="hidden md:flex shrink-0 w-7 h-7 items-center justify-center rounded-full border border-border-light bg-surface-card hover:bg-surface-subtle"
+        aria-label={t("store.shop.ui.scrollRight")}
+        className="sp-ico sp-tennis sp-sm hidden md:flex shrink-0"
       >
         <ChevronRight className="w-4 h-4" />
       </button>

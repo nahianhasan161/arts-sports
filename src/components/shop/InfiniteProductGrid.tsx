@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductGridSkeleton } from "./Skeletons";
+import { assignFrames, frameWords } from "@/lib/sport-frames";
+import { useT } from "@/i18n/client";
 import type { Product } from "@/types";
 
 /**
@@ -26,6 +28,7 @@ export function InfiniteProductGrid({
   filter: (p: Product) => boolean;
   onCount?: (shown: number) => void;
 }) {
+  const { t } = useT();
   const [items, setItems] = useState(initial);
   const [hasMore, setHasMore] = useState(initial.length < total && initial.length >= pageSize);
   const [loading, setLoading] = useState(false);
@@ -69,13 +72,14 @@ export function InfiniteProductGrid({
   }, [hasMore, failed, loadMore]);
 
   const visible = items.filter(filter);
+  const frames = assignFrames(visible.map(frameWords));
   useEffect(() => onCount?.(visible.length), [visible.length, onCount]);
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-space-sm sm:gap-space-md">
-        {visible.map((product) => (
-          <ProductCard key={product.id} product={product} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4">
+        {visible.map((product, i) => (
+          <ProductCard key={product.id} product={product} frame={frames[i]} />
         ))}
         {loading && <ProductGridSkeleton count={4} />}
       </div>
@@ -83,15 +87,15 @@ export function InfiniteProductGrid({
         <div className="text-center pt-6">
           <button
             onClick={loadMore}
-            className="px-5 py-2 text-xs font-bold uppercase rounded-md border border-border-light bg-surface-card hover:bg-surface-subtle"
+            className="sp-btn sp-whistle py-2 text-xs font-bold uppercase"
           >
-            Retry
+            {t("store.shop.ui.retry")}
           </button>
         </div>
       )}
       {hasMore && <div ref={sentinel} className="h-px" />}
       {!hasMore && items.length > pageSize && (
-        <p className="text-center text-xs text-text-muted pt-6">That&apos;s everything.</p>
+        <p className="text-center text-xs text-text-muted pt-6">{t("store.shop.ui.end")}</p>
       )}
     </>
   );

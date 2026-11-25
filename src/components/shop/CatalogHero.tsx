@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight, Home } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
+import { assignFrames, frameWords } from "@/lib/sport-frames";
 import type { Product } from "@/types";
 import { Countdown } from "@/components/shop/Countdown";
 
@@ -24,9 +25,10 @@ export function CatalogHero({
   products: Product[];
   refineHref?: string;
 }) {
+  const frames = assignFrames(products.map(frameWords));
   return (
     <div className="w-full pb-space-3xl">
-      <section className="w-full bg-surface-card border-b border-border-light">
+      <section className="w-full bg-surface-card as-mown border-b border-border-light">
         <div className="max-w-container-max mx-auto px-space-base py-space-md">
           <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-text-muted mb-3">
             <Link href="/" className="hover:text-primary flex items-center gap-1">
@@ -60,9 +62,9 @@ export function CatalogHero({
         {products.length === 0 ? (
           <p className="text-center text-sm text-text-muted py-16">Nothing here yet. New products are added regularly.</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-space-sm sm:gap-space-md">
-            {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4">
+            {products.map((p, i) => (
+              <ProductCard key={p.id} product={p} frame={frames[i]} />
             ))}
           </div>
         )}

@@ -221,7 +221,7 @@ export default async function OrderConfirmedPage(
                 <FinishPaymentButton
                   checkoutUrl={payment.checkout_url}
                   label={`Pay ${formatTaka(amountDue)} now`}
-                  className="inline-block mt-4 px-6 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold font-display uppercase tracking-wider"
+                  className="sp-btn sp-goal inline-block mt-4 py-3 text-sm font-bold font-display uppercase tracking-wider"
                 />
               )}
               <p className="text-xs text-text-muted mt-3">
@@ -291,7 +291,7 @@ export default async function OrderConfirmedPage(
                   href={wa}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#25D366] text-white text-xs font-bold uppercase tracking-wider"
+                  className="sp-btn sp-tennis sp-wa mt-3 inline-flex items-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider"
                 >
                   Confirm on WhatsApp
                 </a>
@@ -337,7 +337,7 @@ export default async function OrderConfirmedPage(
             {payment.checkout_url && payment.gateway_status !== "review" && (
               <FinishPaymentButton
                 checkoutUrl={payment.checkout_url}
-                className="inline-block mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
+                className="sp-btn sp-goal inline-block mt-2 py-2 text-xs font-bold"
               />
             )}
           </div>
@@ -449,7 +449,7 @@ export default async function OrderConfirmedPage(
           </p>
           <a
             href="tel:+8801911904618"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-bold font-display uppercase tracking-wider hover:bg-primary-container transition-colors"
+            className="sp-btn sp-whistle inline-flex items-center gap-2 py-2.5 text-xs font-bold font-display uppercase tracking-wider"
           >
             <Phone className="w-4 h-4" />
             +880 1911-904618
@@ -459,13 +459,13 @@ export default async function OrderConfirmedPage(
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             href="/shop"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-primary-container transition-colors shadow-sm"
+            className="sp-btn sp-pitch inline-flex items-center justify-center gap-2 py-3 font-display uppercase tracking-wider text-xs font-bold"
           >
             Continue Shopping
           </Link>
           <Link
             href="/returns"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border-light bg-surface-card text-primary font-display uppercase tracking-wider text-xs font-bold rounded-lg hover:bg-surface-subtle transition-colors"
+            className="sp-btn sp-yellow inline-flex items-center justify-center gap-2 py-3 font-display uppercase tracking-wider text-xs font-bold"
           >
             Return &amp; Exchange Policy
           </Link>

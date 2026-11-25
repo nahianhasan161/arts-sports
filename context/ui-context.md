@@ -8,6 +8,12 @@ near-black/near-white primary, **gold** accent for highlights and calls to actio
 mobile-first (most traffic comes from social apps). The admin is dense and practical; the POS register is
 full-screen and touch-friendly.
 
+The customer site has a **football theme**: `.pitch` on `<html>` (every page outside `/admin`) overrides the tokens below
+with pitch greens, light and dark. Helpers: `as-pitch-lines`, `as-mown`, `as-touchline`, `as-bounce`, `<Ball />`, `<SportCard frame>` (`.as-sc`; sports frames for product/design cards, frame from `assignFrames()` in `lib/sport-frames.ts`; inside it use the normal token classes, they are re-pointed per frame). Home category tiles are `<CategoryTile kind>` (board, goal, track, bag; `.as-ct`, fixed colours). The table
+shows the base values, which the admin and POS use.
+
+**Buttons on the customer site**: use `sp-btn sp-<item>` / `sp-ico sp-<item>` / `sp-chip` / `sp-size` from `src/app/sport-buttons.css` (list at the top of the file) and only Tailwind classes for height, width, font and layout. Meaning: goal = finish (order, pay, checkout), basketball = add to cart, cricket ball = buy now, jersey = custom jersey, ticket = view / track, whistle = retry / more, flag = back, pitch = shop / search, locker = account, red card = cancel / close / delete, yellow card = change / clear, medal = wishlist / review, shuttle = send / share. In a component shared with the admin keep the plain classes too (`.pitch` overrides them).
+
 ## Colors
 
 Defined as RGB triplets in `src/app/globals.css` (`--c-*`, light in `:root`, dark under `.dark`), mapped in
@@ -76,4 +82,4 @@ dropdown-menu, popover, tabs, tooltip, toast, switch, card, badge, skeleton, `co
 
 ## Icons
 
-`lucide-react` only. Use `h-4 w-4` inline and `h-5 w-5` in buttons/nav.
+`lucide-react` only (exceptions: the home promises strip uses the drawn umpire signals and sports items in `components/home/PerkArt.tsx`; filter chips use `components/ui/ChipIcon.tsx`, which adds line drawings for sports lucide lacks). Use `h-4 w-4` inline and `h-5 w-5` in buttons/nav.

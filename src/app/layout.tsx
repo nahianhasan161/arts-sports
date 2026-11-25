@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { Hind_Siliguri, Oswald, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import "./sport-buttons.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { CartDrawer } from "@/components/cart/CartDrawer";
-import { WishlistDrawer } from "@/components/wishlist/WishlistDrawer";
+import { Drawers } from "@/components/layout/Drawers";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ClientProviders } from "@/components/ClientProviders";
 import { OrganizationSchema } from "@/components/seo/OrganizationSchema";
@@ -14,7 +15,17 @@ import { SiteChrome } from "@/components/layout/SiteChrome";
 import { FileDropBridge } from "@/components/FileDropBridge";
 import { PREFERENCES_SCRIPT } from "@/lib/theme";
 
-const fontSans = "font-sans";
+/*
+ * Fonts are downloaded at build time and served from our own domain. Not
+ * preloaded: text shows in the phone's own font first, and the page's code and
+ * pictures are not held up behind font files. Each Bangla weight is about
+ * 70 KB, so only two are loaded: 500 shows as 400, 600 as 700.
+ */
+const hind = Hind_Siliguri({ weight: ["400", "700"], subsets: ["bengali", "latin"], display: "swap", preload: false, variable: "--nf-hind" });
+const oswald = Oswald({ subsets: ["latin"], display: "swap", preload: false, variable: "--nf-oswald" });
+const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], display: "swap", preload: false, variable: "--nf-jakarta" });
+
+const fontSans = `font-sans ${hind.variable} ${oswald.variable} ${jakarta.variable}`;
 
 export const metadata: Metadata = {
   title: {
@@ -130,8 +141,6 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: PREFERENCES_SCRIPT }} />
         <OrganizationSchema />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://lh3.googleusercontent.com" />
         <link rel="dns-prefetch" href="https://cdn.supabase.co" />
       </head>
@@ -144,12 +153,7 @@ export default function RootLayout({
             <SiteChrome
               header={<Header />}
               footer={<Footer />}
-              overlays={
-                <>
-                  <CartDrawer />
-                  <WishlistDrawer />
-                </>
-              }
+              overlays={<Drawers />}
             >
               {children}
             </SiteChrome>

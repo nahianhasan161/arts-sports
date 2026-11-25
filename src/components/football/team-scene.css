@@ -1,0 +1,104 @@
+/* Home team band: six mini players in one kit. Only transforms are animated. */
+
+/* 1cqw = 1% of the scene's width, so everything scales together. Off screen,
+   content-visibility stops the browser drawing and animating it. */
+.tm-scene { container-type: inline-size; position: relative; width: 100%; max-width: 33rem; margin: 0 auto; aspect-ratio: 100 / 95; content-visibility: auto; }
+.tm-stage { position: absolute; inset: 0; }
+
+/* Glow behind them and the mown circle they stand on. */
+.tm-stage::before { content: ""; position: absolute; inset: 0; background: radial-gradient(closest-side, rgb(255 246 205 / .22), transparent); }
+.tm-ground { position: absolute; left: 4cqw; right: 4cqw; bottom: 0; height: 54cqw; border-radius: 50%; border: .7cqw solid rgb(255 255 255 / .38);
+  background: radial-gradient(closest-side, rgb(255 255 255 / .12), transparent), repeating-linear-gradient(90deg, rgb(40 140 82 / .55) 0 9cqw, rgb(22 104 58 / .55) 9cqw 18cqw); }
+
+/* ---------------------------------------------------------------- player */
+.tm-player {
+  --navy: #1b2750; --navy-d: #111a38; --gold: #c8a14a; --sock: #1b2750;
+  position: absolute; left: calc(var(--x) * 1cqw); bottom: calc(var(--y) * 1cqw);
+  font-size: calc(var(--size) * 1cqw); width: 6em; height: 10.4em; margin-left: -3em; perspective: 34em;
+}
+.tm-player span, .tm-player i { position: absolute; display: block; }
+.tm-player .tm-shadow { left: .5em; right: .5em; bottom: -.4em; height: 1em; border-radius: 50%; background: radial-gradient(closest-side, rgb(0 0 0 / .55), transparent); }
+.tm-figure { position: absolute; inset: 0; transform-style: preserve-3d; transform-origin: 50% 100%; animation: tm-turn 12s ease-in-out var(--delay) infinite; }
+
+/* Shirt: front and back are separate, the slices between them give it depth. */
+.tm-shirt, .tm-shirt-mid { left: 1.25em; top: 3.95em; width: 3.5em; height: 3.2em; border-radius: 1.1em 1.1em .45em .45em; }
+.tm-shirt { backface-visibility: hidden; overflow: hidden; text-align: center; color: #fff; font-family: var(--font-oswald); box-shadow: inset -.4em -.25em .6em rgb(0 0 0 / .32), inset .3em .2em .4em rgb(255 255 255 / .16); }
+.tm-front { transform: translateZ(.5em); background: linear-gradient(60deg, transparent 43%, var(--gold) 43% 59%, transparent 59%), var(--navy); }
+.tm-back { transform: rotateY(180deg) translateZ(.5em); background: linear-gradient(-60deg, transparent 43%, var(--gold) 43% 59%, transparent 59%), var(--navy); }
+/* Collar. */
+.tm-shirt::before { content: ""; position: absolute; left: 50%; top: -.75em; width: 1.5em; height: 1.15em; margin-left: -.75em; border-radius: 50%; border: .13em solid #fff; background: var(--skin-d); }
+.tm-back::before { top: -.95em; }
+.tm-shirt em { position: absolute; left: 0; right: 0; top: .52em; font: 600 .66em/1.1 var(--font-oswald); letter-spacing: .03em; text-shadow: 0 .06em .12em rgb(0 0 0 / .55); }
+.tm-front em { top: .95em; font-size: .5em; letter-spacing: .08em; }
+.tm-shirt em.tm-long { font-size: .58em; letter-spacing: 0; top: .66em; }
+.tm-shirt b { position: absolute; left: 0; right: 0; top: .6em; font: 700 1.85em/1 var(--font-oswald); text-shadow: 0 .04em .1em rgb(0 0 0 / .5); }
+.tm-front b { top: 1.02em; font-size: 1.5em; }
+.tm-shirt-mid { background: var(--navy-d); transform-style: preserve-3d; }
+.tm-shirt-mid::before, .tm-shirt-mid::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: inherit; transform: translateZ(.25em); }
+.tm-shirt-mid::after { transform: translateZ(-.25em); }
+
+.tm-neck { left: 2.4em; top: 3.3em; width: 1.2em; height: 1.1em; border-radius: .3em; background: var(--skin-d); }
+.tm-shorts { left: 1.35em; top: 6.85em; width: 3.3em; height: 1.4em; border-radius: .2em .2em .5em .5em; transform: translateZ(.3em); transform-style: preserve-3d; background: linear-gradient(90deg, var(--gold) .15em, transparent .15em calc(100% - .15em), var(--gold) calc(100% - .15em)), var(--navy-d); }
+.tm-shorts i { inset: 0; border-radius: inherit; background: inherit; transform: translateZ(-.6em); }
+
+/* Depth is always made of parallel slices: a plane standing across the others
+   makes the browser cut them, which shows as a hairline. */
+.tm-arm, .tm-leg { transform-style: preserve-3d; }
+.tm-arm { top: 4.2em; width: .95em; height: 2.75em; border-radius: .5em; transform-origin: 50% .4em; background: linear-gradient(var(--navy) 42%, #fff 42% 48%, var(--skin) 48%); box-shadow: inset -.2em 0 .3em rgb(0 0 0 / .25); }
+.tm-arm i, .tm-leg i { inset: 0; border-radius: inherit; background: inherit; transform: translateZ(-.3em); }
+.tm-arm.tm-l { left: .72em; --a: 14deg; }
+.tm-arm.tm-r { right: .72em; --a: -14deg; }
+.tm-hips .tm-arm.tm-l { --a: 34deg; }
+.tm-hips .tm-arm.tm-r { --a: -34deg; }
+.tm-up .tm-arm.tm-l { --a: 146deg; }
+.tm-captain .tm-arm.tm-l { --a: 30deg; }
+.tm-captain .tm-arm.tm-r { --a: -150deg; }
+.tm-arm { transform: rotate(var(--a)); animation: tm-arm 2.4s ease-in-out var(--delay) infinite; }
+.tm-captain .tm-arm.tm-l, .tm-captain .tm-arm.tm-l i { background: linear-gradient(var(--navy) 18%, #f5d67b 18% 34%, var(--navy) 34% 42%, #fff 42% 48%, var(--skin) 48%); }
+
+.tm-leg { top: 7.7em; width: 1.15em; height: 2.5em; border-radius: .4em; background: linear-gradient(var(--skin) 34%, #fff 34% 40%, var(--sock) 40%); box-shadow: inset -.25em 0 .35em rgb(0 0 0 / .25); }
+.tm-leg.tm-l { left: 1.6em; }
+.tm-leg.tm-r { right: 1.6em; }
+/* Boots: heel, middle and toe. */
+.tm-leg::before, .tm-leg::after, .tm-leg i::after { content: ""; position: absolute; bottom: -.3em; height: .72em; border-radius: .6em .6em .25em .25em; background: var(--boot); box-shadow: inset 0 -.18em 0 rgb(0 0 0 / .35); }
+.tm-leg::before { left: -.08em; right: -.08em; transform: translateZ(-.5em); }
+.tm-leg::after { left: -.16em; right: -.16em; transform: translateZ(.6em); }
+.tm-leg i::after { left: -.12em; right: -.12em; }
+
+/* ------------------------------------------------------------------ head */
+.tm-head { position: absolute; left: .6em; top: -1.35em; width: 4.8em; height: 5.76em; transform-style: preserve-3d; transform: translateZ(.1em); }
+.tm-head svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.tm-head-face { transform: translateZ(.62em) scale(.97); backface-visibility: hidden; }
+.tm-head-back { transform: rotateY(180deg) translateZ(.62em) scale(.97); backface-visibility: hidden; }
+/* Slices between face and back of the head, so it stays solid while it turns. */
+.tm-head i { left: 15%; right: 15%; top: 7%; bottom: 8%; border-radius: 50% 50% 46% 46% / 46% 46% 54% 54%; transform: translateZ(.32em); background: linear-gradient(var(--hair) 34%, var(--skin-d) 34%); }
+.tm-head i.tm-hind { transform: translateZ(-.32em); background: linear-gradient(var(--hair) 72%, var(--skin-d) 72%); }
+
+/* ------------------------------------------------------------------ ball */
+.tm-ball { position: absolute; left: 60cqw; bottom: 0; width: 7cqw; height: 7cqw; animation: tm-bounce 1.6s cubic-bezier(.3, .1, .7, 1) infinite alternate; }
+.tm-ball-in { width: 100%; height: 100%; animation: tm-spin 6s linear infinite; }
+
+/* Faces us, hops and turns, shows the back for half the loop, turns back. */
+@keyframes tm-turn {
+  0% { transform: rotateY(-12deg); }
+  20% { transform: rotateY(14deg); }
+  36% { transform: rotateY(-8deg); animation-timing-function: ease-in; }
+  38.9% { transform: translateY(-1em) rotateY(72deg); animation-timing-function: linear; }
+  39.4% { transform: translateY(-1em) rotateY(108deg); animation-timing-function: ease-out; }
+  43% { transform: rotateY(188deg); }
+  60% { transform: rotateY(168deg); }
+  78% { transform: rotateY(192deg); }
+  90% { transform: rotateY(172deg); animation-timing-function: ease-in; }
+  92.9% { transform: translateY(-1em) rotateY(252deg); animation-timing-function: linear; }
+  93.4% { transform: translateY(-1em) rotateY(288deg); animation-timing-function: ease-out; }
+  97% { transform: rotateY(352deg); }
+  100% { transform: rotateY(348deg); }
+}
+@keyframes tm-arm { 0%, 100% { transform: rotate(var(--a)); } 50% { transform: rotate(calc(var(--a) * .86)); } }
+@keyframes tm-bounce { to { transform: translateY(-4cqw); } }
+@keyframes tm-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-scene * { animation: none !important; }
+  .tm-player:nth-of-type(even) .tm-figure { transform: rotateY(180deg); }
+}

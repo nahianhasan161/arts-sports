@@ -12,13 +12,15 @@ export async function GET() {
   const body = {
     sports: categories.map((c) => ({
       name: c.name,
+      name_bn: c.name_bn ?? null,
+      slug: c.slug,
       href: `/shop?category=${encodeURIComponent(c.name)}`,
       children: (c.children ?? []).map((s) => ({
         name: s.name,
         href: `/shop?category=${encodeURIComponent(c.name)}&sub=${encodeURIComponent(s.name)}`,
       })),
     })),
-    collections: collections.map((c) => ({ name: c.title_en, href: `/collection/${c.slug}` })),
+    collections: collections.map((c) => ({ name: c.title_en, name_bn: c.title_bn, slug: c.slug, href: `/collection/${c.slug}` })),
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } });
 }
