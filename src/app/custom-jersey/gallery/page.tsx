@@ -4,7 +4,7 @@ import { Shirt } from "lucide-react";
 import { cookies } from "next/headers";
 import { AllIcon, ChipIcon } from "@/components/ui/ChipIcon";
 import { SportCard } from "@/components/product/SportCard";
-import { assignFrames } from "@/lib/sport-frames";
+import { frameFor } from "@/lib/sport-frames";
 import { getT, resolveLocale, LOCALE_COOKIE } from "@/i18n";
 import { getServiceSupabase, isServiceSupabaseConfigured } from "@/lib/supabase/service";
 import { categoryName, designImages, type DesignRow } from "@/lib/custom-jersey/designs";
@@ -27,7 +27,7 @@ export default async function CustomGalleryPage({ searchParams }: { searchParams
   const category = categories.find((x) => x.slug === c)?.slug;
   const items: DesignRow[] = db ? (await listDesigns(db, { category, limit: 60 })).designs : [];
   const names = new Map(categories.map((k) => [k.slug, `${k.name_en} ${k.name_bn ?? ""}`]));
-  const frames = assignFrames(items.map((d) => [d.category, names.get(d.category ?? ""), d.title, d.caption].filter(Boolean).join(" ")));
+  const frames = items.map((d) => frameFor([d.category, names.get(d.category ?? ""), d.title, d.caption].filter(Boolean).join(" ")));
   const tab = (on: boolean) => `sp-chip ${on ? "sp-on" : ""} shrink-0 h-9 text-xs font-semibold inline-flex items-center gap-1.5`;
   return (
     <div className="max-w-container-max mx-auto px-space-base py-space-xl">

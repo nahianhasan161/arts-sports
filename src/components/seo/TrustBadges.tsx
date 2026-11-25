@@ -39,7 +39,7 @@ export function TrustBadges() {
     {
       icon: <Shield className="w-4.5 h-4.5" />,
       label: "Secure Checkout",
-      detail: "256-bit SSL encrypted",
+      detail: "bKash, Nagad or cash",
     },
     {
       icon: <MapPin className="w-4.5 h-4.5" />,

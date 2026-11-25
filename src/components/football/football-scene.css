@@ -124,7 +124,7 @@
 @keyframes fb-arm-l { 0%, 25%, 50%, 75%, 100% { transform: rotate(16deg); } 10% { transform: rotate(62deg); } 37%, 62%, 87% { transform: rotate(30deg); } }
 @keyframes fb-arm-r { 0%, 25%, 50%, 75%, 100% { transform: rotate(-16deg); } 10% { transform: rotate(-62deg); } 37%, 62%, 87% { transform: rotate(-30deg); } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (max-width: 767px) {
   .fb-scene *, .fb-scene *::after { animation: none !important; }
   .fb-ball-path { transform: translate(23cqw, -5cqw); }
 }

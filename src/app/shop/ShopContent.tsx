@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { CategoryStrip } from "@/components/shop/CategoryStrip";
 import { InfiniteProductGrid } from "@/components/shop/InfiniteProductGrid";
 import Link from "next/link";
@@ -9,8 +9,9 @@ import { Home, ChevronRight, SlidersHorizontal, ArrowUpDown } from "lucide-react
 import { ChipIcon, TermIcon } from "@/components/ui/ChipIcon";
 import { useT } from "@/i18n/client";
 import { FilterSidebar } from "@/components/shop/FilterSidebar";
-import type { PriceRange } from "@/components/shop/PriceFilter";
-import type { Category, Product } from "@/types";
+import type { ShopFacets } from "@/lib/services/shop-query";
+import type { StoreSport } from "@/lib/sports";
+import type { Product } from "@/types";
 import type { CatalogTerm, TermType } from "@/lib/services/catalog";
 
 const FACET_ORDER: TermType[] = ["team", "league", "edition", "season", "player", "brand"];
@@ -18,20 +19,18 @@ const FACET_ORDER: TermType[] = ["team", "league", "edition", "season", "player"
 interface ShopContentProps {
   products: Product[];
   total: number;
-  categories: Category[];
-  categoryStrip: { id: string; slug: string; name: string; name_bn?: string | null }[];
-  categoryHasMore: boolean;
+  facets: ShopFacets;
   terms: CatalogTerm[];
   termSelection: Partial<Record<TermType, string[]>>;
-  parent?: Category;
+  parent: { name: string; name_bn?: string | null } | null;
   category: string;
   subCategory: string;
+  sport: StoreSport | null;
   query: string;
   sortBy: string;
   inStockOnly: boolean;
   dealsOnly: boolean;
   sizes: string[];
-  priceRange: PriceRange | null;
   priceMin?: number;
   priceMax?: number;
   pageSize: number;
@@ -40,20 +39,18 @@ interface ShopContentProps {
 export function ShopContent({
   products,
   total,
-  categories,
-  categoryStrip,
-  categoryHasMore,
+  facets,
   terms,
   termSelection,
   parent,
   category,
   subCategory,
+  sport,
   query,
   sortBy,
   inStockOnly,
   dealsOnly,
   sizes,
-  priceRange,
   priceMin,
   priceMax,
   pageSize,
@@ -63,6 +60,7 @@ export function ShopContent({
   const { t, locale } = useT();
   const label = (c: { name: string; name_bn?: string | null }) => (locale === "bn" && c.name_bn) || c.name;
   const parentName = parent && label(parent);
+  const sportName = sport && t(`site.nav.${sport}`);
   const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [shown, setShown] = useState(products.length);
@@ -127,49 +125,26 @@ export function ShopContent({
   );
   const resetFilters = useCallback(() => router.push("/shop"), [router]);
 
-  // Sub-category chips come from the database tree, falling back to the
-  // catalogue's own sub_category values so a product tagged with something
-  // the category tree has not caught up with is still reachable.
-  const quickChips = useMemo(() => {
-    const fromTree = (parent?.children ?? []).map((c) => c.name);
-    const fromProducts = products
-      .map((p) => p.sub_category)
-      .filter((v): v is string => Boolean(v));
-    const all = new Set([...fromTree, ...fromProducts]);
-    return Array.from(all).sort((a, b) => a.localeCompare(b));
-  }, [parent, products]);
-
-  // The chips carry the stored (English) name, which is what the URL filters by.
-  const subNames = useMemo(
-    () => new Map(categories.flatMap((c) => c.children ?? []).map((c) => [c.name, c])),
-    [categories]
-  );
-
-  // Price, size and the term filters run in the query; deals and in-stock
-  // are checked here on each loaded batch.
-  const clientFilter = useCallback(
-    (p: Product) =>
-      (!dealsOnly || (p.discount_percent ?? 0) > 0) &&
-      // With sizes chosen, one of those sizes has to be in stock.
-      (!inStockOnly ||
-        p.sizes?.some((s) => (s.stock ?? 0) > 0 && (sizes.length === 0 || sizes.includes(s.size))) ||
-        (sizes.length === 0 && (p.stock ?? 0) > 0)),
-    [dealsOnly, inStockOnly, sizes]
-  );
+  // Only sub-categories that have a product here.
+  const subChips = facets.categories.find((c) => c.slug === category)?.children ?? [];
   const queryString = searchParams?.toString() ?? "";
 
   const heading = parentName
     ? t("store.shop.collection", { name: parentName })
     : query
       ? t("store.shop.searchTitle", { q: query })
-      : t("store.shop.allTitle");
+      : sportName
+        ? sportName
+        : dealsOnly
+          ? t("site.nav.offers")
+          : t("store.shop.allTitle");
 
   return (
     <div className="w-full pb-space-3xl">
       {/* 1. Breadcrumbs, title, categories and facets */}
       <section className="w-full bg-surface-card as-mown border-b border-border-light">
         <div className="max-w-container-max mx-auto px-4 sm:px-6 pt-5 pb-4">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-text-muted mb-4">
+          <nav aria-label={t("store.shop.ui.breadcrumb")} className="flex items-center gap-1.5 text-xs text-text-muted mb-1 [&_a]:inline-flex [&_a]:min-h-11 [&_a]:min-w-11 md:[&_a]:min-h-8 [&_a]:items-center">
             <Link href="/" className="hover:text-on-surface transition-colors flex items-center gap-1">
               <Home className="w-3.5 h-3.5" />
               <span>{t("store.shop.home")}</span>
@@ -180,7 +155,7 @@ export function ShopContent({
             </Link>
             <ChevronRight className="w-3 h-3 opacity-40" />
             <span className="font-semibold text-on-surface">
-              {parentName ?? (query ? `“${query}”` : t("store.shop.allProducts"))}
+              {query && !parentName ? `“${query}”` : heading}
             </span>
           </nav>
 
@@ -200,25 +175,22 @@ export function ShopContent({
             </div>
           </div>
 
-          {/* Top-level categories: scroll sideways, more load at the end. */}
-          <CategoryStrip
-            initial={categoryStrip}
-            initialHasMore={categoryHasMore}
-            active={category}
-            onSelect={setCategory}
-          />
+          {/* The one category filter: categories that have a product here. */}
+          {facets.categories.length > 1 || category !== "all" ? (
+            <CategoryStrip items={facets.categories} active={category} onSelect={setCategory} />
+          ) : null}
 
-          {/* Quick Sub-Category Chips */}
-          {quickChips.length > 0 && (
+          {subChips.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-3 pb-1 -mx-4 px-4 md:mx-0 md:px-0">
-              {quickChips.map((chip) => (
+              {subChips.map((chip) => (
                 <button
-                  key={chip}
-                  onClick={() => setSubCategory(chip === subCategory ? "" : chip)}
-                  className={`sp-chip ${subCategory === chip ? "sp-on" : ""} h-8 shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap`}
+                  key={chip.id}
+                  onClick={() => setSubCategory(chip.name === subCategory ? "" : chip.name)}
+                  aria-pressed={subCategory === chip.name}
+                  className={`sp-chip ${subCategory === chip.name ? "sp-on" : ""} min-h-11 shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap`}
                 >
-                  <ChipIcon of={[chip]} />
-                  {label(subNames.get(chip) ?? { name: chip })}
+                  <ChipIcon of={[chip.name]} />
+                  {label(chip)}
                 </button>
               ))}
             </div>
@@ -231,7 +203,7 @@ export function ShopContent({
             if (list.length === 0) return null;
             return (
               <div key={type} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2.5 -mx-4 px-4 md:mx-0 md:px-0">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted shrink-0 w-16">
+                <span className="text-xs font-bold uppercase tracking-wider text-text-muted shrink-0 w-16">
                   {t(`store.shop.facets.${type}`)}
                 </span>
                 {list.map((term) => {
@@ -241,7 +213,7 @@ export function ShopContent({
                       key={term.id}
                       onClick={() => toggleTerm(type, term.slug)}
                       aria-pressed={active}
-                      className={`sp-chip ${active ? "sp-on" : ""} h-8 shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap`}
+                      className={`sp-chip ${active ? "sp-on" : ""} min-h-11 shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap`}
                     >
                       <TermIcon type={type} />
                       {(locale === "bn" && term.name_bn) || term.name_en}
@@ -259,16 +231,11 @@ export function ShopContent({
         <div className="flex flex-col lg:flex-row gap-space-xl items-start">
           <div className="hidden lg:block w-[280px] shrink-0">
             <FilterSidebar
-              categories={categories}
-              category={category}
-              subCategory={subCategory}
+              facets={facets}
               sizes={sizes}
               inStockOnly={inStockOnly}
-              priceRange={priceRange}
               priceMin={priceMin}
               priceMax={priceMax}
-              onCategory={setCategory}
-              onSubCategory={setSubCategory}
               onToggleSize={toggleSize}
               onToggleInStock={toggleInStock}
               onPriceRange={setPriceRange}
@@ -280,7 +247,7 @@ export function ShopContent({
             <div className="bg-surface-card p-3 rounded-lg border border-border-light shadow-sm mb-space-base flex items-center justify-between gap-2">
               <button
                 onClick={() => setMobileFilterOpen(true)}
-                className="sp-btn sp-board lg:hidden whitespace-nowrap min-h-9 flex items-center gap-1.5 py-1.5 text-xs font-bold font-display uppercase tracking-wider"
+                className="sp-btn sp-board lg:hidden whitespace-nowrap min-h-11 flex items-center gap-1.5 py-1.5 text-xs font-bold font-display uppercase tracking-wider"
               >
                 <SlidersHorizontal className="w-4 h-4" />
                 <span>{t("store.shop.ui.filters")}</span>
@@ -296,7 +263,7 @@ export function ShopContent({
                   value={sortBy}
                   onChange={(e) => applyParams({ sort: e.target.value })}
                   aria-label={t("store.shop.ui.sortBy")}
-                  className="min-w-0 bg-surface-subtle border border-border-light text-primary text-xs font-bold rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                  className="min-w-0 bg-surface-subtle border border-border-light text-primary text-sm font-bold rounded-md px-2.5 min-h-11 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
                 >
                   <option value="newest">{t("store.shop.ui.sortNewest")}</option>
                   <option value="popular">{t("store.shop.ui.sortPopular")}</option>
@@ -328,7 +295,6 @@ export function ShopContent({
                 total={total}
                 queryString={queryString}
                 pageSize={pageSize}
-                filter={clientFilter}
                 onCount={setShown}
               />
             )}
@@ -338,7 +304,7 @@ export function ShopContent({
 
       {/* Mobile Filter Modal */}
       {mobileFilterOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden lg:hidden">
+        <div className="fixed inset-0 z-[60] overflow-hidden lg:hidden">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setMobileFilterOpen(false)}
@@ -351,26 +317,18 @@ export function ShopContent({
                 </h3>
                 <button
                   onClick={() => setMobileFilterOpen(false)}
-                  className="sp-ico sp-red sp-sm"
+                  className="sp-ico sp-red sp-lg"
                   aria-label={t("store.shop.ui.closeFilters")}
                 >
                   ✕
                 </button>
               </div>
               <FilterSidebar
-                categories={categories}
-                category={category}
-                subCategory={subCategory}
+                facets={facets}
                 sizes={sizes}
                 inStockOnly={inStockOnly}
-                priceRange={priceRange}
                 priceMin={priceMin}
                 priceMax={priceMax}
-                onCategory={(c) => {
-                  setCategory(c);
-                  setMobileFilterOpen(false);
-                }}
-                onSubCategory={setSubCategory}
                 onToggleSize={toggleSize}
                 onToggleInStock={toggleInStock}
                 onPriceRange={setPriceRange}

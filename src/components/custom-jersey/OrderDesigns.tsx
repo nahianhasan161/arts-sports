@@ -65,7 +65,7 @@ export function OrderDesigns({ order, fileHref }: { order: Pick<CustomOrderDetai
               </ul>
             )}
             {pics.some((p) => p.title) && (
-              <ul className="text-[11px] text-text-muted">
+              <ul className="text-xs text-text-muted">
                 {files.filter(({ f }) => f.note && /^https:\/\//.test(f.path)).map(({ i, f }) => <li key={i}>{f.note}</li>)}
               </ul>
             )}

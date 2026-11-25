@@ -2,22 +2,23 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { BadgeCheck, Camera, MessageCircleQuestion, Star } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useT } from "@/i18n/client";
 import { useAuth } from "@/components/auth/AuthProvider";
 import type { PublicQuestion, PublicReview, RatingSummary } from "@/lib/services/catalog";
 
 function Stars({ value, size = "w-4 h-4" }: { value: number; size?: string }) {
+  const { t } = useT();
   return (
-    <span className="inline-flex" aria-label={`${value} out of 5`}>
+    <span className="inline-flex" role="img" aria-label={t("store.reviews.outOf", { value })}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <Star key={n} className={`${size} ${n <= Math.round(value) ? "fill-accent-gold text-accent-gold" : "text-border-light"}`} />
+        <Star key={n} className={`${size} ${n <= Math.round(value) ? "fill-accent-gold text-gold-ink" : "text-border-light"}`} />
       ))}
     </span>
   );
 }
-
-const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 /**
  * Reviews and questions for a product page. The list is real approved
@@ -35,7 +36,11 @@ export function ProductReviews({
   reviews: PublicReview[];
   questions: PublicQuestion[];
 }) {
+  const pathname = usePathname();
   const { user } = useAuth();
+  const { t, locale } = useT();
+  const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(locale === "bn" ? "bn-BD" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
   const [verifiedFor, setVerifiedFor] = useState<string | null>(null);
   const [existing, setExisting] = useState<{ status: string } | null>(null);
 
@@ -76,10 +81,10 @@ export function ProductReviews({
       fd.append("file", file);
       const res = await fetch("/api/reviews/photo", { method: "POST", body: fd });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed");
+      if (!res.ok) throw new Error(json.error ?? t("store.reviews.uploadFailed"));
       setPhotos((p) => [...p, json.url].slice(0, 4));
     } catch (e) {
-      setReviewMsg({ ok: false, text: e instanceof Error ? e.message : "Upload failed" });
+      setReviewMsg({ ok: false, text: e instanceof Error ? e.message : t("store.reviews.uploadFailed") });
     } finally {
       setUploading(false);
     }
@@ -87,7 +92,7 @@ export function ProductReviews({
 
   async function submitReview(e: React.FormEvent) {
     e.preventDefault();
-    if (rating < 1) return setReviewMsg({ ok: false, text: "Choose a star rating." });
+    if (rating < 1) return setReviewMsg({ ok: false, text: t("store.reviews.chooseStars") });
     setSending(true);
     setReviewMsg(null);
     const res = await fetch("/api/reviews", {
@@ -100,7 +105,7 @@ export function ProductReviews({
     if (res.ok) {
       setReviewMsg({ ok: true, text: json.message });
       setExisting({ status: "pending" });
-    } else setReviewMsg({ ok: false, text: json.error ?? "Could not save your review." });
+    } else setReviewMsg({ ok: false, text: json.error ?? t("store.reviews.failed") });
   }
 
   async function submitQuestion(e: React.FormEvent) {
@@ -115,23 +120,23 @@ export function ProductReviews({
     if (res.ok) {
       setQMsg({ ok: true, text: json.message });
       setQuestion("");
-    } else setQMsg({ ok: false, text: json.error ?? "Could not send your question." });
+    } else setQMsg({ ok: false, text: json.error ?? t("store.reviews.askFailed") });
   }
 
   const input = "w-full px-3 py-2 text-sm bg-surface-subtle rounded-lg border border-border-light focus:outline-none focus:ring-1 focus:ring-primary";
-  const signInHref = `/sign-in?next=${encodeURIComponent(typeof window === "undefined" ? "/" : window.location.pathname)}`;
+  const signInHref = `/sign-in?next=${encodeURIComponent(pathname)}`;
 
   return (
     <section id="reviews" className="max-w-container-max mx-auto px-space-base py-space-xl grid gap-space-xl lg:grid-cols-2">
       {/* Reviews */}
       <div>
-        <h2 className="font-display text-lg uppercase font-bold text-primary mb-3">Customer reviews</h2>
+        <h2 className="font-display text-lg uppercase font-bold text-primary mb-3">{t("store.reviews.title")}</h2>
         {summary.count > 0 && summary.average !== null ? (
           <div className="flex items-start gap-4 mb-4">
             <div className="text-center">
-              <p className="font-display text-4xl font-bold text-primary leading-none">{summary.average}</p>
+              <p className="font-display text-4xl font-bold text-primary leading-none">{num(summary.average)}</p>
               <Stars value={summary.average} />
-              <p className="text-xs text-text-muted mt-1">{summary.count} review{summary.count === 1 ? "" : "s"}</p>
+              <p className="text-xs text-text-muted mt-1">{summary.count === 1 ? t("store.reviews.one") : t("store.reviews.count", { count: num(summary.count) })}</p>
             </div>
             <div className="flex-1 space-y-1">
               {([5, 4, 3, 2, 1] as const).map((n) => (
@@ -146,7 +151,7 @@ export function ProductReviews({
             </div>
           </div>
         ) : (
-          <p className="text-sm text-text-muted mb-4">No reviews yet. Customers who received this product can be the first.</p>
+          <p className="text-sm text-text-muted mb-4">{t("store.reviews.none")}</p>
         )}
 
         <ul className="space-y-4">
@@ -156,8 +161,8 @@ export function ProductReviews({
                 <Stars value={r.rating} size="w-3.5 h-3.5" />
                 <span className="text-sm font-semibold text-primary">{r.author_name}</span>
                 {r.verified && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                    <BadgeCheck className="w-3 h-3" /> Verified buyer
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-600/10 px-1.5 py-0.5 rounded">
+                    <BadgeCheck className="w-3 h-3" /> {t("store.reviews.verified")}
                   </span>
                 )}
                 <span className="text-xs text-text-muted ml-auto">{fmtDate(r.created_at)}</span>
@@ -169,7 +174,7 @@ export function ProductReviews({
                   {r.photos.map((url) => (
                     <a key={url} href={url} target="_blank" rel="noopener noreferrer">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="Customer photo" loading="lazy" className="w-16 h-16 object-cover rounded border border-border-light" />
+                      <img src={url} alt={t("store.reviews.photo")} loading="lazy" className="w-16 h-16 object-cover rounded border border-border-light" />
                     </a>
                   ))}
                 </div>
@@ -187,34 +192,34 @@ export function ProductReviews({
         {canReview && (
           <form onSubmit={submitReview} className="mt-5 bg-surface-subtle rounded-xl p-4 space-y-3 border border-border-light">
             <h3 className="font-display text-sm uppercase font-bold text-primary">
-              {existing ? "Update your review" : "Write a review"}
+              {existing ? t("store.reviews.update") : t("store.reviews.write")}
             </h3>
-            {existing?.status === "pending" && <p className="text-xs text-text-muted">Your review is waiting for approval.</p>}
-            <div className="flex gap-1" role="radiogroup" aria-label="Rating">
+            {existing?.status === "pending" && <p className="text-xs text-text-muted">{t("store.reviews.waiting")}</p>}
+            <div className="flex gap-1" role="radiogroup" aria-label={t("store.reviews.rating")}>
               {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} type="button" onClick={() => setRating(n)} aria-label={`${n} star${n > 1 ? "s" : ""}`} aria-checked={rating === n} role="radio">
-                  <Star className={`w-7 h-7 ${n <= rating ? "fill-accent-gold text-accent-gold" : "text-border-light"}`} />
+                <button key={n} type="button" onClick={() => setRating(n)} aria-label={t("store.reviews.star", { n: num(n) })} aria-checked={rating === n} role="radio" className="w-11 h-11 flex items-center justify-center">
+                  <Star className={`w-7 h-7 ${n <= rating ? "fill-accent-gold text-gold-ink" : "text-border-light"}`} />
                 </button>
               ))}
             </div>
-            <input className={input} placeholder="Title (optional)" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />
-            <textarea className={input} rows={4} placeholder="How were the fit, fabric and quality?" required minLength={3} maxLength={3000} value={body} onChange={(e) => setBody(e.target.value)} />
+            <input className={input} placeholder={t("store.reviews.titleField")} aria-label={t("store.reviews.titleField")} maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} />
+            <textarea className={input} rows={4} placeholder={t("store.reviews.bodyField")} aria-label={t("store.reviews.bodyField")} required minLength={3} maxLength={3000} value={body} onChange={(e) => setBody(e.target.value)} />
             <div className="flex items-center gap-2 flex-wrap">
               {photos.map((url) => (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img key={url} src={url} alt="" className="w-14 h-14 object-cover rounded border border-border-light" />
               ))}
               {photos.length < 4 && (
-                <label className="sp-btn sp-racket inline-flex items-center gap-1.5 text-xs font-semibold py-2 cursor-pointer">
-                  <Camera className="w-4 h-4" /> {uploading ? "Uploading…" : "Add photo"}
+                <label className="sp-btn sp-racket inline-flex items-center gap-1.5 text-xs font-semibold py-3 cursor-pointer">
+                  <Camera className="w-4 h-4" /> {t(uploading ? "store.reviews.uploading" : "store.reviews.addPhoto")}
                   <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading}
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadPhoto(f); e.target.value = ""; }} />
                 </label>
               )}
             </div>
-            {reviewMsg && <p className={`text-xs ${reviewMsg.ok ? "text-emerald-700" : "text-badge-discount"}`}>{reviewMsg.text}</p>}
-            <button type="submit" disabled={sending} className="sp-btn sp-medal py-2 font-display text-xs uppercase font-bold">
-              {sending ? "Sending…" : "Submit review"}
+            {reviewMsg && <p className={`text-xs ${reviewMsg.ok ? "text-emerald-700 dark:text-emerald-400" : "text-badge-discount"}`}>{reviewMsg.text}</p>}
+            <button type="submit" disabled={sending} className="sp-btn sp-medal min-h-11 font-display text-xs uppercase font-bold">
+              {t(sending ? "store.reviews.sending" : "store.reviews.submit")}
             </button>
           </form>
         )}
@@ -223,9 +228,9 @@ export function ProductReviews({
       {/* Questions */}
       <div>
         <h2 className="font-display text-lg uppercase font-bold text-primary mb-3 flex items-center gap-2">
-          <MessageCircleQuestion className="w-5 h-5" /> Questions &amp; answers
+          <MessageCircleQuestion className="w-5 h-5" /> {t("store.reviews.qaTitle")}
         </h2>
-        {questions.length === 0 && <p className="text-sm text-text-muted mb-4">No questions yet. Ask about size, fit or fabric.</p>}
+        {questions.length === 0 && <p className="text-sm text-text-muted mb-4">{t("store.reviews.noQuestions")}</p>}
         <ul className="space-y-3 mb-4">
           {questions.map((q) => (
             <li key={q.id} className="text-sm border-b border-border-light pb-3">
@@ -237,13 +242,13 @@ export function ProductReviews({
         </ul>
         {user ? (
           <form onSubmit={submitQuestion} className="space-y-2">
-            <textarea className={input} rows={3} required minLength={3} maxLength={1000} placeholder="Ask a question about this product" value={question} onChange={(e) => setQuestion(e.target.value)} />
-            {qMsg && <p className={`text-xs ${qMsg.ok ? "text-emerald-700" : "text-badge-discount"}`}>{qMsg.text}</p>}
-            <button type="submit" className="sp-btn sp-shuttle py-2 font-display text-xs uppercase font-bold">Ask</button>
+            <textarea className={input} rows={3} required minLength={3} maxLength={1000} placeholder={t("store.reviews.askField")} aria-label={t("store.reviews.askField")} value={question} onChange={(e) => setQuestion(e.target.value)} />
+            {qMsg && <p className={`text-xs ${qMsg.ok ? "text-emerald-700 dark:text-emerald-400" : "text-badge-discount"}`}>{qMsg.text}</p>}
+            <button type="submit" className="sp-btn sp-shuttle min-h-11 font-display text-xs uppercase font-bold">{t("store.reviews.ask")}</button>
           </form>
         ) : (
           <p className="text-sm text-text-muted">
-            <Link href={signInHref} className="text-primary underline font-semibold">Sign in</Link> to ask a question or review a product you bought.
+            <Link href={signInHref} className="text-primary underline font-semibold">{t("store.reviews.signIn")}</Link> {t("store.reviews.signInText")}
           </p>
         )}
       </div>

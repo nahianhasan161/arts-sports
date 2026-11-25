@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, CalendarClock, Images, Package, RefreshCw, ShieldCheck, Wallet } from "lucide-react";
 import { useT } from "@/i18n/client";
+import { makingDays } from "@/lib/custom-jersey/pricing";
 import { formatMoney } from "@/i18n";
 import { JerseyPreview } from "./JerseyPreview";
 import { DesignGrid } from "./DesignCatalogue";
@@ -20,7 +21,7 @@ export function CustomHero({ startPrice, advancePercent, normalDays, freeRevisio
   const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
   const trust = [
     { icon: Package, text: t("home.cj.trust.minimum") },
-    { icon: CalendarClock, text: t("home.cj.trust.days", { days: num(normalDays) }) },
+    { icon: CalendarClock, text: t("home.cj.trust.days", { days: makingDays(normalDays, num) }) },
     { icon: Wallet, text: t("home.cj.trust.advance", { percent: num(advancePercent) }) },
     ...(freeRevisions > 0 ? [{ icon: RefreshCw, text: t("home.cj.trust.revisions", { count: num(freeRevisions) }) }] : []),
     { icon: ShieldCheck, text: t("home.cj.trust.noPay") },
@@ -36,12 +37,12 @@ export function CustomHero({ startPrice, advancePercent, normalDays, freeRevisio
       <div className="relative max-w-container-max mx-auto px-4 sm:px-6 pt-10 pb-24 sm:pt-14 sm:pb-32 grid lg:grid-cols-[1.15fr_1fr] gap-8 lg:gap-12 items-center">
         <div className="flex flex-col gap-5 as-rise">
           <nav aria-label="Breadcrumb" className="text-xs text-white/60">
-            <Link href="/" className="hover:text-white">Arts Sports</Link>
+            <Link href="/" className="inline-flex min-h-11 items-center hover:text-white">Arts Sports</Link>
             <span className="mx-1.5">/</span>
             <span className="text-white/90">{t("customJersey.title")}</span>
           </nav>
-          <span className="self-start inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] sm:text-xs font-semibold uppercase tracking-wider">
-            <BadgeCheck className="w-3.5 h-3.5 text-accent-gold" />
+          <span className="self-start inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-semibold uppercase tracking-wider">
+            <BadgeCheck className="w-3.5 h-3.5 text-gold-ink" />
             {t("home.landing.eyebrow")}
           </span>
           <h1 className="font-display uppercase font-bold leading-[0.95] tracking-tight text-4xl sm:text-6xl">{t("home.landing.title")}</h1>
@@ -87,7 +88,7 @@ export function CustomHero({ startPrice, advancePercent, normalDays, freeRevisio
         <ul className="flex gap-1 sm:gap-2 overflow-x-auto no-scrollbar rounded-2xl bg-surface-card text-on-surface border border-border-light shadow-xl p-2 sm:p-3">
           {trust.map(({ icon: Icon, text }) => (
             <li key={text} className="shrink-0 flex-1 min-w-[150px] flex items-center gap-2.5 rounded-xl px-3 py-2.5">
-              <span className="shrink-0 w-9 h-9 rounded-lg bg-accent-gold-soft text-accent-gold flex items-center justify-center">
+              <span className="shrink-0 w-9 h-9 rounded-lg bg-accent-gold-soft text-gold-ink flex items-center justify-center">
                 <Icon className="w-4 h-4" />
               </span>
               <span className="text-xs sm:text-sm font-semibold leading-tight">{text}</span>
@@ -115,7 +116,7 @@ export function PopularDesigns({ designs, categories }: { designs: DesignRow[]; 
     <section className="max-w-container-max mx-auto px-4 sm:px-6 pt-14 sm:pt-20 w-full">
       <div className="flex items-end justify-between gap-3 mb-5">
         <div className="flex flex-col gap-1.5">
-          <span className="inline-flex items-center gap-2 text-accent-gold font-display text-xs uppercase tracking-[0.2em] font-bold">
+          <span className="inline-flex items-center gap-2 text-gold-ink font-display text-xs uppercase tracking-[0.2em] font-bold">
             <span className="w-6 h-0.5 bg-accent-gold" />
             {t("home.catalogue.eyebrow")}
           </span>
@@ -135,7 +136,7 @@ export function OrderHeading() {
   const { t } = useT();
   return (
     <div className="flex flex-col gap-2 mb-6 sm:mb-8 max-w-2xl">
-      <span className="inline-flex items-center gap-2 text-accent-gold font-display text-xs uppercase tracking-[0.2em] font-bold">
+      <span className="inline-flex items-center gap-2 text-gold-ink font-display text-xs uppercase tracking-[0.2em] font-bold">
         <span className="w-6 h-0.5 bg-accent-gold" />
         {t("home.landing.eyebrow")}
       </span>

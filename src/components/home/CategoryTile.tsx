@@ -125,7 +125,7 @@ export function CategoryTile({ kind, href, image, title, sub, action }: { kind: 
       </span>
       <span className="as-ct-body">
         <span className="font-display uppercase font-bold text-lg sm:text-2xl leading-tight">{title}</span>
-        <span className="text-[11px] sm:text-xs text-white/90 leading-snug">{sub}</span>
+        <span className="text-xs text-white/90 leading-snug">{sub}</span>
         <span className="mt-auto pt-2.5">{action}</span>
       </span>
     </Link>

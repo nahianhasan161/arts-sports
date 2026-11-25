@@ -69,6 +69,8 @@ After meaningful work, update `context/progress-tracker.md` (and the other conte
 - Audit "who": routes that write must call `getServiceSupabase(user)` (sends `x-actor-id`; `audit_row_change` records
   that person). A bare `getServiceSupabase()` write is logged as "system". SQL fns can also `set_config('app.actor_id')`
   and `app.audit_reason`. History UI: `components/admin/purchases/History.tsx`, Stock row history `inventory/ItemHistory.tsx`.
+- Storefront menu, shop phone, social links: `lib/nav.ts`. No root/shop `loading.tsx` (it hides server HTML and breaks redirects). Gold text on the storefront = `text-gold-ink` (readable), not `text-accent-gold`.
+- Quantity discount = one percentage rule (`custom_jersey_pricing.tiers`); fabrics have no own tiers.
 - Client i18n: `useT()` from `src/i18n/client.ts` (reads the `lang` cookie). **Bangla is the default locale**; English is the switch.
   Header/footer text: `i18n/messages/site.{en,bn}.ts`. Admin menu, dashboards, branches: `admin.{en,bn}.ts`.
 - Theme: light/dark via the `dark` class on `<html>` (`lib/theme.ts`, toggles in `components/layout/Preferences.tsx`).

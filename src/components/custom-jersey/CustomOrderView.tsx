@@ -393,7 +393,7 @@ export function CustomOrderView({ token }: { token: string }) {
           <ol className="flex flex-col gap-2.5">
             {PRODUCTION_STEPS.map((s, i) => (
               <li key={s} className="flex items-center gap-3 text-sm">
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${i <= stepIndex ? "bg-emerald-600 text-white" : "bg-surface-subtle text-text-muted"}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i <= stepIndex ? "bg-emerald-600 text-white" : "bg-surface-subtle text-text-muted"}`}>
                   {i <= stepIndex ? <Check className="w-3.5 h-3.5" /> : i + 1}
                 </span>
                 <span className={i === stepIndex ? "font-bold" : i < stepIndex ? "" : "text-text-muted"}>{t(`customJersey.status.${s}`)}</span>
@@ -417,7 +417,7 @@ export function CustomOrderView({ token }: { token: string }) {
           <ul className="flex flex-col gap-2">
             {o.messages.map((m) => (
               <li key={m.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.author === "customer" ? "self-end bg-primary text-primary-foreground" : "self-start bg-surface-subtle"}`}>
-                <span className="block text-[10px] uppercase font-bold opacity-70">
+                <span className="block text-xs uppercase font-bold opacity-70">
                   {m.author === "customer" ? t("customJersey.order.you") : t("customJersey.order.staff")} · {dateText(m.created_at)}
                 </span>
                 <span className="whitespace-pre-line break-words">{m.body}</span>
@@ -520,7 +520,7 @@ export function CustomOrderView({ token }: { token: string }) {
                       <td className="py-1 pr-2 tabular-nums">{r.player_number}</td>
                       <td className="py-1 pr-2">
                         {sizeLabel(r)}
-                        {measureText(r) && <span className="block text-[11px] text-text-muted">{measureText(r)}</span>}
+                        {measureText(r) && <span className="block text-xs text-text-muted">{measureText(r)}</span>}
                       </td>
                       <td className="py-1">{t(`customJersey.options.${r.sleeve}`)}</td>
                       {r.pant_size && <td className="py-1 pl-2 text-xs">{t("customJersey.roster.pant")}: {r.pant_size}</td>}

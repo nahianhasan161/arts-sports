@@ -106,7 +106,7 @@ export function TrackOrder() {
               {STEPS.map((s, i) => (
                 <li key={s.key} className="flex items-center gap-3 text-sm">
                   <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                       i <= current ? "bg-emerald-600 text-white" : "bg-surface-subtle text-text-muted"
                     }`}
                   >
@@ -114,7 +114,7 @@ export function TrackOrder() {
                   </span>
                   <span className={i <= current ? "font-semibold" : "text-text-muted"}>{s.label}</span>
                   {s.key === "confirmed" && i > current && order.confirmation_status === "needs_call" && (
-                    <span className="text-[11px] text-amber-700">we will call you</span>
+                    <span className="text-xs text-amber-700">we will call you</span>
                   )}
                 </li>
               ))}

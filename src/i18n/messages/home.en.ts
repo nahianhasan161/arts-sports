@@ -17,12 +17,12 @@ export const homeEn = {
   perks: {
     minimum: "From 1 piece",
     minimumSub: "No minimum order",
-    days: "4–6 days",
+    days: "{days} days",
     daysSub: "After you confirm",
     delivery: "All Bangladesh",
     deliverySub: "Home delivery",
     pay: "Pay some now, rest later",
-    paySub: "bKash, Nagad, card",
+    paySub: "bKash or Nagad",
   },
   categories: {
     eyebrow: "Shop by category",
@@ -56,6 +56,18 @@ export const homeEn = {
     all: "All sports",
     viewAll: "See all accessories",
     soldOut: "Sold out",
+  },
+  fabric: {
+    eyebrow: "Fabric quality",
+    title: "Which fabric for your jersey?",
+    text: "Choose from these on the order form. The price is for one jersey, before extras.",
+    perPiece: "{price} / piece",
+    cta: "Choose a fabric and order",
+  },
+  reviews: {
+    eyebrow: "From customers",
+    title: "What customers say",
+    stars: "{count} out of 5",
   },
   how: {
     eyebrow: "How custom works",
@@ -136,8 +148,6 @@ export const homeEn = {
     },
     perPiece: "+{price} / piece",
     tierDiscount: "{n}+ pcs · {percent}% off",
-    tierPrice: "{n}+ pcs · {price} each",
-    bulk: "Bulk price",
     homeDelivery: "Home delivery",
     homeDeliverySub: "Anywhere in Bangladesh",
     pickup: "Pick up from the shop",

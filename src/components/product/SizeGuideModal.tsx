@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Globe, Loader2 } from "lucide-react";
+import { useT } from "@/i18n/client";
 import {
   DEFAULT_SIZE_REGION,
   type ResolvedSize,
@@ -11,11 +12,8 @@ import {
 
 const REGION_CODES: SizeRegionCode[] = ["GLOBAL", "BD", "US"];
 
-const REGION_LABELS: Record<SizeRegionCode, string> = {
-  GLOBAL: "Global",
-  BD: "Bangladesh",
-  US: "United States",
-};
+/** The measurements staff use most; anything else is shown as it was typed. */
+const MEASURES = ["chest", "length", "shoulder", "sleeve", "waist", "hip", "inseam", "width"] as const;
 
 const STORAGE_KEY = "size_region";
 
@@ -43,6 +41,11 @@ export default function SizeGuideModal({
   subCategoryId,
   type,
 }: SizeGuideModalProps) {
+  const { t } = useT();
+  const measure = (key: string) => {
+    const known = MEASURES.find((m) => m === key.toLowerCase());
+    return known ? t(`store.sizeGuide.${known}`) : key;
+  };
   const [region, setRegion] = useState<SizeRegionCode>(DEFAULT_SIZE_REGION);
   const [sizes, setSizes] = useState<ResolvedSize[]>([]);
   const [meta, setMeta] = useState<SizeRegion | null>(null);
@@ -65,18 +68,18 @@ export default function SizeGuideModal({
 
         const res = await fetch(`/api/sizes?${params.toString()}`);
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? "Could not load the size guide");
+        if (!res.ok) throw new Error("size guide");
 
         setSizes(json.data?.sizes ?? []);
         setMeta(json.data?.region ?? null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not load the size guide");
+      } catch {
+        setError(t("store.sizeGuide.failed"));
         setSizes([]);
       } finally {
         setLoading(false);
       }
     },
-    [categoryId, subCategoryId, type]
+    [categoryId, subCategoryId, type, t]
   );
 
   useEffect(() => {
@@ -106,17 +109,17 @@ export default function SizeGuideModal({
   const unit = meta?.unit ?? "cm";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={t("store.sizeGuide.title")}>
       <div className="bg-surface-card rounded-xl max-w-2xl w-full shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-border-light shrink-0">
           <h3 className="font-display uppercase text-base font-bold text-primary">
-            Size Measurement Guide
+            {t("store.sizeGuide.title")}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="sp-ico sp-red sp-sm"
-            aria-label="Close size guide"
+            className="sp-ico sp-red sp-lg"
+            aria-label={t("store.sizeGuide.close")}
           >
             <X className="w-5 h-5" />
           </button>
@@ -124,8 +127,7 @@ export default function SizeGuideModal({
 
         <div className="p-5 overflow-y-auto">
           <p className="text-xs text-text-muted mb-4">
-            Measurements are taken flat in {unit === "in" ? "inches" : "centimetres"}
-            {unit === "in" ? ' ("). For chest, measure across the fullest part from underarm to underarm.' : " (cm). For chest, measure across the fullest part from underarm to underarm."}
+            {t("store.sizeGuide.note", { unit: t(unit === "in" ? "store.sizeGuide.inches" : "store.sizeGuide.cm") })}
           </p>
 
           {/* Region switcher */}
@@ -136,9 +138,9 @@ export default function SizeGuideModal({
                 key={code}
                 type="button"
                 onClick={() => selectRegion(code)}
-                className={`sp-chip ${region === code ? "sp-on" : ""} py-1.5 text-xs font-semibold`}
+                className={`sp-chip ${region === code ? "sp-on" : ""} min-h-11 text-xs font-semibold`}
               >
-                {REGION_LABELS[code]}
+                {t(`store.sizeGuide.region.${code}`)}
               </button>
             ))}
           </div>
@@ -146,23 +148,23 @@ export default function SizeGuideModal({
           {loading ? (
             <div className="flex items-center justify-center py-10 gap-2 text-text-muted">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-xs">Loading chart...</span>
+              <span className="text-xs">{t("store.sizeGuide.loading")}</span>
             </div>
           ) : error ? (
             <p className="text-xs text-badge-discount py-6 text-center">{error}</p>
           ) : sizes.length === 0 ? (
             <p className="text-xs text-text-muted py-6 text-center">
-              No size chart has been published yet.
+              {t("store.sizeGuide.none")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border border-border-light">
                 <thead className="bg-surface-subtle font-display uppercase">
                   <tr>
-                    <th className="p-2.5 border-b border-border-light">Size</th>
+                    <th className="p-2.5 border-b border-border-light">{t("store.pdp.size")}</th>
                     {keys.map((key) => (
                       <th key={key} className="p-2.5 border-b border-border-light capitalize">
-                        {key} ({unit})
+                        {measure(key)} ({unit})
                       </th>
                     ))}
                   </tr>
@@ -198,9 +200,9 @@ export default function SizeGuideModal({
           <button
             type="button"
             onClick={onClose}
-            className="sp-btn sp-wicket w-full py-2.5 font-display uppercase text-xs font-bold"
+            className="sp-btn sp-wicket w-full py-3 font-display uppercase text-xs font-bold"
           >
-            Got it, close
+            {t("store.sizeGuide.done")}
           </button>
         </div>
       </div>

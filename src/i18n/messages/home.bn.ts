@@ -16,12 +16,12 @@ export const homeBn: HomeMessages = {
   perks: {
     minimum: "১ পিস থেকেই",
     minimumSub: "কোনো মিনিমাম নেই",
-    days: "৪–৬ দিনে",
+    days: "{days} দিনে",
     daysSub: "ডিজাইন কনফার্মের পর",
     delivery: "সারা বাংলাদেশে",
     deliverySub: "হোম ডেলিভারি",
     pay: "কিছু অগ্রিম দিন, বাকিটা পরে",
-    paySub: "বিকাশ, নগদ, কার্ড",
+    paySub: "বিকাশ বা নগদে",
   },
   categories: {
     eyebrow: "ক্যাটাগরি অনুযায়ী কিনুন",
@@ -55,6 +55,18 @@ export const homeBn: HomeMessages = {
     all: "সব খেলা",
     viewAll: "সব এক্সেসরিজ দেখুন",
     soldOut: "স্টক শেষ",
+  },
+  fabric: {
+    eyebrow: "কাপড়ের মান",
+    title: "কোন কাপড়ে বানাবেন?",
+    text: "অর্ডার ফর্মে এই কাপড়গুলো থেকে বেছে নিতে পারবেন। দাম ১টা জার্সির, বাড়তি কাজ ছাড়া।",
+    perPiece: "{price} / পিস",
+    cta: "কাপড় বেছে অর্ডার করুন",
+  },
+  reviews: {
+    eyebrow: "ক্রেতাদের কথা",
+    title: "ক্রেতারা যা বলেন",
+    stars: "৫-এর মধ্যে {count}",
   },
   how: {
     eyebrow: "কাস্টম অর্ডার যেভাবে হয়",
@@ -134,8 +146,6 @@ export const homeBn: HomeMessages = {
     },
     perPiece: "+{price} / পিস",
     tierDiscount: "{n}+ পিস · {percent}% ছাড়",
-    tierPrice: "{n}+ পিস · প্রতিটি {price}",
-    bulk: "বেশি নিলে কম দাম",
     homeDelivery: "হোম ডেলিভারি",
     homeDeliverySub: "সারা বাংলাদেশে",
     pickup: "দোকান থেকে নেব",

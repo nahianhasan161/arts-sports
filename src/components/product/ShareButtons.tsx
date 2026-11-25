@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/i18n/client";
 import { Check, Link2, MessageCircle, Send, Share2 } from "lucide-react";
 
 const STORE_WHATSAPP = (process.env.NEXT_PUBLIC_STORE_WHATSAPP ?? "").replace(/\D/g, "");
@@ -17,12 +18,13 @@ function storeWa(text: string) {
  * the store with the product link already written.
  */
 export function ShareButtons({ title, path }: { title: string; path: string }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
   const url = () => `${window.location.origin}${path}`;
   const open = (href: string) => window.open(href, "_blank", "noopener,noreferrer");
-  const btn = "sp-btn inline-flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold uppercase tracking-wider";
+  const btn = "sp-btn inline-flex items-center justify-center gap-1.5 h-11 text-xs font-bold tracking-wider";
 
-  const ask = storeWa(`${title} — eta niye jante chai: `);
+  const ask = storeWa(t("store.share.askText", { title }));
 
   return (
     <div className="flex flex-col gap-2">
@@ -35,15 +37,15 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
             else open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`);
           }}
         >
-          <Share2 className="w-3.5 h-3.5" /> Share
+          <Share2 className="w-3.5 h-3.5" /> {t("store.share.share")}
         </button>
-        <button type="button" className="sp-ico sp-volley" onClick={() => open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`)} aria-label="Share on Facebook">
+        <button type="button" className="sp-ico sp-lg sp-volley" onClick={() => open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`)} aria-label={t("store.share.facebook")}>
           <span className="font-black text-[13px] leading-none">f</span>
         </button>
         <button
           type="button"
-          className="sp-ico sp-basket"
-          aria-label="Send on Messenger"
+          className="sp-ico sp-lg sp-basket"
+          aria-label={t("store.share.messenger")}
           onClick={() => {
             const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
             open(mobile ? `fb-messenger://share/?link=${encodeURIComponent(url())}` : `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`);
@@ -51,13 +53,13 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
         >
           <Send className="w-3.5 h-3.5" />
         </button>
-        <button type="button" className="sp-ico sp-tennis" onClick={() => open(`https://wa.me/?text=${encodeURIComponent(`${title} ${url()}`)}`)} aria-label="Share on WhatsApp">
+        <button type="button" className="sp-ico sp-lg sp-tennis" onClick={() => open(`https://wa.me/?text=${encodeURIComponent(`${title} ${url()}`)}`)} aria-label={t("store.share.whatsapp")}>
           <MessageCircle className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
-          className="sp-ico sp-leather"
-          aria-label="Copy link"
+          className="sp-ico sp-lg sp-leather"
+          aria-label={t(copied ? "store.share.copied" : "store.share.copy")}
           onClick={() => {
             void navigator.clipboard?.writeText(url()).then(() => {
               setCopied(true);
@@ -72,7 +74,7 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
         <div className="flex flex-wrap gap-2">
           {ask && (
             <button type="button" className={`${btn} sp-tennis sp-wa`} onClick={() => open(`${ask}${url()}`)}>
-              <MessageCircle className="w-3.5 h-3.5" /> Ask on WhatsApp
+              <MessageCircle className="w-3.5 h-3.5" /> {t("store.share.askWhatsapp")}
             </button>
           )}
           {MESSENGER_PAGE && (
@@ -81,7 +83,7 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
               className={`${btn} sp-armband`}
               onClick={() => open(`https://m.me/${encodeURIComponent(MESSENGER_PAGE)}?text=${encodeURIComponent(`${title} ${url()}`)}`)}
             >
-              <Send className="w-3.5 h-3.5" /> Ask on Messenger
+              <Send className="w-3.5 h-3.5" /> {t("store.share.askMessenger")}
             </button>
           )}
         </div>

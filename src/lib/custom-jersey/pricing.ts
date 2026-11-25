@@ -414,3 +414,11 @@ export function sizeSummary(roster: Pick<RosterRow, "size" | "fit">[]): [string,
   const rank = (s: string) => (s.startsWith("BOYS ") ? 100 + Number(s.slice(5)) || 199 : s === "CUSTOM" || s === "BOYS CUSTOM" ? 300 : order.indexOf(s) === -1 ? order.length : order.indexOf(s));
   return [...counts.entries()].sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0]));
 }
+
+/** The quickest a jersey is normally made. The slowest is the admin setting `rush.normal_days`. */
+const FASTEST_DAYS = 4;
+
+/** "4–6": the normal making time, the one figure every page shows. `num` writes the digits. */
+export function makingDays(normalDays: number, num: (n: number) => string = String): string {
+  return normalDays > FASTEST_DAYS ? `${num(FASTEST_DAYS)}–${num(normalDays)}` : num(normalDays);
+}

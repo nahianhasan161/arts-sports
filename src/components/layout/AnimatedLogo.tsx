@@ -63,7 +63,7 @@ export function AnimatedLogo({ className }: { className?: string }) {
 
   useEffect(() => {
     const loop = window.setInterval(() => {
-      if (document.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      if (document.hidden || window.matchMedia("(prefers-reduced-motion: reduce), (max-width: 767px)").matches) return;
       setLap((n) => n + 1);
     }, LOOP_MS);
     return () => window.clearInterval(loop);

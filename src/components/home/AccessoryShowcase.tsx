@@ -9,7 +9,7 @@ import { formatMoney } from "@/i18n";
 import { thumbUrl } from "@/lib/media/thumb";
 import { useLiveBadges } from "@/lib/promotions/useLiveBadges";
 import type { AccessoryItem, AccessoryShowcaseData, AccessorySport } from "@/lib/services/accessories";
-import { assignFrames, type SportFrame } from "@/lib/sport-frames";
+import { frameFor, type SportFrame } from "@/lib/sport-frames";
 import { SportCard } from "@/components/product/SportCard";
 import { AllIcon, ChipIcon } from "@/components/ui/ChipIcon";
 import { SectionHeading } from "./HomeSections";
@@ -59,15 +59,15 @@ function AccessoryCard({ item, sport, frame, price, was }: { item: AccessoryItem
             )}
             <div className="absolute top-1.5 inset-x-1.5 sm:top-2 sm:inset-x-2 flex items-start justify-between gap-1">
               {sport ? (
-                <span className="min-w-0 truncate px-1.5 sm:px-2 py-0.5 rounded-full bg-black/55 backdrop-blur text-white text-[10px] font-semibold uppercase sm:tracking-wider">{sport}</span>
+                <span className="min-w-0 truncate px-1.5 sm:px-2 py-0.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold uppercase sm:tracking-wider">{sport}</span>
               ) : (
                 <span />
               )}
               {soldOut ? (
-                <span className="shrink-0 px-2 py-0.5 rounded-full bg-badge-discount text-white text-[10px] font-semibold">{t("home.accessories.soldOut")}</span>
+                <span className="shrink-0 px-2 py-0.5 rounded-full bg-badge-discount text-white text-xs font-semibold">{t("home.accessories.soldOut")}</span>
               ) : (
                 item.images?.length > 1 && (
-                  <span className="shrink-0 inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-black/55 backdrop-blur text-white text-[10px] font-semibold">
+                  <span className="shrink-0 inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold">
                     <Images className="w-3 h-3" />
                     {item.images.length}
                   </span>
@@ -104,7 +104,7 @@ export function AccessoryShowcase({ data }: { data: AccessoryShowcaseData }) {
   const ids = useMemo(() => data.items.map((i) => i.id), [data]);
   const frames = useMemo(() => {
     const words = new Map(data.sports.map((s) => [s.id, [s.slug, s.name, s.name_bn].filter(Boolean).join(" ")]));
-    return assignFrames(shown.map((i) => words.get(i.sport_id ?? "") ?? i.title));
+    return shown.map((i) => frameFor(`${words.get(i.sport_id ?? "") ?? ""} ${i.title}`));
   }, [data, shown]);
   const live = useLiveBadges(ids);
   const activeSport = sports.find((s) => s.id === active);

@@ -257,14 +257,14 @@ export default async function OrderConfirmedPage(
           )}
 
           <div className="mt-5 inline-flex flex-col items-center gap-1 px-6 py-4 bg-surface-card border border-border-light rounded-xl">
-            <span className="text-[11px] font-display uppercase tracking-wider text-text-muted font-bold">
+            <span className="text-xs font-display uppercase tracking-wider text-text-muted font-bold">
               Order Reference
             </span>
             <span className="font-display text-xl sm:text-2xl font-bold text-primary tracking-wide">
               {order.order_id}
             </span>
             {placedOn && (
-              <span className="text-[11px] text-text-muted">Placed on {placedOn}</span>
+              <span className="text-xs text-text-muted">Placed on {placedOn}</span>
             )}
           </div>
         </div>
@@ -383,7 +383,7 @@ export default async function OrderConfirmedPage(
                 )}
                 <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-on-surface line-clamp-1">{item.title}</h3>
-                  <p className="text-[11px] text-text-muted">
+                  <p className="text-xs text-text-muted">
                     {[item.size, item.color].filter(Boolean).join(" • ")} · Qty {item.quantity}
                   </p>
                 </div>
@@ -425,7 +425,7 @@ export default async function OrderConfirmedPage(
             </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-1.5 text-[11px] text-text-muted">
+          <div className="mt-4 flex flex-col gap-1.5 text-xs text-text-muted">
             <span className="flex items-center gap-1.5">
               <CreditCard className="w-3.5 h-3.5" />
               Payment method: <strong className="text-on-surface">{paymentLabel}</strong>

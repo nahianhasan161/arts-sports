@@ -74,7 +74,7 @@ export default function GlobalError({
         </p>
 
         {error?.digest && (
-          <p className="text-[11px] text-text-muted font-mono">
+          <p className="text-xs text-text-muted font-mono">
             Reference: {error.digest}
           </p>
         )}

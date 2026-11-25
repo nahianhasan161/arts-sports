@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getProductBySlug } from "@/lib/services/products";
+import { getCategories, getProductBySlug } from "@/lib/services/products";
+import { findCategory } from "@/lib/services/shop-query";
+import { sanitizeProductHtml } from "@/lib/admin/rich-text";
 import { roundPercent } from "@/lib/pricing";
 import { getServerUrl } from "@/lib/config";
 import {
@@ -70,7 +72,7 @@ export async function generateMetadata(props: ProductPageProps): Promise<Metadat
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 300) ||
-    `${product.title} — Arts Sports. Premium everyday apparel in combed compact organic cotton.`;
+    `${product.title}. Buy online from Arts Sports, with delivery all over Bangladesh.`;
 
   const title = `${product.title} | Buy Online`;
   const canonical = `/products/${encodeURIComponent(product.slug)}`;
@@ -100,6 +102,13 @@ export async function generateMetadata(props: ProductPageProps): Promise<Metadat
   };
 }
 
+/** Descriptions are stored as cleaned HTML, older ones as plain text. Cleaned again here, where they are shown. */
+function asHtml(value: string | null | undefined): string {
+  const text = value?.trim() ?? "";
+  if (!text) return "";
+  return sanitizeProductHtml(/<(p|br|ul|ol|li|strong|em|b|i|u|a)\b/i.test(text) ? text : `<p>${text.replace(/\n+/g, "</p><p>")}</p>`);
+}
+
 export default async function ProductDetailPage(props: ProductPageProps) {
   const params = await props.params;
   const product = await getProductBySlug(params.slug);
@@ -117,13 +126,17 @@ export default async function ProductDetailPage(props: ProductPageProps) {
         : 0)
   );
 
-  const [summary, reviews, questions, productTerms, editions] = await Promise.all([
+  const [summary, reviews, questions, productTerms, editions, tree] = await Promise.all([
     getRatingSummary(product.id),
     getApprovedReviews(product.id),
     getApprovedQuestions(product.id),
     getProductTerms(product.id),
     getTerms("edition"),
+    getCategories(),
   ]);
+
+  const found = findCategory(tree, product.category ?? "");
+  const sub = found?.parent.children?.find((c) => c.name === product.sub_category);
 
   return (
     <>
@@ -156,7 +169,13 @@ export default async function ProductDetailPage(props: ProductPageProps) {
           }),
         }}
       />
-      <ProductDetailClient product={product} discountPercent={discountPercent} />
+      <ProductDetailClient
+        product={{ ...product, description: "" }}
+        discountPercent={discountPercent}
+        category={found ? { name: found.parent.name, name_bn: found.parent.name_bn, slug: found.parent.slug || found.parent.id } : null}
+        subCategory={sub ? { name: sub.name, name_bn: sub.name_bn } : null}
+        details={{ en: asHtml(product.description), bn: asHtml(product.description_bn) }}
+      />
       <EditionCompare editions={editions} current={productTerms.map((t) => t.id)} />
       <ProductReviews productId={product.id} summary={summary} reviews={reviews} questions={questions} />
     </>

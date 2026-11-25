@@ -1,5 +1,6 @@
 import { storeBn } from "./store.bn";
 import { homeBn } from "./home.bn";
+import { buyBn } from "./buy.bn";
 import type { SiteMessages } from "./en";
 import { siteBn } from "./site.bn";
 
@@ -25,7 +26,6 @@ export const bn: SiteMessages = {
   },
   customJersey: {
     title: "কাস্টম জার্সি",
-    subtitle: "নিজের দলের জার্সি, ১টা থেকেই। Design confirm করার পর ৪–৬ দিনে তৈরি।",
     steps: {
       one: "নিজের design পাঠান বা আমাদের থেকে একটা বাছুন",
       two: "আমাদের designer mockup আর চূড়ান্ত দাম পাঠাবে",
@@ -369,4 +369,5 @@ export const bn: SiteMessages = {
   site: siteBn,
   home: homeBn,
   store: storeBn,
+  buy: buyBn,
 };

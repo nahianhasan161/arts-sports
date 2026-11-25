@@ -50,3 +50,9 @@ export function badgeClass(type: string | null | undefined): string | null {
       return type ? "bg-badge-discount text-white" : null;
   }
 }
+
+/** "15% OFF" is how the server writes a discount badge; null for any other label. */
+export function discountBadgePercent(label: string | null | undefined): number | null {
+  const m = /^(\d+(?:\.\d+)?)\s*% off$/i.exec(label?.trim() ?? "");
+  return m ? Math.round(Number(m[1])) : null;
+}

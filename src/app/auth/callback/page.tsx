@@ -73,9 +73,9 @@ function OAuthCallbackContent() {
         <div className="bg-surface-card border border-border-light rounded-2xl p-space-xl max-w-md w-full text-center shadow-lg">
           <div className="w-16 h-16 rounded-full bg-accent-gold-soft flex items-center justify-center mx-auto mb-4">
             {status === "pending" ? (
-              <Loader2 className="w-8 h-8 text-accent-gold animate-spin" />
+              <Loader2 className="w-8 h-8 text-gold-ink animate-spin" />
             ) : (
-              <Loader2 className="w-8 h-8 text-accent-gold animate-spin" />
+              <Loader2 className="w-8 h-8 text-gold-ink animate-spin" />
             )}
           </div>
 
@@ -137,7 +137,7 @@ function OAuthCallbackContent() {
             We encountered an error while processing your sign-in.
           </p>
 
-          <p className="text-[11px] text-badge-discount font-medium bg-badge-discount/10 rounded-lg p-3 mb-6">
+          <p className="text-xs text-badge-discount font-medium bg-badge-discount/10 rounded-lg p-3 mb-6">
             {error}
           </p>
 
@@ -169,7 +169,7 @@ export default function AuthCallbackPage() {
     <Suspense
       fallback={
         <div className="min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-164px)] flex items-center justify-center px-space-base">
-          <Loader2 className="w-8 h-8 text-accent-gold animate-spin" />
+          <Loader2 className="w-8 h-8 text-gold-ink animate-spin" />
         </div>
       }
     >

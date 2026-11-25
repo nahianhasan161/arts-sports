@@ -102,25 +102,13 @@ function FabricForm({ fabric, onDone, onCancel, onError }: { fabric?: FabricWith
     low_stock_kg: str(fabric?.low_stock_kg),
     is_active: fabric?.is_active ?? true,
   });
-  const [tiers, setTiers] = useState<{ min: string; price: string }[]>(() => (fabric?.price_tiers ?? []).map((x) => ({ min: String(x.min), price: String(x.price) })));
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement>) => setV((o) => ({ ...o, [k]: e.target.value }));
-  const setTier = (i: number, k: "min" | "price", value: string) => setTiers((list) => list.map((x, j) => (j === i ? { ...x, [k]: value } : x)));
-  const addTier = () =>
-    setTiers((list) => {
-      const last = list.length ? Number(list[list.length - 1].min) || 0 : 0;
-      return [...list, { min: String(last ? last + 5 : 5), price: "" }];
-    });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const filled = tiers.filter((x) => x.min.trim() && x.price.trim());
-    const mins = filled.map((x) => Number(x.min));
-    if (mins.some((m) => !Number.isInteger(m) || m < 2)) return onError(t("shop.fabricStock.tierMinWrong"));
-    if (new Set(mins).size !== mins.length) return onError(t("shop.fabricStock.tierDuplicate"));
     setBusy(true);
-    const price_tiers = filled.map((x) => ({ min: Number(x.min), price: Number(x.price) })).sort((a, b) => a.min - b.min);
-    const res = await api("/api/admin/fabric-stock", { action: "fabric", id: fabric?.id, ...v, price_tiers });
+    const res = await api("/api/admin/fabric-stock", { action: "fabric", id: fabric?.id, ...v });
     setBusy(false);
     if (!res.ok) return onError(`${t("shop.fabricStock.failed")}: ${res.error}`);
     onError(null);
@@ -137,27 +125,7 @@ function FabricForm({ fabric, onDone, onCancel, onError }: { fabric?: FabricWith
       <label className={lbl}>{t("shop.fabricStock.lowAt")}<input type="number" step="0.1" min={0} className={field} value={v.low_stock_kg} onChange={set("low_stock_kg")} /></label>
       <label className="col-span-2 text-xs flex items-center gap-1.5"><input type="checkbox" checked={v.is_active} onChange={(e) => setV((o) => ({ ...o, is_active: e.target.checked }))} /> {t("shop.fabricStock.showCustomers")}</label>
       {v.is_active && (
-        <>
           <label className={`${lbl} col-span-2`}>{t("shop.fabricStock.pricePerPiece")}<input required type="number" step="1" min={0} className={field} value={v.price_per_piece} onChange={set("price_per_piece")} /></label>
-          <div className="col-span-2 flex flex-col gap-1.5">
-            <div className="text-xs">{t("shop.fabricStock.tiersTitle")}</div>
-            {tiers.map((x, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <label className="flex items-center gap-1 text-xs flex-1 min-w-0">
-                  <input type="number" step="1" min={2} className={`${field} w-full`} value={x.min} onChange={(e) => setTier(i, "min", e.target.value)} aria-label={t("shop.fabricStock.tierMin")} />
-                  <span className="shrink-0 text-text-muted">{t("shop.fabricStock.tierPcsUp")}</span>
-                </label>
-                <label className="flex items-center gap-1 text-xs flex-1 min-w-0">
-                  <span className="shrink-0 text-text-muted">৳</span>
-                  <input type="number" step="1" min={0} className={`${field} w-full`} value={x.price} onChange={(e) => setTier(i, "price", e.target.value)} aria-label={t("shop.fabricStock.tierPrice")} placeholder={t("shop.fabricStock.tierPrice")} />
-                </label>
-                <button type="button" className="text-text-muted hover:text-badge-discount shrink-0 p-1" onClick={() => setTiers((list) => list.filter((_, j) => j !== i))} aria-label={t("shop.fabricStock.tierRemove")} title={t("shop.fabricStock.tierRemove")}><Trash2 className="w-4 h-4" /></button>
-              </div>
-            ))}
-            <button type="button" className="self-start text-xs font-semibold text-primary underline underline-offset-2" onClick={addTier}>+ {t("shop.fabricStock.tierAdd")}</button>
-            <p className="text-[11px] text-text-muted">{t("shop.fabricStock.tiersHint")}</p>
-          </div>
-        </>
       )}
       <p className="col-span-2 text-[11px] text-text-muted">{t("shop.fabricStock.formHint")}</p>
       <div className="col-span-2 flex gap-2">
@@ -217,9 +185,6 @@ function FabricCard({ fabric: f, name, suppliers, onSaved, onError }: { fabric: 
             <button className="text-text-muted hover:text-badge-discount shrink-0" onClick={remove} aria-label={t("shop.fabricStock.delete")} title={t("shop.fabricStock.delete")}><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
           <div className="text-xs text-text-muted">{f.is_active ? t("shop.fabricStock.onlinePrice", { price: taka(Number(f.price_per_piece ?? 0)) }) : t("shop.fabricStock.stockOnly")}</div>
-          {f.is_active && f.price_tiers?.length ? (
-            <div className="text-xs text-text-muted">{f.price_tiers.map((x) => t("shop.fabricStock.tierShort", { n: x.min, price: taka(Number(x.price)) })).join(" · ")}</div>
-          ) : null}
           <div className="text-xs text-text-muted">{avg !== null ? t("shop.fabricStock.avgCost", { price: taka(avg) }) : t("shop.fabricStock.noCost")}</div>
           {avg !== null && perPiece ? <div className="text-xs text-text-muted">{t("shop.fabricStock.costPerPiece", { price: taka(Math.round(avg * perPiece)) })}</div> : null}
         </div>

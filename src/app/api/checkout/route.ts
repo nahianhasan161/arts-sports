@@ -250,7 +250,7 @@ export async function POST(request: Request) {
     if (plan === "cod" && risk?.advanceRequired && gatewayReady) {
       return fail(
         422,
-        "For this order please pay the delivery charge now with bKash or Nagad. The rest is paid when the parcel arrives.",
+        "For this order please pay an advance now with bKash or Nagad. The rest is paid when the parcel arrives.",
         "advance_required",
         { risk_level: risk.level }
       );

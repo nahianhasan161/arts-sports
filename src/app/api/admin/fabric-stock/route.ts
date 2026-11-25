@@ -18,7 +18,7 @@ import { WASTAGE_REASONS } from "@/lib/custom-jersey/fabric-stock";
  *      { action: "wastage", fabric_id, reason, pieces?, kg?, note? }          one of pieces / kg needed
  *      { action: "adjust", fabric_id, kg (+/-), note }                         a count correction
  *      { action: "settings", fabric_id, kg_per_piece, low_stock_kg }
- *      { action: "fabric", id?, name_en, name_bn?, price_per_piece?, price_tiers?: [{min, price}], is_active?, kg_per_piece?, low_stock_kg? }   add / edit a fabric
+ *      { action: "fabric", id?, name_en, name_bn?, price_per_piece?, is_active?, kg_per_piece?, low_stock_kg? }   add / edit a fabric
  *      { action: "delete_fabric", id }                                         only when it has no stock entries
  *      { action: "void", id, reason }                                          undo an entry (kept, struck out)
  */
@@ -189,8 +189,8 @@ export async function POST(request: Request) {
         name_bn: text(b.name_bn, 80) || null,
         // The customer form shows only fabrics that are on; a stock-only fabric can stay off with price 0.
         price_per_piece: Number.isFinite(price) ? price : 0,
-        // From `min` pieces the price per piece is `price`; below the first tier it is price_per_piece.
-        price_tiers: normalizeFabricTiers(b.price_tiers),
+        // One quantity rule for every fabric: the percent tiers in the custom jersey prices.
+        price_tiers: [],
         is_active: b.is_active !== false,
         kg_per_piece: Number.isFinite(kgPer) ? kgPer : null,
         low_stock_kg: Number.isFinite(low) && low >= 0 ? low : null,

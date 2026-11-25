@@ -1,46 +1,23 @@
 import { getServerUrl } from "@/lib/config";
+import { SOCIAL_LINKS, STORE_EMAIL, STORE_PHONE } from "@/lib/nav";
 
+/** Only what is true of the shop: the same phone, email and pages the site shows. */
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Arts Sports",
   url: getServerUrl(),
   logo: `${getServerUrl()}/main-logo-arts-sports.webp`,
-  description:
-    "Arts Sports — Premium everyday apparel crafted from combed compact organic cotton. Handcrafted for daylong comfort.",
-  foundingDate: "2020",
-  foundingLocation: "Dhaka, Bangladesh",
-  address: {
-    "@type": "PostalAddress",
-    streetAddress: "123, Sector 4, Mirpur",
-    addressLocality: "Dhaka",
-    postalCode: "1216",
-    addressCountry: "BD",
-  },
+  description: "Custom team jerseys, sportswear and sports gear in Bangladesh.",
   contactPoint: {
     "@type": "ContactPoint",
-    telephone: "+880-1700-000000",
-    contactType: "Customer Service",
-    email: "support@artssports.com",
+    telephone: STORE_PHONE,
+    contactType: "customer service",
+    email: STORE_EMAIL,
     availableLanguage: ["en", "bn"],
   },
-  sameAs: [
-    "https://www.facebook.com/artssports",
-    "https://www.instagram.com/artssports",
-    "https://www.tiktok.com/@artssports",
-    "https://www.linkedin.com/company/artssports",
-  ],
-  makesOffer: {
-    "@type": "Offer",
-    category: "Clothing",
-    itemCondition: "https://schema.org/NewCondition",
-  },
-  areaServed: {
-    "@type": "Country",
-    name: "Bangladesh",
-  },
-  slogan: "Premium Everyday Apparel",
-  priceRange: "$$",
+  ...(SOCIAL_LINKS.length > 0 && { sameAs: SOCIAL_LINKS.map((l) => l.href) }),
+  areaServed: { "@type": "Country", name: "Bangladesh" },
 };
 
 export function OrganizationSchema() {

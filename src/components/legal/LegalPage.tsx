@@ -39,7 +39,7 @@ export function LegalPage({ title, intro, children }: LegalPageProps) {
             {title}
           </h1>
           <p className="text-sm text-text-muted max-w-2xl">{intro}</p>
-          <p className="text-[11px] text-text-muted mt-3">
+          <p className="text-xs text-text-muted mt-3">
             Last updated: {LAST_UPDATED}
           </p>
         </header>

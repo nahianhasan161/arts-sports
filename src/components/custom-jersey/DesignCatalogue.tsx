@@ -5,7 +5,7 @@ import { HoverLink as Link } from "@/components/ui/HoverLink";
 import { ArrowRight, ChevronLeft, ChevronRight, Images, Shirt, Sparkles, X } from "lucide-react";
 import { AllIcon, ChipIcon } from "@/components/ui/ChipIcon";
 import { SportCard } from "@/components/product/SportCard";
-import { assignFrames, type SportFrame } from "@/lib/sport-frames";
+import { frameFor, type SportFrame } from "@/lib/sport-frames";
 import { useT } from "@/i18n/client";
 import { categoryName, designImages, OTHER_CATEGORY, type DesignCategoryRow, type DesignRow } from "@/lib/custom-jersey/designs";
 
@@ -49,14 +49,14 @@ export function DesignCard({ design, categoryLabel, frame, onOpen, priority }: {
             />
             <div className="absolute top-1.5 inset-x-1.5 sm:top-2.5 sm:inset-x-2.5 flex items-start justify-between gap-1">
               {categoryLabel ? (
-                <span className="min-w-0 truncate px-1.5 sm:px-2 py-0.5 rounded-full bg-black/45 backdrop-blur text-white text-[10px] font-semibold uppercase sm:tracking-wider">
+                <span className="min-w-0 truncate px-1.5 sm:px-2 py-0.5 rounded-full bg-black/45 backdrop-blur text-white text-xs font-semibold uppercase sm:tracking-wider">
                   {categoryLabel}
                 </span>
               ) : (
                 <span />
               )}
               {count > 1 && (
-                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-black/45 backdrop-blur text-white text-[10px] font-semibold">
+                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-black/45 backdrop-blur text-white text-xs font-semibold">
                   <Images className="w-3 h-3" />
                   {count}
                 </span>
@@ -69,7 +69,7 @@ export function DesignCard({ design, categoryLabel, frame, onOpen, priority }: {
       <p className="min-h-[2.5em] font-display uppercase text-sm sm:text-base font-bold leading-tight line-clamp-2">{title}</p>
       <Link
         href={orderHref(design.id)}
-        className="sp-btn sp-jersey max-sm:!px-[1.8em] mt-auto flex items-center justify-between gap-2 h-11 text-[11px] sm:text-xs font-bold uppercase sm:tracking-wider"
+        className="sp-btn sp-jersey max-sm:!px-[1.8em] mt-auto flex items-center justify-between gap-2 h-11 text-xs font-bold uppercase sm:tracking-wider"
       >
         <span className="min-w-0 flex-1 text-center leading-tight">{t("home.catalogue.use")}</span>
         <ArrowRight className="hidden sm:block w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
@@ -115,7 +115,7 @@ export function DesignViewer({ design, categoryLabel, onClose }: { design: Desig
               <button type="button" onClick={() => go(1)} aria-label={t("home.gallery.next")} className="sp-ico sp-football sp-lg absolute right-2 top-1/2 -translate-y-1/2">
                 <ChevronRight className="w-5 h-5" />
               </button>
-              <span className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[11px] font-semibold">
+              <span className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs font-semibold">
                 {index + 1} / {images.length}
               </span>
             </>
@@ -124,7 +124,7 @@ export function DesignViewer({ design, categoryLabel, onClose }: { design: Desig
         <div className="p-5 sm:p-6 flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
-              {categoryLabel && <span className="text-[11px] font-bold uppercase tracking-widest text-accent-gold">{categoryLabel}</span>}
+              {categoryLabel && <span className="text-xs font-bold uppercase tracking-widest text-gold-ink">{categoryLabel}</span>}
               <h2 className="font-display uppercase text-2xl font-bold text-on-surface leading-tight">{title}</h2>
             </div>
             <button type="button" onClick={onClose} aria-label={t("home.gallery.close")} className="sp-ico sp-red shrink-0">
@@ -149,7 +149,7 @@ export function DesignViewer({ design, categoryLabel, onClose }: { design: Desig
             </div>
           )}
           <p className="flex items-start gap-2 text-sm text-on-surface-variant bg-accent-gold/10 border border-accent-gold/25 rounded-xl p-3">
-            <Sparkles className="w-4 h-4 text-accent-gold shrink-0 mt-0.5" />
+            <Sparkles className="w-4 h-4 text-gold-ink shrink-0 mt-0.5" />
             {t("home.gallery.customise")}
           </p>
           <div className="mt-auto flex flex-col gap-2">
@@ -203,7 +203,7 @@ export function DesignGrid({
   }, [designs, active, limit]);
 
   const frames = useMemo(
-    () => assignFrames(shown.map((d) => [d.category, label(d.category), d.title, d.caption].filter(Boolean).join(" ")), 1),
+    () => shown.map((d) => frameFor([d.category, label(d.category), d.title, d.caption].filter(Boolean).join(" "))),
     [shown, label]
   );
 

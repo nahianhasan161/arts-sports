@@ -8,9 +8,15 @@ import { useRouter } from "next/navigation";
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Truck } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useCheckoutSettings } from "@/lib/checkout-settings";
+import { useT } from "@/i18n/client";
+import { formatMoney } from "@/i18n";
+import { RETURN_DAYS } from "@/lib/nav";
 
 export function CartDrawer() {
   const router = useRouter();
+  const { t, locale } = useT();
+  const taka = (n: number) => formatMoney(n, locale);
+  const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
   const [mounted, setMounted] = useState(false);
   const { 
     items, 
@@ -46,27 +52,27 @@ export function CartDrawer() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-[60] overflow-hidden" role="dialog" aria-modal="true" aria-label={t("buy.cart.title")}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
         onClick={closeCart}
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10 max-sm:pl-0">
         <div className="w-screen max-w-md bg-surface-card shadow-2xl flex flex-col">
           {/* 1. Header */}
           <div className="px-space-base py-space-md border-b border-border-light flex items-center justify-between bg-surface-subtle">
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-primary" />
               <h2 className="font-display uppercase tracking-wider text-base font-bold text-primary">
-                Your Shopping Bag ({totalCount})
+                {t("buy.cart.title")} ({num(totalCount)})
               </h2>
             </div>
             <button
               onClick={closeCart}
-              className="sp-ico sp-red sp-sm"
-              aria-label="Close cart"
+              className="sp-ico sp-red sp-lg"
+              aria-label={t("buy.cart.close")}
             >
               <X className="w-5 h-5" />
             </button>
@@ -75,15 +81,11 @@ export function CartDrawer() {
           {/* 2. Free Shipping Progress Meter */}
           <div className="px-space-base py-3 bg-accent-gold-soft border-b border-accent-gold/20">
             <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-1.5">
-              <Truck className="w-4 h-4 text-accent-gold shrink-0" />
+              <Truck className="w-4 h-4 text-gold-ink shrink-0" />
               {remainingForFree > 0 ? (
-                <span>
-                  Add <strong className="text-secondary font-bold">৳ {remainingForFree}</strong> more to unlock <strong className="font-bold">FREE Delivery</strong>!
-                </span>
+                <span>{t("buy.cart.freeLeft", { amount: taka(remainingForFree) })}</span>
               ) : (
-                <span className="text-emerald-700 font-bold">
-                  🎉 Congratulations! You have unlocked FREE Delivery!
-                </span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-bold">{t("buy.cart.freeDone")}</span>
               )}
             </div>
             <div className="relative w-full bg-surface-card h-2 rounded-full border border-accent-gold/20">
@@ -104,17 +106,18 @@ export function CartDrawer() {
                   <ShoppingBag className="w-8 h-8 opacity-40" />
                 </div>
                 <h3 className="font-display uppercase tracking-wider text-base font-bold text-primary mb-1">
-                  Your bag is empty
+                  {t("buy.cart.empty")}
                 </h3>
                 <p className="text-xs text-text-muted mb-6 max-w-xs">
-                  Looks like you haven&apos;t added any items to your shopping bag yet.
+                  {t("buy.cart.emptyText")}
                 </p>
-                <button
+                <Link
+                  href="/shop"
                   onClick={closeCart}
-                  className="sp-btn sp-pitch py-2.5 font-display uppercase tracking-wider text-xs font-semibold"
+                  className="sp-btn sp-pitch py-3 font-display uppercase tracking-wider text-xs font-semibold"
                 >
-                  Start Shopping
-                </button>
+                  {t("buy.cart.shop")}
+                </Link>
               </div>
             ) : (
               items.map((item) => (
@@ -123,7 +126,7 @@ export function CartDrawer() {
                   <div className="relative w-20 h-24 bg-surface-subtle rounded-lg overflow-hidden shrink-0 border border-border-light">
                     <Image
                       src={item.image}
-                      alt={item.title}
+                      alt=""
                       fill
                       sizes="80px"
                       className="object-cover"
@@ -137,14 +140,14 @@ export function CartDrawer() {
                         <Link
                           href={`/products/${item.slug}`}
                           onClick={closeCart}
-                          className="font-body text-sm font-semibold text-on-surface hover:text-primary transition-colors line-clamp-1"
+                          className="font-body text-sm font-semibold text-on-surface hover:text-primary transition-colors line-clamp-2"
                         >
-                          {item.title}
+                          {(locale === "bn" && item.title_bn) || item.title}
                         </Link>
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="sp-ico sp-yellow sp-sm"
-                          aria-label="Remove item"
+                          className="sp-ico sp-yellow sp-lg -mt-1"
+                          aria-label={t("buy.cart.remove", { name: (locale === "bn" && item.title_bn) || item.title })}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -152,32 +155,32 @@ export function CartDrawer() {
 
                       <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
                         {item.size && <span className="bg-surface-subtle px-1.5 py-0.5 rounded font-medium border border-border-light">
-                          Size: <strong className="text-primary font-bold">{item.size}</strong>
+                          {t("buy.cart.size")}: <strong className="text-primary font-bold">{item.size}</strong>
                         </span>}
-                        <span className="bg-surface-subtle px-1.5 py-0.5 rounded font-medium border border-border-light truncate max-w-[120px]">
+                        {item.color && item.color !== "Default" && <span className="bg-surface-subtle px-1.5 py-0.5 rounded font-medium border border-border-light truncate max-w-[120px]">
                           {item.color}
-                        </span>
+                        </span>}
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between mt-3">
                       {/* Quantity Stepper */}
-                      <div className="sp-stepper">
+                      <div className="sp-stepper h-12 w-32">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="sp-ico sp-plate sp-sm"
-                          aria-label="Decrease quantity"
+                          className="sp-ico sp-plate sp-lg"
+                          aria-label={t("buy.cart.less")}
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <span className="px-2.5 text-xs font-bold text-primary">
-                          {item.quantity}
+                        <span className="flex-1 text-center text-sm font-bold text-primary">
+                          {num(item.quantity)}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           disabled={item.quantity >= item.maxStock}
-                          className="sp-ico sp-plate sp-sm"
-                          aria-label="Increase quantity"
+                          className="sp-ico sp-plate sp-lg"
+                          aria-label={t("buy.cart.more")}
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -186,11 +189,11 @@ export function CartDrawer() {
                       {/* Line Price */}
                       <div className="text-right">
                         <span className="font-bold text-sm text-primary">
-                          ৳ {(item.price * item.quantity).toLocaleString()}
+                          {taka(item.price * item.quantity)}
                         </span>
                         {item.original_price > item.price && (
-                          <span className="block text-[10px] text-text-muted line-through">
-                            ৳ {(item.original_price * item.quantity).toLocaleString()}
+                          <span className="block text-xs text-text-muted line-through">
+                            {taka(item.original_price * item.quantity)}
                           </span>
                         )}
                       </div>
@@ -206,21 +209,21 @@ export function CartDrawer() {
             <div className="p-space-base bg-surface-subtle border-t border-border-light flex flex-col gap-3">
               <div className="flex flex-col gap-1.5 text-xs">
                 <div className="flex justify-between text-text-muted">
-                  <span>Subtotal</span>
+                  <span>{t("buy.cart.subtotal")}</span>
                   <span className="text-on-surface font-semibold">
-                    ৳ {subtotal.toLocaleString()}
+                    {taka(subtotal)}
                   </span>
                 </div>
                 <div className="flex justify-between text-text-muted">
-                  <span>Estimated Delivery</span>
-                  <span className={shippingFee === 0 ? "text-emerald-700 font-bold" : "text-on-surface font-semibold"}>
-                    {shippingFee === 0 ? "FREE" : `৳ ${shippingFee}`}
+                  <span>{t("buy.cart.delivery")}</span>
+                  <span className={shippingFee === 0 ? "text-emerald-700 dark:text-emerald-400 font-bold" : "text-on-surface font-semibold"}>
+                    {shippingFee === 0 ? t("buy.cart.free") : taka(shippingFee)}
                   </span>
                 </div>
                 <div className="border-t border-border-light pt-2 flex justify-between text-sm font-bold text-primary">
-                  <span>Total Amount</span>
+                  <span>{t("buy.cart.total")}</span>
                   <span className="text-base font-display text-primary">
-                    ৳ {grandTotal.toLocaleString()}
+                    {taka(grandTotal)}
                   </span>
                 </div>
               </div>
@@ -229,12 +232,12 @@ export function CartDrawer() {
                 onClick={handleProceedCheckout}
                 className="sp-btn sp-goal w-full h-12 font-display uppercase tracking-wider text-xs font-bold flex items-center justify-center gap-2"
               >
-                <span>PROCEED TO CHECKOUT</span>
+                <span>{t("buy.cart.checkout")}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              <p className="text-[10px] text-center text-text-muted">
-                Cash on delivery available nationwide • Free returns within 7 days
+              <p className="text-xs text-center text-text-muted">
+                {t("buy.cart.note", { days: num(RETURN_DAYS) })}
               </p>
             </div>
           )}

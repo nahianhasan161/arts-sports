@@ -180,14 +180,29 @@
 .pitch .sp-ico.sp-sm { --e: 5px; width: 28px; height: 28px; }
 .pitch .sp-ico.sp-xs { --e: 4px; width: 20px; height: 20px; }
 .pitch .sp-ico.sp-lg { --e: 8px; width: 42px; height: 42px; }
+/* Phones: every button is at least 44px to touch. */
+@media (max-width: 767px) {
+  .pitch :is(.sp-btn, .sp-chip) { min-height: 44px; }
+  .pitch .sp-btn.inline-block { display: inline-flex; align-items: center; justify-content: center; }
+  .pitch .sp-ico:not(.sp-xs), .pitch .sp-ico.sp-lg { width: 44px; height: 44px; }
+  .pitch .sp-tab { min-height: 48px; }
+  /* In the slim top band they are drawn smaller than they can be touched. */
+  .pitch .site-top .sp-ticket::after { inset: 7px 0; }
+  .pitch .site-top .sp-ticket::before { inset: 34% 0.95em 30% auto; }
+  .pitch .site-top .sp-ico.sp-sm::after { inset: 6px; }
+}
 @media (max-width: 639px) {
-  .pitch header .sp-ico.sp-lg { --e: 7px; width: 34px; height: 34px; }
-  .pitch header .sp-btn.sp-board { --pl: 1.5em; --pr: 0.8em; height: 40px; }
+  .pitch header .sp-btn.sp-board { --pl: 1.5em; --pr: 0.8em; height: 44px; }
   .pitch header .sp-btn.sp-board::before { left: 0.55em; }
 }
 .pitch .sp-ico:is(.sp-yellow, .sp-red) { width: 26px; height: 34px; transform: rotate(6deg); }
 .pitch .sp-ico:is(.sp-yellow, .sp-red).sp-sm { width: 21px; height: 27px; border-radius: 4px; }
-.pitch .sp-ico:is(.sp-yellow, .sp-red).sp-xs { width: 14px; height: 18px; border-radius: 2.5px; font-size: 10px; }
+@media (max-width: 767px) {
+  /* The card is drawn smaller than the 44px it can be touched on. */
+  .pitch .sp-ico:is(.sp-yellow, .sp-red):not(.sp-xs) { width: 44px; height: 44px; }
+  .pitch .sp-ico:is(.sp-yellow, .sp-red):not(.sp-xs)::after { inset: 5px 9px; border-radius: 5px; }
+}
+.pitch .sp-ico:is(.sp-yellow, .sp-red).sp-xs { width: 14px; height: 18px; border-radius: 2.5px; font-size: 12px; }
 /* Medal: the ribbon's two tails hang behind the disc, under the heart. */
 .pitch .sp-ico.sp-medal::before { display: block; z-index: -3; inset: auto 15% -24% 15%; height: 60%; border-radius: 0; background: linear-gradient(90deg, #0b5332 42%, #0000 0 58%, #c8102e 0); clip-path: polygon(0 0, 42% 0, 42% 100%, 21% 82%, 0 100%, 0 0, 58% 0, 100% 0, 100% 100%, 79% 82%, 58% 100%, 58% 0); }
 .pitch .sp-ico.sp-medal[aria-pressed="true"] { --ink: #c8102e; }

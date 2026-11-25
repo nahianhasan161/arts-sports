@@ -21,7 +21,7 @@ export function SiteChrome({ header, footer, overlays, children }: { header: Rea
       {header}
       {overlays}
       {/* pb-16 clears the mobile bottom navigation bar; it is hidden from lg up. */}
-      <main className="site-main flex-1 pt-[120px] lg:pt-[164px] pb-16 lg:pb-0">{children}</main>
+      <main className="site-main flex-1 pt-[124px] md:pt-[120px] lg:pt-[164px] pb-16 lg:pb-0">{children}</main>
       {footer}
     </>
   );

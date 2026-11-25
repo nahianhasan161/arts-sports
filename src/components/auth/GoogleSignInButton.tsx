@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useT } from "@/i18n/client";
 import { Button } from "@/components/ui/button";
 
 type GoogleSignInButtonProps = {
@@ -13,6 +14,7 @@ export function GoogleSignInButton({
   returnTo = "/account",
   onPending,
 }: GoogleSignInButtonProps) {
+  const { t } = useT();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -21,7 +23,7 @@ export function GoogleSignInButton({
     setError(null);
 
     if (!supabase) {
-      setError("Supabase authentication is not configured.");
+      setError(t("buy.checkout.googleBad"));
       return;
     }
 
@@ -42,8 +44,8 @@ export function GoogleSignInButton({
       if (data.url) {
         window.location.assign(data.url);
       }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Unable to continue with Google.");
+    } catch {
+      setError(t("buy.checkout.googleBad"));
     } finally {
       setPending(false);
       onPending?.(false);
@@ -59,10 +61,10 @@ export function GoogleSignInButton({
         variant="outline"
         className="sp-btn sp-football w-full h-11"
       >
-        {pending ? "Connecting to Google..." : "Continue with Google"}
+        {pending ? t("buy.checkout.googleWait") : t("buy.checkout.google")}
       </Button>
       {error && (
-        <p className="text-[11px] leading-5 text-badge-discount mt-2" role="alert">
+        <p className="text-xs leading-5 text-badge-discount mt-2" role="alert">
           {error}
         </p>
       )}

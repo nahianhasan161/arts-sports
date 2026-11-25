@@ -132,7 +132,7 @@ html[lang="bn"] .as-sp-cheer { font-family: var(--nf-hind), sans-serif; }
 @keyframes as-sp-coin { 0%, 10%, 100% { transform: none; } 5% { transform: translateY(-26px) rotateY(900deg); } 9.9% { transform: rotateY(1800deg); } }
 @keyframes as-sp-net { 0%, 68%, 76%, 100% { transform: none; } 71% { transform: scale(1.12); } 73% { transform: scale(0.98); } }
 @keyframes as-sp-cheer { 0%, 69% { opacity: 0; transform: scale(0.4); } 73% { opacity: 1; transform: scale(1.12) rotate(-4deg); } 76%, 90% { opacity: 1; transform: rotate(-4deg); } 94%, 100% { opacity: 0; transform: rotate(-4deg); } }
-@media (prefers-reduced-motion: no-preference) {
+@media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
   .as-sp-ball { animation: as-sp-ball var(--lap) linear infinite; }
   .as-sp-ball svg { animation: as-sp-roll var(--lap) linear infinite; }
   .as-sp-hop { animation: as-sp-hop var(--lap) ease-out calc(var(--lap) * 0.02) infinite; }

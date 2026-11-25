@@ -29,23 +29,12 @@ const fontSans = `font-sans ${hind.variable} ${oswald.variable} ${jakarta.variab
 
 export const metadata: Metadata = {
   title: {
-    default: "Arts Sports | Premium Everyday Apparel",
+    default: "Arts Sports | Custom jerseys, sportswear and gear",
     template: "%s | Arts Sports",
   },
   description:
-    "Arts Sports • Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort. Shop men's polos, t-shirts, trousers, and sports jerseys.",
-  keywords: [
-    "Arts Sports",
-    "premium apparel",
-    "organic cotton",
-    "polo t-shirts",
-    "men's fashion",
-    "Bangladesh",
-    "combed cotton",
-    "sports jersey",
-    "custom t-shirts",
-    "B2B wholesale",
-  ],
+    "Custom team jerseys with names, numbers and logo from 1 piece, plus jerseys, sportswear and sports gear. Delivery all over Bangladesh, cash on delivery.",
+  keywords: ["Arts Sports", "custom jersey", "team jersey", "sports jersey", "football", "cricket", "badminton", "sports gear", "Bangladesh"],
   authors: [{ name: "Arts Sports" }],
   creator: "Arts Sports",
   publisher: "Arts Sports",
@@ -58,37 +47,30 @@ export const metadata: Metadata = {
   // NEXT_PUBLIC_SITE_URL, so canonical tags and Open Graph URLs could name a
   // different domain than the sitemap and split the site's search signals.
   metadataBase: new URL(getServerUrl()),
-  alternates: {
-    canonical: "/",
-    // The /bn route was listed as an alternate language but never existed,
-    // so this declared a Bengali version of every page that returned a 404.
-    // It is removed rather than pointed at a page that is not there.
-  },
+  // No canonical here: every page would inherit it and point at the home page.
   openGraph: {
     type: "website",
     locale: "bn_BD",
     url: getServerUrl(),
     siteName: "Arts Sports",
-    title: "Arts Sports | Premium Everyday Apparel",
+    title: "Arts Sports | Custom jerseys, sportswear and gear",
     description:
-      "Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort.",
+      "Custom team jerseys with names, numbers and logo from 1 piece, plus jerseys, sportswear and sports gear. Delivery all over Bangladesh, cash on delivery.",
     images: [
       {
         url: "/og-cover.jpg",
         width: 1200,
         height: 630,
-        alt: "Arts Sports — Minimalist Aura Collection",
+        alt: "Arts Sports",
         type: "image/jpeg",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    site: "@artssports",
-    creator: "@artssports",
-    title: "Arts Sports | Premium Everyday Apparel",
+    title: "Arts Sports | Custom jerseys, sportswear and gear",
     description:
-      "Combed Compact Organic Cotton • Regular Fit • Modern Commercial Fashion. Handcrafted for daylong comfort.",
+      "Custom team jerseys with names, numbers and logo from 1 piece, plus jerseys, sportswear and sports gear. Delivery all over Bangladesh, cash on delivery.",
     images: ["/og-cover.jpg"],
   },
   robots: {

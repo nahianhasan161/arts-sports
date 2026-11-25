@@ -85,12 +85,12 @@ export function PriceFilter({
       />
       <div className="flex items-center justify-between gap-2 mt-3 text-xs">
         <div className="flex-1 bg-surface-subtle px-2 py-1.5 rounded border border-border-light">
-          <span className="text-[10px] text-text-muted block">{t("store.shop.ui.min")}</span>
+          <span className="text-xs text-text-muted block">{t("store.shop.ui.min")}</span>
           <span className="font-bold text-primary">{money(draft.low)}</span>
         </div>
         <span className="text-text-muted">-</span>
         <div className="flex-1 bg-surface-subtle px-2 py-1.5 rounded border border-border-light">
-          <span className="text-[10px] text-text-muted block">{t("store.shop.ui.max")}</span>
+          <span className="text-xs text-text-muted block">{t("store.shop.ui.max")}</span>
           <span className="font-bold text-primary">{money(draft.high)}</span>
         </div>
       </div>

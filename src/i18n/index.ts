@@ -68,11 +68,12 @@ export function getT(locale: Locale) {
 
 /**
  * Picks the Bangla column when there is one: localized(product, "title", "bn")
- * returns product.title_bn if filled, otherwise product.title.
+ * returns product.title_bn if filled, otherwise product.title. Some tables name
+ * the English column title_en instead; that works too.
  */
 export function localized<T extends Record<string, unknown>>(row: T, field: string, locale: Locale): string {
   const bnValue = locale === "bn" ? row[`${field}_bn`] : undefined;
-  const value = typeof bnValue === "string" && bnValue.trim() ? bnValue : row[field];
+  const value = typeof bnValue === "string" && bnValue.trim() ? bnValue : (row[field] ?? row[`${field}_en`]);
   return typeof value === "string" ? value : "";
 }
 

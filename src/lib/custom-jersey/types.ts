@@ -205,7 +205,7 @@ export const DEFAULT_PRICING: PricingConfig = {
   ],
   // Placeholder prices except name/number (free) and printed logo (free); set the real ones on the Jersey prices page.
   extras: { name: 0, number: 0, full_sleeve: 60, shorts: 250, polo_collar: 50, logo_print: 0, logo_dtf: 40, logo_silicon: 40, logo_embroidery: 40 },
-  rush: { normal_days: 7, min_days: 3, percent: 20 },
+  rush: { normal_days: 6, min_days: 3, percent: 20 },
   advance_percent: 30,
   free_revisions: 2,
   min_per_piece: 0,

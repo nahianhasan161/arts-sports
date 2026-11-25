@@ -37,6 +37,8 @@ const config: Config = {
         "primary-container": c("primary-container"),
         "on-primary": c("on-primary"),
         "on-primary-container": c("on-primary-container"),
+        // Gold as text: dark enough to read on light pages, bright on dark ones (globals.css).
+        "gold-ink": c("gold-ink"),
         "accent-gold": {
           DEFAULT: c("accent-gold"),
           soft: c("accent-gold-soft"),

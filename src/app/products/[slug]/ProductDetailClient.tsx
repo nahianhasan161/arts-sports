@@ -1,6 +1,5 @@
 "use client";
-import { badgeClass } from "@/lib/badges";
-import { formatTaka } from "@/lib/pricing";
+import { badgeClass, discountBadgePercent } from "@/lib/badges";
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
@@ -11,7 +10,6 @@ import {
   ChevronRight,
   Heart,
   Share2,
-  Check,
   Plus,
   Minus,
   ShoppingBag,
@@ -32,16 +30,29 @@ import { SocialProof } from "@/components/product/SocialProof";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useT } from "@/i18n/client";
 import { formatMoney } from "@/i18n";
+import { RETURN_DAYS } from "@/lib/nav";
 
 interface ProductDetailClientProps {
   product: Product;
   discountPercent: number;
+  /** For the breadcrumb; null when the category is not in the list any more. */
+  category: { name: string; name_bn?: string | null; slug: string } | null;
+  subCategory: { name: string; name_bn?: string | null } | null;
+  /** The description, cleaned on the server. */
+  details: { en: string; bn: string };
 }
 
-export function ProductDetailClient({ product, discountPercent }: ProductDetailClientProps) {
+export function ProductDetailClient({ product, discountPercent, category, subCategory, details }: ProductDetailClientProps) {
   const router = useRouter();
   const { t, locale } = useT();
   const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
+
+  const label = (x: { name: string; name_bn?: string | null }) => (locale === "bn" && x.name_bn) || x.name;
+  const title = (locale === "bn" && product.title_bn) || product.title;
+  const summary = (locale === "bn" && product.short_description_bn) || product.short_description;
+  const about = (locale === "bn" && details.bn) || details.en;
+  const specs = Object.entries(product.specs ?? {}).filter(([, value]) => String(value ?? "").trim());
+  const section = subCategory ? label(subCategory) : category ? label(category) : "";
 
   // The product arrives as a prop, fetched on the server by page.tsx. This
   // component used to fetch it itself in an effect, which meant the first
@@ -55,6 +66,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
     product.sizes.find((s) => s.stock > 0)?.size || product.sizes[0]?.size || ""
   );
   const [quantity, setQuantity] = useState(1);
+  const [copied, setCopied] = useState(false);
   const [sizeModalOpen, setSizeModalOpen] = useState(false);
 
   const { addItem, setBuyNow } = useCartStore();
@@ -101,10 +113,11 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
   // arm is kept for rows whose badge predates the derivation: a hand-set
   // "NEW" on an existing product is still the better badge than none.
   const badgeType = live?.badge_type ?? product?.badge_type ?? null;
+  const livePercent = discountBadgePercent(live?.badge_label);
   const liveBadgeLabel =
-    live?.badge_label ??
+    (livePercent !== null ? t("store.pdp.discount", { percent: num(livePercent) }) : live?.badge_label) ??
     (displayPercent > 0
-      ? `${displayPercent}% OFF`
+      ? t("store.pdp.discount", { percent: num(displayPercent) })
       : product?.badge && product.badge_type !== "discount"
         ? product.badge
         : null);
@@ -150,19 +163,19 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
   return (
     <div className="w-full pb-32 lg:pb-space-3xl">
       {/* 1. Breadcrumbs */}
-      <div className="w-full bg-surface-subtle border-b border-border-light py-2.5">
+      <div className="w-full bg-surface-subtle border-b border-border-light py-0 md:py-1">
         <div className="max-w-container-max mx-auto px-space-base flex items-center gap-1.5 text-xs text-text-muted flex-wrap">
-          <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1">
+          <Link href="/" className="hover:text-primary transition-colors flex min-h-11 min-w-11 md:min-h-8 items-center gap-1">
             <Home className="w-3.5 h-3.5" />
-            <span>Home</span>
+            <span>{t("store.shop.home")}</span>
           </Link>
           <ChevronRight className="w-3 h-3 opacity-40" />
-          <Link href="/shop?category=men" className="hover:text-primary transition-colors capitalize">
-            {product.category}
+          <Link href={category ? `/shop?category=${encodeURIComponent(category.slug)}` : "/shop"} className="hover:text-primary transition-colors inline-flex min-h-11 min-w-11 md:min-h-8 items-center">
+            {category ? label(category) : t("store.shop.shop")}
           </Link>
           <ChevronRight className="w-3 h-3 opacity-40" />
           <span className="text-on-surface font-semibold truncate max-w-xs md:max-w-none">
-            {product.title}
+            {title}
           </span>
         </div>
       </div>
@@ -174,12 +187,15 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
             {/* LEFT: Gallery Module (7 cols) */}
             <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-space-base items-start">
               {/* Vertical Thumbnail Strip */}
+              {product.images.length > 1 && (
               <div className="flex md:flex-col gap-2 w-full md:w-20 overflow-x-auto md:overflow-y-auto no-scrollbar shrink-0">
                 {product.images.map((imgUrl, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => setSelectedImgIndex(idx)}
+                    aria-label={t("store.pdp.photo", { n: num(idx + 1), total: num(product.images.length) })}
+                    aria-pressed={selectedImgIndex === idx}
                     className={`relative rounded-lg overflow-hidden w-16 h-20 md:w-20 md:h-24 bg-surface-subtle transition-all shrink-0 border-2 ${
                       selectedImgIndex === idx
                         ? "border-primary shadow-sm"
@@ -188,7 +204,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   >
                     <Image
                       src={imgUrl}
-                      alt={`${product.title} view ${idx + 1}`}
+                      alt=""
                       fill
                       sizes="80px"
                       className="object-cover"
@@ -196,6 +212,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   </button>
                 ))}
               </div>
+              )}
 
               {/* Main Gallery Stage */}
               <div className="flex-1 w-full bg-surface-card rounded-xl overflow-hidden shadow-sm border border-border-light relative group">
@@ -217,11 +234,11 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                     </span>
                   )}
                   {availableStock > 0 ? (
-                    <span className="self-start bg-primary text-primary-foreground text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm font-bold flex items-center gap-1.5">
+                    <span className="self-start bg-primary text-primary-foreground text-xs px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm font-bold flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> {t("store.pdp.inStock", { count: num(availableStock) })}
                     </span>
                   ) : (
-                    <span className="self-start bg-surface-card/95 text-badge-discount text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm font-bold">
+                    <span className="self-start bg-surface-card/95 text-badge-discount text-xs px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm font-bold">
                       {t("store.pdp.soldOut")}
                     </span>
                   )}
@@ -231,54 +248,45 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                 <div className="absolute top-4 right-4 z-20 flex flex-col gap-4">
                   <button
                     onClick={() => toggleWishlist(product)}
-                    aria-label="Wishlist"
+                    aria-label={t("store.card.wishlist")}
                     aria-pressed={isLiked}
-                    className="sp-ico sp-medal"
+                    className="sp-ico sp-medal sp-lg"
                   >
                     <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
                   </button>
                   <button
                     onClick={() => {
                       if (navigator.share) {
-                        navigator.share({ title: product.title, url: window.location.href });
+                        void navigator.share({ title, url: window.location.href }).catch(() => {});
                       } else {
-                        navigator.clipboard.writeText(window.location.href);
-                        alert("Product link copied to clipboard!");
+                        void navigator.clipboard?.writeText(window.location.href).then(() => {
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 1800);
+                        });
                       }
                     }}
-                    aria-label="Share"
-                    className="sp-ico sp-basket"
+                    aria-label={t("store.pdp.share")}
+                    className="sp-ico sp-basket sp-lg"
                   >
                     <Share2 className="w-4 h-4" />
                   </button>
+                  {copied && (
+                    <span role="status" className="absolute right-0 top-full mt-2 whitespace-nowrap rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground shadow">
+                      {t("store.pdp.copied")}
+                    </span>
+                  )}
                 </div>
 
                 {/* Main Large Image */}
                 <div className="relative w-full aspect-[4/5] bg-surface-subtle overflow-hidden flex items-center justify-center">
                   <Image
                     src={product.images[selectedImgIndex] || product.images[0]}
-                    alt={product.title}
+                    alt={title}
                     fill
                     priority
                     sizes="(max-width: 1024px) 100vw, 55vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                </div>
-
-                {/* Quick Feature Micro Banners */}
-                <div className="grid grid-cols-3 bg-surface-subtle p-3 text-center border-t border-border-light text-xs font-semibold text-on-surface">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-accent-gold" />
-                    <span>100% Organic</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-1.5 border-x border-border-light">
-                    <Check className="w-4 h-4 text-accent-gold" />
-                    <span>175 GSM Drape</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-1.5">
-                    <RotateCcw className="w-4 h-4 text-accent-gold" />
-                    <span>Pre-Shrunk Wash</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -287,41 +295,17 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
             <div className="lg:col-span-5 flex flex-col gap-space-lg">
               {/* Header Title Block */}
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-accent-gold font-display text-xs tracking-widest uppercase font-bold">
-                    Streetwear • Edition 2025
-                  </span>
-                  <span className="w-1 h-1 rounded-full bg-border-light"></span>
-                  <span className="text-text-muted text-xs">SKU: FL-GENZ-7410</span>
-                </div>
+                {section && (
+                  <span className="text-gold-ink font-display text-xs tracking-widest uppercase font-bold block mb-1">{section}</span>
+                )}
 
                 <h1 className="font-display text-2xl sm:text-3xl text-primary uppercase tracking-tight font-bold leading-tight">
-                  {product.title}
+                  {title}
                 </h1>
-                <p className="text-xs sm:text-sm text-text-muted mt-1 leading-relaxed">
-                  {product.description}
-                </p>
+                {summary && <p className="text-sm text-text-muted mt-1 leading-relaxed">{summary}</p>}
 
-                {/* Rating & Orders.
-                    The block that was here showed a five-star rating, a
-                    review count, and "340+ Orders Placed". All three came from
-                    fields on the product row, and none of them described
-                    anything real: the store has no reviews table, no review
-                    submission and no review list, so the stars and the count
-                    were decoration, and the order figure was a literal.
-
-                    Under Bangladeshi consumer-protection expectations and
-                    Google's structured-data policy, an invented rating is a
-                    liability rather than a conversion aid, so it is replaced
-                    by facts that can be verified from the row: which
-                    sub-category it belongs to, and how much is actually in
-                    stock for the selected size. */}
+                {/* Real stock of the chosen size. No rating or order counts: the store shows only what it can back up. */}
                 <div className="flex items-center gap-3 pt-2 flex-wrap">
-                  {product.sub_category && (
-                    <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
-                      {product.sub_category}
-                    </span>
-                  )}
                   {availableStock > 0 ? (
                     <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-600/10 px-2 py-0.5 rounded-full">
                       {selectedSize ? t("store.pdp.inStockSize", { count: num(availableStock), size: selectedSize }) : t("store.pdp.inStock", { count: num(availableStock) })}
@@ -338,11 +322,11 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
               <div className="bg-surface-subtle p-space-base rounded-xl border border-border-light flex flex-col gap-2">
                 <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1.5">
                   <span className="font-display text-2xl sm:text-3xl font-bold text-on-surface whitespace-nowrap tabular-nums">
-                    {formatTaka(displayPrice)}
+                    {formatMoney(displayPrice, locale)}
                   </span>
                   {savedAmount > 0 && (
                     <span className="text-sm text-text-muted line-through whitespace-nowrap">
-                      {formatTaka(crossedOutPrice)}
+                      {formatMoney(crossedOutPrice, locale)}
                     </span>
                   )}
                   {savedAmount > 0 && (
@@ -356,7 +340,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                     </span>
                   )}
                   {live?.promotion_name && (
-                    <span className="text-[10px] text-text-muted self-center">
+                    <span className="text-xs text-text-muted self-center">
                       {live.promotion_name}
                     </span>
                   )}
@@ -382,10 +366,12 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                       key={c.name}
                       type="button"
                       onClick={() => setSelectedColor(c.name)}
-                      className={`relative p-0.5 rounded-full border-2 transition-all ${
+                      className={`relative p-1.5 rounded-full border-2 transition-all ${
                         selectedColor === c.name ? "border-primary scale-110 shadow-sm" : "border-transparent hover:border-border-light"
                       }`}
                       title={c.name}
+                      aria-label={c.name}
+                      aria-pressed={selectedColor === c.name}
                     >
                       <span
                         className="sp-swatch block w-7 h-7 rounded-full shadow-inner border border-black/10"
@@ -410,7 +396,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   {!isOption && <button
                     type="button"
                     onClick={() => setSizeModalOpen(true)}
-                    className="sp-btn sp-whistle h-8 inline-flex items-center gap-1 text-xs font-semibold"
+                    className="sp-btn sp-whistle h-11 inline-flex items-center gap-1 text-xs font-semibold"
                   >
                     <Ruler className="w-3.5 h-3.5" />
                     {t("store.pdp.sizeGuide")}
@@ -429,7 +415,7 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                         className={`sp-size ${isOption ? "sp-option py-3" : "min-h-16 py-2.5"} px-1 text-center ${isSelected ? "sp-on" : ""}`}
                       >
                         <div className={`font-bold text-sm ${s.stock === 0 ? "line-through" : ""}`}>{s.size}</div>
-                        <div className="text-[10px] leading-tight opacity-80">
+                        <div className="text-xs leading-tight opacity-80">
                           {s.stock === 0 ? t("store.pdp.soldOut") : s.chest ? t("store.pdp.chest", { value: s.chest }) : null}
                         </div>
                       </button>
@@ -450,18 +436,18 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   <div className="sp-stepper h-12 w-32 shrink-0">
                     <button
                       type="button"
-                      aria-label="Decrease quantity"
+                      aria-label={t("store.pdp.less")}
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
                       className="sp-ico sp-plate sp-lg"
                     >
                       <Minus className="w-4 h-4" />
                     </button>
                     <span className="w-12 text-center font-bold text-sm">
-                      {quantity}
+                      {num(quantity)}
                     </span>
                     <button
                       type="button"
-                      aria-label="Increase quantity"
+                      aria-label={t("store.pdp.moreQty")}
                       onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
                       className="sp-ico sp-plate sp-lg"
                     >
@@ -492,39 +478,44 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
                   <span>{t("store.pdp.buyNow")}</span>
                 </button>
 
-                <ShareButtons title={product.title} path={`/products/${encodeURIComponent(product.slug)}`} />
+                <ShareButtons title={title} path={`/products/${encodeURIComponent(product.slug)}`} />
               </div>
 
-              {/* Delivery ETA & Guarantee */}
+              {/* Delivery and returns, as on the policy pages */}
               <div className="bg-surface-card rounded-xl p-space-md border border-border-light flex flex-col gap-3">
                 <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-lg bg-surface-subtle flex items-center justify-center text-primary shrink-0">
                     <Truck className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="font-bold text-xs text-primary block">
-                      Fast Domestic Dispatch
-                    </span>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      <strong className="text-on-surface font-semibold">Dhaka Metro:</strong> 24-48 Hours | <strong className="text-on-surface font-semibold">Outside Dhaka:</strong> 3-5 Days
-                    </p>
-                    <span className="text-xs text-emerald-700 font-semibold mt-1 block">
-                      ✓ Cash on Delivery (COD) Available
-                    </span>
+                    <span className="font-bold text-sm text-primary block">{t("store.pdp.delivery")}</span>
+                    <p className="text-xs text-text-muted mt-0.5">{t("store.pdp.deliveryText")}</p>
+                    <span className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold mt-1 block">✓ {t("store.pdp.cod")}</span>
                   </div>
                 </div>
-
-                <div className="border-t border-border-light pt-3 grid grid-cols-2 gap-2 text-xs text-on-surface-variant">
-                  <div className="flex items-center gap-2">
-                    <RotateCcw className="w-4 h-4 text-accent-gold shrink-0" />
-                    <span>7 Days Doorstep Return</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-accent-gold shrink-0" />
-                    <span>100% Genuine Apparel</span>
-                  </div>
-                </div>
+                <Link href="/returns" className="border-t border-border-light pt-1 min-h-11 flex items-center gap-2 text-xs text-on-surface-variant underline-offset-2 hover:underline">
+                  <RotateCcw className="w-4 h-4 text-gold-ink shrink-0" />
+                  <span>{t("store.pdp.returns", { days: num(RETURN_DAYS) })}</span>
+                </Link>
               </div>
+
+              {/* Only what the shop wrote about this product */}
+              {(about || specs.length > 0) && (
+                <div className="bg-surface-card rounded-xl p-space-md border border-border-light flex flex-col gap-3">
+                  <h2 className="font-display text-sm uppercase font-bold text-primary">{t("store.pdp.details")}</h2>
+                  {specs.length > 0 && (
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                      {specs.map(([key, value]) => (
+                        <React.Fragment key={key}>
+                          <dt className="text-text-muted">{key}</dt>
+                          <dd className="text-on-surface font-semibold">{String(value)}</dd>
+                        </React.Fragment>
+                      ))}
+                    </dl>
+                  )}
+                  {about && <div className="text-sm leading-relaxed text-on-surface-variant [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-2 [&_a]:underline" dangerouslySetInnerHTML={{ __html: about }} />}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -533,8 +524,8 @@ export function ProductDetailClient({ product, discountPercent }: ProductDetailC
       {/* Mobile: buy button stays on screen while scrolling (above the bottom nav). */}
       <div className="lg:hidden fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] inset-x-0 z-30 bg-surface-card/95 backdrop-blur border-t border-border-light px-4 py-2.5 flex items-center gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] text-text-muted truncate">
-            {[selectedSize, product.colors.length > 0 && selectedColor].filter(Boolean).join(" · ")}
+          <p className="text-xs text-text-muted truncate">
+            {[selectedSize, product.colors.length > 0 && selectedColor].filter((x) => x && x !== "Default").join(" · ")}
           </p>
           <p className="font-display font-bold text-on-surface tabular-nums">{formatMoney(displayPrice * quantity, locale)}</p>
         </div>

@@ -116,6 +116,9 @@ export interface Product {
   id: string;
   slug: string;
   title: string;
+  title_bn?: string | null;
+  short_description_bn?: string | null;
+  description_bn?: string | null;
   category: string;
   sub_category?: string;
   /** FK columns present in the live schema; used to scope size charts. */
@@ -258,6 +261,7 @@ export interface CartItem {
   productId: string;
   slug: string;
   title: string;
+  title_bn?: string | null;
   price: number;
   original_price: number;
   image: string;

@@ -98,7 +98,7 @@
 @keyframes tm-bounce { to { transform: translateY(-4cqw); } }
 @keyframes tm-spin { to { transform: rotate(360deg); } }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (max-width: 767px) {
   .tm-scene * { animation: none !important; }
   .tm-player:nth-of-type(even) .tm-figure { transform: rotateY(180deg); }
 }

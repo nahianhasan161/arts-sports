@@ -1,7 +1,7 @@
 import "server-only";
 import { config as appConfig, getServerUrl } from "@/lib/config";
 import { parseReceiptSettings, RECEIPT_SETTINGS_KEY, shopMap } from "@/lib/pos/receipt-settings";
-import { getServiceSupabase } from "@/lib/supabase/service";
+import { getServiceSupabase, isServiceSupabaseConfigured } from "@/lib/supabase/service";
 import { notify, type Template } from "@/lib/notifications";
 import { formatMoney, resolveLocale, translate, type Vars } from "@/i18n";
 import { DEFAULT_GATEWAY, getGateway } from "@/lib/payments/gateway";
@@ -57,6 +57,16 @@ export async function loadPricing(): Promise<PricingConfig> {
   if (!data?.value) return normalizePricing({});
   try {
     return normalizePricing(JSON.parse(data.value));
+  } catch {
+    return normalizePricing({});
+  }
+}
+
+/** The same for public pages, which show the defaults rather than fail when the database is not there. */
+export async function loadPublicPricing(): Promise<PricingConfig> {
+  if (!isServiceSupabaseConfigured()) return normalizePricing({});
+  try {
+    return await loadPricing();
   } catch {
     return normalizePricing({});
   }

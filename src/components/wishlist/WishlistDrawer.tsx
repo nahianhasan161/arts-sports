@@ -6,8 +6,14 @@ import Link from "next/link";
 import { X, Trash2, Heart, ShoppingBag } from "lucide-react";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useCartStore } from "@/lib/store/cart-store";
+import { useT } from "@/i18n/client";
+import { formatMoney } from "@/i18n";
 
 export function WishlistDrawer() {
+  const { t, locale } = useT();
+  const taka = (n: number) => formatMoney(n, locale);
+  const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
+  const name = (p: { title: string; title_bn?: string | null }) => (locale === "bn" && p.title_bn) || p.title;
   const [mounted, setMounted] = useState(false);
   const {
     items,
@@ -35,27 +41,27 @@ export function WishlistDrawer() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-[60] overflow-hidden" role="dialog" aria-modal="true" aria-label={t("buy.wishlist.title")}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
         onClick={closeWishlist}
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10 max-sm:pl-0">
         <div className="w-screen max-w-md bg-surface-card shadow-2xl flex flex-col">
           {/* 1. Header */}
           <div className="px-space-base py-space-md border-b border-border-light flex items-center justify-between bg-surface-subtle">
             <div className="flex items-center gap-2">
               <Heart className="w-5 h-5 text-badge-discount" />
               <h2 className="font-display uppercase tracking-wider text-base font-bold text-primary">
-                My Wishlist ({wishlistCount})
+                {t("buy.wishlist.title")} ({num(wishlistCount)})
               </h2>
             </div>
             <button
               onClick={closeWishlist}
-              className="sp-ico sp-red sp-sm"
-              aria-label="Close wishlist"
+              className="sp-ico sp-red sp-lg"
+              aria-label={t("buy.wishlist.close")}
             >
               <X className="w-5 h-5" />
             </button>
@@ -69,17 +75,18 @@ export function WishlistDrawer() {
                   <Heart className="w-8 h-8 opacity-40" />
                 </div>
                 <h3 className="font-display uppercase tracking-wider text-base font-bold text-primary mb-1">
-                  Your wishlist is empty
+                  {t("buy.wishlist.empty")}
                 </h3>
                 <p className="text-xs text-text-muted mb-6 max-w-xs">
-                  Browse our collection and tap the heart icon on products you love to save them here.
+                  {t("buy.wishlist.emptyText")}
                 </p>
-                <button
+                <Link
+                  href="/shop"
                   onClick={closeWishlist}
-                  className="sp-btn sp-medal py-2.5 font-display uppercase tracking-wider text-xs font-semibold"
+                  className="sp-btn sp-medal py-3 font-display uppercase tracking-wider text-xs font-semibold"
                 >
-                  Explore Products
-                </button>
+                  {t("buy.cart.shop")}
+                </Link>
               </div>
             ) : (
               items.map((product) => (
@@ -92,7 +99,7 @@ export function WishlistDrawer() {
                   >
                     <Image
                       src={product.images[0]}
-                      alt={product.title}
+                      alt=""
                       fill
                       sizes="80px"
                       className="object-cover"
@@ -108,25 +115,25 @@ export function WishlistDrawer() {
                           onClick={closeWishlist}
                           className="font-body text-sm font-semibold text-on-surface hover:text-primary transition-colors line-clamp-2"
                         >
-                          {product.title}
+                          {name(product)}
                         </Link>
                         <button
                           onClick={() => removeItem(product.id)}
-                          className="sp-ico sp-yellow sp-sm shrink-0"
-                          aria-label="Remove from wishlist"
+                          className="sp-ico sp-yellow sp-lg shrink-0"
+                          aria-label={t("buy.wishlist.remove", { name: name(product) })}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
 
                       <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
-                        <span className="text-[10px] uppercase tracking-wider">
+                        <span className="text-xs uppercase tracking-wider">
                           {product.sub_category || product.category}
                         </span>
                         {product.stock > 0 ? (
-                          <span className="text-emerald-600 font-semibold text-[10px]">In Stock</span>
+                          <span className="text-emerald-700 dark:text-emerald-400 font-semibold text-xs">{t("buy.wishlist.inStock")}</span>
                         ) : (
-                          <span className="text-badge-discount font-semibold text-[10px]">Out of Stock</span>
+                          <span className="text-badge-discount font-semibold text-xs">{t("buy.wishlist.soldOut")}</span>
                         )}
                       </div>
                     </div>
@@ -135,11 +142,11 @@ export function WishlistDrawer() {
                       {/* Price */}
                       <div>
                         <span className="font-bold text-sm text-primary">
-                          ৳ {product.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          {taka(product.price)}
                         </span>
                         {product.original_price > product.price && (
-                          <span className="ml-1.5 text-[10px] text-text-muted line-through">
-                            ৳ {product.original_price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          <span className="ml-1.5 text-xs text-text-muted line-through">
+                            {taka(product.original_price)}
                           </span>
                         )}
                       </div>
@@ -148,10 +155,10 @@ export function WishlistDrawer() {
                       <button
                         onClick={() => handleAddToCart(product)}
                         disabled={product.stock === 0}
-                        className="sp-btn sp-basket flex items-center gap-1 py-1.5 text-[10px] font-bold uppercase tracking-wider"
+                        className="sp-btn sp-basket flex items-center gap-1 min-h-11 text-xs font-bold uppercase tracking-wider"
                       >
                         <ShoppingBag className="w-3 h-3" />
-                        Add to Bag
+                        {t("buy.wishlist.add")}
                       </button>
                     </div>
                   </div>
@@ -163,8 +170,8 @@ export function WishlistDrawer() {
           {/* 3. Footer */}
           {items.length > 0 && (
             <div className="p-space-base bg-surface-subtle border-t border-border-light flex flex-col gap-3">
-              <p className="text-[10px] text-center text-text-muted">
-                {wishlistCount} {wishlistCount === 1 ? "item" : "items"} saved • Tap a product to view details
+              <p className="text-xs text-center text-text-muted">
+                {t("buy.wishlist.saved", { count: num(wishlistCount) })}
               </p>
             </div>
           )}

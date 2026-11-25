@@ -22,11 +22,11 @@ export function Countdown({ endsAt }: { endsAt: string }) {
   const parts: [number, string][] = [[d, "d"], [h, "h"], [m, "m"], [s, "s"]];
   return (
     <div className="mt-3 inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-lg px-3 py-1.5" role="timer" aria-label="Time left">
-      <span className="text-[10px] font-display uppercase tracking-widest opacity-80">Ends in</span>
+      <span className="text-xs font-display uppercase tracking-widest opacity-80">Ends in</span>
       {parts.map(([n, u]) => (
         <span key={u} className="font-display font-bold text-sm tabular-nums">
           {String(n).padStart(2, "0")}
-          <span className="text-[10px] opacity-70 ml-0.5">{u}</span>
+          <span className="text-xs opacity-70 ml-0.5">{u}</span>
         </span>
       ))}
     </div>

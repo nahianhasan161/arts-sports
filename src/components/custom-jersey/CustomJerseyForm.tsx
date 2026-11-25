@@ -38,7 +38,7 @@ import { formatMoney, localized, type MessageKey } from "@/i18n";
 import { Turnstile, TURNSTILE_ENABLED } from "@/components/checkout/Turnstile";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { normalizeBdPhone } from "@/lib/phone";
-import { advanceFor, estimate, logoPrice } from "@/lib/custom-jersey/pricing";
+import { advanceFor, estimate, logoPrice, makingDays } from "@/lib/custom-jersey/pricing";
 import { DESIGN_ACCEPT } from "@/lib/custom-jersey/files";
 import { JERSEY_TYPES, LOGO_TYPES, SPORTS, type Collar, type LogoType, type CustomJerseyConfig, type JerseyTemplate, type RosterRow, type Sleeve, type Sport, type UploadedFile } from "@/lib/custom-jersey/types";
 import { JerseyPreview, svgToPng } from "./JerseyPreview";
@@ -153,8 +153,8 @@ function AddOn({ checked, onChange, title, price }: { checked: boolean; onChange
 
 function CheckLine({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
   return (
-    <label className="flex items-start gap-2.5 text-sm text-on-surface-variant cursor-pointer">
-      <input type="checkbox" className="mt-0.5 w-4 h-4 accent-[rgb(var(--c-accent-gold))]" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label className="flex min-h-11 items-center gap-2.5 text-sm text-on-surface-variant cursor-pointer">
+      <input type="checkbox" className="w-5 h-5 shrink-0 accent-[rgb(var(--c-accent-gold))]" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span>{children}</span>
     </label>
   );
@@ -460,10 +460,8 @@ export function CustomJerseyForm() {
   const extras = config.pricing.extras;
   const plus = (n: number | undefined) => (n && n > 0 ? t("home.cj.perPiece", { price: money(n) }) : t("customJersey.options.free"));
 
-  // Quick quantity chips: the fabric's own price breaks, else the general discount tiers.
-  const quickPicks: { n: number; text: string }[] = fabric?.price_tiers?.length
-    ? fabric.price_tiers.map((x) => ({ n: x.min, text: t("home.cj.tierPrice", { n: num(x.min), price: money(x.price) }) }))
-    : config.pricing.tiers.filter((x) => x.discount_percent > 0).map((x) => ({ n: x.min, text: t("home.cj.tierDiscount", { n: num(x.min), percent: num(x.discount_percent) }) }));
+  // Quick quantity chips: the quantity discount.
+  const quickPicks: { n: number; text: string }[] = config.pricing.tiers.filter((x) => x.discount_percent > 0).map((x) => ({ n: x.min, text: t("home.cj.tierDiscount", { n: num(x.min), percent: num(x.discount_percent) }) }));
 
   // Pictures to show in the summary when the customer brings their own design.
   const pictures = files.map((f) => (f.design_id ? f.path : previewUrls.get(f.path))).filter((src): src is string => Boolean(src));
@@ -666,11 +664,6 @@ export function CustomJerseyForm() {
                     <strong className="text-sm text-on-surface">{localized(row, "name", locale)}</strong>
                     {description && <span className="text-xs text-text-muted leading-snug">{description}</span>}
                     <span className="text-sm font-bold text-on-surface tabular-nums">{t("customJersey.fabric.perPiece", { price: money(f.price_per_piece) })}</span>
-                    {f.price_tiers?.length ? (
-                      <span className="self-start inline-flex items-center rounded-full bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 text-[11px] font-semibold">
-                        {t("home.cj.bulk")}: {f.price_tiers.map((x) => `${num(x.min)}+ → ${money(x.price)}`).join(" · ")}
-                      </span>
-                    ) : null}
                   </span>
                 </OptionCard>
               );
@@ -688,7 +681,7 @@ export function CustomJerseyForm() {
                 <Pill active={sleeve === "full"} onClick={() => setSleeve("full")}>
                   <FullSleeveIcon className="w-4 h-4 shrink-0" />
                   {t("customJersey.options.full")}
-                  {extras.full_sleeve > 0 && <span className="text-[11px] opacity-70 tabular-nums">+{money(extras.full_sleeve)}</span>}
+                  {extras.full_sleeve > 0 && <span className="text-xs opacity-70 tabular-nums">+{money(extras.full_sleeve)}</span>}
                 </Pill>
               </div>
             </div>
@@ -700,7 +693,7 @@ export function CustomJerseyForm() {
                 <OptionCard key={c} active={(collar === "polo" ? "polo" : "round") === c} onClick={() => setCollar(c)} className="flex flex-col gap-0.5 pr-9">
                   <strong className="text-sm text-on-surface">{t(c === "polo" ? "customJersey.options.poloName" : "customJersey.options.tshirtName")}</strong>
                   <span className="text-xs text-text-muted">{t(c === "polo" ? "customJersey.options.poloSub" : "customJersey.options.tshirtSub")}</span>
-                  <span className="text-[11px] font-semibold text-text-muted tabular-nums">
+                  <span className="text-xs font-semibold text-text-muted tabular-nums">
                     {c === "polo" && extras.polo_collar > 0 ? `+${money(extras.polo_collar)}` : t("customJersey.options.free")}
                   </span>
                 </OptionCard>
@@ -739,7 +732,7 @@ export function CustomJerseyForm() {
                   <Pill key={lt} active={logoType === lt} onClick={() => setLogoType(lt)}>
                     <LogoIcon className="w-4 h-4 shrink-0" />
                     {t(`customJersey.options.logoTypes.${lt}`)}
-                    <span className="text-[11px] opacity-70 tabular-nums">{price > 0 ? `+${money(price)}` : t("customJersey.options.free")}</span>
+                    <span className="text-xs opacity-70 tabular-nums">{price > 0 ? `+${money(price)}` : t("customJersey.options.free")}</span>
                   </Pill>
                 );
               })}
@@ -815,7 +808,7 @@ export function CustomJerseyForm() {
             )}
           </div>
           <p className="text-xs text-text-muted">
-            {t("customJersey.date.hint", { days: num(config.pricing.rush.normal_days) })}{" "}
+            {t("customJersey.date.hint", { days: makingDays(config.pricing.rush.normal_days, num) })}{" "}
             {config.pricing.rush.percent > 0 && t("customJersey.date.rush", { days: num(config.pricing.rush.normal_days), percent: num(config.pricing.rush.percent) })}
           </p>
         </Step>
@@ -894,11 +887,11 @@ export function CustomJerseyForm() {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center gap-1">
                   <JerseyPreview pattern="plain" colors={["#334155", "#475569", "#94a3b8"]} side="back" sleeve={sleeve} number="10" className="h-32 w-auto opacity-60" />
-                  <span className="text-[11px] text-white/70">{t("home.cj.summary.empty")}</span>
+                  <span className="text-xs text-white/70">{t("home.cj.summary.empty")}</span>
                 </div>
               )}
             </div>
-            {files.length > 0 && <p className="relative text-[11px] text-white/70 text-center mt-2">{t("home.cj.summary.files", { count: num(files.length) })}</p>}
+            {files.length > 0 && <p className="relative text-xs text-white/70 text-center mt-2">{t("home.cj.summary.files", { count: num(files.length) })}</p>}
           </div>
 
           <div className="p-5 flex flex-col gap-4">
@@ -970,19 +963,19 @@ export function CustomJerseyForm() {
                 {!submitting && <ArrowRight className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[11px] text-text-muted flex items-center justify-center gap-1.5">
+            <p className="text-xs text-text-muted flex items-center justify-center gap-1.5">
               <Lock className="w-3.5 h-3.5" /> {t("home.cj.summary.private")}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-light bg-surface-card px-4 py-3">
-          <a href="tel:+8801911904618" className="flex items-center gap-2.5 min-w-0">
+          <a href="tel:+8801911904618" className="flex min-h-11 items-center gap-2.5 min-w-0">
             <span className="shrink-0 w-9 h-9 rounded-full bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
               <Phone className="w-4 h-4" />
             </span>
             <span className="min-w-0">
-              <span className="block text-[11px] text-text-muted">{t("home.cj.summary.help")}</span>
+              <span className="block text-xs text-text-muted">{t("home.cj.summary.help")}</span>
               <span className="block text-sm font-semibold text-on-surface">+880 1911-904618</span>
             </span>
           </a>
@@ -998,7 +991,7 @@ export function CustomJerseyForm() {
       >
         <div className="flex items-center gap-3 rounded-2xl bg-primary-container text-white pl-4 pr-2 py-2 shadow-2xl shadow-black/30 ring-1 ring-white/10">
           <div className="min-w-0 flex-1">
-            <span className="block text-[11px] text-white/70">
+            <span className="block text-xs text-white/70">
               {t("home.cj.mobileTotal")} · {t("home.cj.summary.pieces", { count: num(pieces) })}
             </span>
             <span className="block font-display text-xl font-bold tabular-nums leading-tight">{result ? money(grandTotal) : "—"}</span>
@@ -1123,7 +1116,7 @@ function DesignFiles({ files, setFiles, uploading, onAdd }: {
           } ${full ? "opacity-50" : "cursor-pointer hover:border-accent-gold/60"}`}
         >
           <span className="w-12 h-12 rounded-full bg-surface-card border border-border-light shadow-sm flex items-center justify-center mb-1">
-            {uploading ? <Loader2 className="w-5 h-5 animate-spin text-text-muted" /> : <Upload className="w-5 h-5 text-accent-gold" />}
+            {uploading ? <Loader2 className="w-5 h-5 animate-spin text-text-muted" /> : <Upload className="w-5 h-5 text-gold-ink" />}
           </span>
           <span className="text-sm font-bold text-on-surface">{uploading ? t("customJersey.upload.uploading") : t("customJersey.upload.add")}</span>
           <span className="text-xs text-text-muted">{t("customJersey.upload.hint")}</span>
@@ -1145,7 +1138,7 @@ function DesignFiles({ files, setFiles, uploading, onAdd }: {
           onClick={() => setPicking(true)}
           className="sp-tile sm:w-44 rounded-2xl border border-border-light bg-surface-card p-4 text-sm font-semibold text-on-surface inline-flex sm:flex-col items-center justify-center gap-2 hover:border-accent-gold/60 hover:shadow-sm transition"
         >
-          <span className="w-10 h-10 rounded-full bg-accent-gold-soft text-accent-gold flex items-center justify-center">
+          <span className="w-10 h-10 rounded-full bg-accent-gold-soft text-gold-ink flex items-center justify-center">
             <Images className="w-5 h-5" />
           </span>
           <span className="text-center leading-snug">{t("customJersey.upload.ourDesigns")}</span>
@@ -1170,11 +1163,11 @@ function DesignFiles({ files, setFiles, uploading, onAdd }: {
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-text-muted">
                       <FileText className="w-8 h-8" />
-                      <span className="text-[11px] truncate max-w-full">{f.name}</span>
+                      <span className="text-xs truncate max-w-full">{f.name}</span>
                     </div>
                   )}
                   {f.design_id && (
-                    <span className="absolute bottom-2 left-2 rounded-md bg-accent-gold text-white px-2 py-0.5 text-[11px] font-semibold shadow-sm">{t("customJersey.upload.ourDesignTag")}</span>
+                    <span className="absolute bottom-2 left-2 rounded-md bg-accent-gold text-white px-2 py-0.5 text-xs font-semibold shadow-sm">{t("customJersey.upload.ourDesignTag")}</span>
                   )}
                   {tagLabel && (
                     <span className="absolute top-2 right-2 rounded-md bg-surface-card/95 text-on-surface border border-border-light px-2 py-0.5 text-xs font-semibold shadow-sm">{tagLabel}</span>

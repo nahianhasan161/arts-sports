@@ -152,7 +152,7 @@ export function RosterEditor({
         <div className="overflow-x-auto -mx-1 px-1">
           <table className={`w-full ${pant ? "min-w-[740px]" : "min-w-[630px]"} text-sm`}>
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-text-muted">
+              <tr className="text-left text-xs uppercase tracking-wider text-text-muted">
                 <th className="w-6 sm:w-8 font-semibold pb-1">#</th>
                 <th className="min-w-[8.5rem] font-semibold pb-1">{t("customJersey.roster.name")}</th>
                 <th className="w-16 sm:w-20 font-semibold pb-1">{t("customJersey.roster.number")}</th>

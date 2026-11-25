@@ -1,5 +1,6 @@
 import { storeEn } from "./store.en";
 import { homeEn } from "./home.en";
+import { buyEn } from "./buy.en";
 import type { shopEn } from "./shop.en";
 import { siteEn } from "./site.en";
 import type { adminEn } from "./admin.en";
@@ -31,7 +32,6 @@ export const en = {
   },
   customJersey: {
     title: "Custom jersey",
-    subtitle: "Your own team kit, from 1 piece. Made in 4–6 days after you confirm the design.",
     steps: {
       one: "Send your design or pick one of ours",
       two: "Our designer sends a mockup and the final price",
@@ -375,6 +375,7 @@ export const en = {
   site: siteEn,
   home: homeEn,
   store: storeEn,
+  buy: buyEn,
 };
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };

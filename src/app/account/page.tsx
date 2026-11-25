@@ -94,7 +94,7 @@ const AccountPage = () => {
                   user?.email || "Guest"}
               </h1>
               {isAdmin && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-accent-gold/10 text-accent-gold rounded-full text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-accent-gold/10 text-gold-ink rounded-full text-xs font-medium">
                   <Shield className="w-3 h-3" />
                   Admin
                 </span>
@@ -177,7 +177,7 @@ const AccountPage = () => {
 
             {error && (
               <div className="bg-badge-discount/10 border border-badge-discount/30 rounded-lg p-space-base mb-space-lg">
-                <p className="text-[11px] font-medium text-badge-discount">{error}</p>
+                <p className="text-xs font-medium text-badge-discount">{error}</p>
               </div>
             )}
 
@@ -282,7 +282,7 @@ const AccountPage = () => {
               <div className="flex items-center justify-between py-3 border-b border-border-light last:border-b-0">
                 <div>
                   <p className="text-sm font-semibold text-on-surface">Email Notifications</p>
-                  <p className="text-[11px] text-text-muted">Receive order updates via email</p>
+                  <p className="text-xs text-text-muted">Receive order updates via email</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />
@@ -293,7 +293,7 @@ const AccountPage = () => {
               <div className="flex items-center justify-between py-3 border-b border-border-light last:border-b-0">
                 <div>
                   <p className="text-sm font-semibold text-on-surface">SMS Notifications</p>
-                  <p className="text-[11px] text-text-muted">Receive delivery updates via SMS</p>
+                  <p className="text-xs text-text-muted">Receive delivery updates via SMS</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" />

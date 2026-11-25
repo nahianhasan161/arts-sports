@@ -9,7 +9,7 @@ mobile-first (most traffic comes from social apps). The admin is dense and pract
 full-screen and touch-friendly.
 
 The customer site has a **football theme**: `.pitch` on `<html>` (every page outside `/admin`) overrides the tokens below
-with pitch greens, light and dark. Helpers: `as-pitch-lines`, `as-mown`, `as-touchline`, `as-bounce`, `<Ball />`, `<SportCard frame>` (`.as-sc`; sports frames for product/design cards, frame from `assignFrames()` in `lib/sport-frames.ts`; inside it use the normal token classes, they are re-pointed per frame). Home category tiles are `<CategoryTile kind>` (board, goal, track, bag; `.as-ct`, fixed colours). The table
+with pitch greens, light and dark. Helpers: `as-pitch-lines`, `as-mown`, `as-touchline`, `as-bounce`, `<Ball />`, `<SportCard frame>` (`.as-sc`; three frames only: scoreboard, ticket, locker; frame from `frameFor()` in `lib/sport-frames.ts`; inside it use the normal token classes, they are re-pointed per frame). Home category tiles are `<CategoryTile kind>` (board, goal, track, bag; `.as-ct`, fixed colours). The table
 shows the base values, which the admin and POS use.
 
 **Buttons on the customer site**: use `sp-btn sp-<item>` / `sp-ico sp-<item>` / `sp-chip` / `sp-size` from `src/app/sport-buttons.css` (list at the top of the file) and only Tailwind classes for height, width, font and layout. Meaning: goal = finish (order, pay, checkout), basketball = add to cart, cricket ball = buy now, jersey = custom jersey, ticket = view / track, whistle = retry / more, flag = back, pitch = shop / search, locker = account, red card = cancel / close / delete, yellow card = change / clear, medal = wishlist / review, shuttle = send / share. In a component shared with the admin keep the plain classes too (`.pitch` overrides them).
@@ -34,6 +34,7 @@ Defined as RGB triplets in `src/app/globals.css` (`--c-*`, light in `:root`, dar
 | Primary (buttons)    | `--c-primary` / `-foreground`| `23 23 23` / white | `238 241 245` / `17 24 34` |
 | Primary container    | `--c-primary-container`      | `30 42 56`    | `26 36 51`    |
 | Accent gold          | `--c-accent-gold` / `-soft`  | `200 155 60`  | `214 170 78`  |
+| Gold text (4.5:1)    | `--c-gold-ink` (`text-gold-ink`) | `128 88 16` | `214 170 78`  |
 | Border               | `--c-border-light`           | `229 231 235` | `44 53 66`    |
 | Discount badge       | `--c-badge-discount`         | `229 62 62`   | `245 101 101` |
 | New badge            | `--c-badge-new`              | `30 42 56`    | `51 65 85`    |
@@ -83,3 +84,4 @@ dropdown-menu, popover, tabs, tooltip, toast, switch, card, badge, skeleton, `co
 ## Icons
 
 `lucide-react` only (exceptions: the home promises strip uses the drawn umpire signals and sports items in `components/home/PerkArt.tsx`; filter chips use `components/ui/ChipIcon.tsx`, which adds line drawings for sports lucide lacks). Use `h-4 w-4` inline and `h-5 w-5` in buttons/nav.
+- Storefront minimums: touch targets 44 px on phones, text 12 px, contrast 4.5:1, no endless animation under 768 px.

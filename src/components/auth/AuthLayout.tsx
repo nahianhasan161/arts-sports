@@ -22,7 +22,7 @@ export function AuthLayout({
     <div className="min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-164px)] flex items-center justify-center px-space-base py-space-2xl">
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-space-2xl items-center">
         <div className="hidden lg:flex flex-col justify-center">
-          <div className="inline-flex items-center gap-2 text-accent-gold mb-space-lg">
+          <div className="inline-flex items-center gap-2 text-gold-ink mb-space-lg">
             <span className="w-10 h-px bg-accent-gold"></span>
             <span className="font-display uppercase text-xs tracking-[0.25em] font-bold">
               Arts Sports Account
@@ -59,11 +59,11 @@ export function AuthLayout({
                   key={feature.label}
                   className="bg-surface-card border border-border-light rounded-xl p-space-base shadow-sm"
                 >
-                  <Icon className="w-5 h-5 text-accent-gold mb-2" />
+                  <Icon className="w-5 h-5 text-gold-ink mb-2" />
                   <p className="font-display uppercase text-xs text-primary font-bold">
                     {feature.label}
                   </p>
-                  <p className="text-[11px] text-text-muted mt-1 leading-5">
+                  <p className="text-xs text-text-muted mt-1 leading-5">
                     {feature.value}
                   </p>
                 </div>

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductGridSkeleton } from "./Skeletons";
-import { assignFrames, frameWords } from "@/lib/sport-frames";
 import { useT } from "@/i18n/client";
 import type { Product } from "@/types";
 
@@ -17,15 +16,12 @@ export function InfiniteProductGrid({
   total,
   queryString,
   pageSize,
-  filter,
   onCount,
 }: {
   initial: Product[];
   total: number;
   queryString: string;
   pageSize: number;
-  /** Client-only predicates (deals, in-stock) the query does not apply. */
-  filter: (p: Product) => boolean;
   onCount?: (shown: number) => void;
 }) {
   const { t } = useT();
@@ -71,15 +67,13 @@ export function InfiniteProductGrid({
     return () => io.disconnect();
   }, [hasMore, failed, loadMore]);
 
-  const visible = items.filter(filter);
-  const frames = assignFrames(visible.map(frameWords));
-  useEffect(() => onCount?.(visible.length), [visible.length, onCount]);
+  useEffect(() => onCount?.(items.length), [items.length, onCount]);
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4">
-        {visible.map((product, i) => (
-          <ProductCard key={product.id} product={product} frame={frames[i]} />
+        {items.map((product) => (
+          <ProductCard key={product.id} product={product} />
         ))}
         {loading && <ProductGridSkeleton count={4} />}
       </div>

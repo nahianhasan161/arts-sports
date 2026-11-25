@@ -234,17 +234,20 @@ export interface PublicQuestion {
   created_at: string;
 }
 
+/** Demo products (ids `demo-`) carry made-up reviews; those are never shown as customers' words. */
+const isDemo = (id: string) => id.startsWith("demo-");
+
 export async function getRatingSummary(productId: string): Promise<RatingSummary> {
   const empty: RatingSummary = { count: 0, average: null, stars: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 } };
   const supabase = db();
-  if (!supabase) return empty;
+  if (!supabase || isDemo(productId)) return empty;
   const { data, error } = await supabase.rpc("product_rating_summary", { p_product_id: productId });
   return error || !data ? empty : (data as RatingSummary);
 }
 
 export async function getApprovedReviews(productId: string, limit = 20): Promise<PublicReview[]> {
   const supabase = db();
-  if (!supabase) return [];
+  if (!supabase || isDemo(productId)) return [];
   const { data, error } = await supabase.rpc("approved_reviews", { p_product_id: productId, p_limit: limit });
   return error ? [] : ((data ?? []) as PublicReview[]);
 }

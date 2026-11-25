@@ -1,6 +1,8 @@
 import "server-only";
 import { getPublicSupabase } from "@/lib/supabase/public";
 import { listDesigns, loadDesignCategories } from "./designs-server";
+import { estimate, normalizeFabricTiers } from "./pricing";
+import type { Fabric, PricingConfig } from "./types";
 import type { DesignCategoryRow, DesignRow } from "./designs";
 
 /**
@@ -23,16 +25,25 @@ export async function getPublicCatalogue(opts: { category?: string | null; limit
   return { designs: page.designs, categories, hasMore: page.has_more };
 }
 
-/** Lowest price per piece over the active fabrics (tiers included), for "from ৳X". Null when unknown. */
-export async function getCustomStartPrice(): Promise<number | null> {
+/** The active fabrics, as the order form shows them. */
+export async function getPublicFabrics(): Promise<Fabric[]> {
   const db = getPublicSupabase();
-  if (!db) return null;
-  const { data, error } = await db.from("custom_fabrics").select("*").eq("is_active", true);
-  if (error || !data?.length) return null;
-  const prices: number[] = [];
-  for (const row of data as { price_per_piece?: number | null; price_tiers?: { price?: number }[] | null }[]) {
-    if (Number(row.price_per_piece) > 0) prices.push(Number(row.price_per_piece));
-    for (const tier of Array.isArray(row.price_tiers) ? row.price_tiers : []) if (Number(tier?.price) > 0) prices.push(Number(tier.price));
-  }
+  if (!db) return [];
+  const { data, error } = await db.from("custom_fabrics").select("*").eq("is_active", true).order("display_order");
+  if (error) return [];
+  return (data ?? []).map((row) => ({ ...row, price_per_piece: Number(row.price_per_piece), price_tiers: normalizeFabricTiers(row.price_tiers) })) as Fabric[];
+}
+
+/** What one jersey in this fabric costs, before extras. Quantity prices are left out on purpose. */
+export function onePiecePrice(fabric: Pick<Fabric, "price_per_piece" | "price_tiers">, pricing: PricingConfig): number {
+  return estimate(
+    { fabricPrice: fabric.price_per_piece, fabricTiers: fabric.price_tiers, quantity: 1, sleeve: "short", collar: "round", withShorts: false, withNames: false, withNumbers: false },
+    pricing
+  ).total;
+}
+
+/** Lowest price of one plain jersey over the fabrics, for "from ৳X". Null when unknown. */
+export function startPrice(fabrics: Fabric[], pricing: PricingConfig): number | null {
+  const prices = fabrics.map((f) => onePiecePrice(f, pricing)).filter((n) => n > 0);
   return prices.length ? Math.min(...prices) : null;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertCircle, Eye, Flame } from "lucide-react";
+import { useT } from "@/i18n/client";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface Proof {
@@ -20,6 +21,8 @@ interface Proof {
  * the proof function is not there yet, only the real low-stock line shows.
  */
 export function SocialProof({ productId, stock, size }: { productId: string; stock: number; size?: string }) {
+  const { t, locale } = useT();
+  const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
   const [proof, setProof] = useState<Proof>({ enabled: true, low_stock_max: 5 });
   const [viewers, setViewers] = useState(0);
 
@@ -63,25 +66,19 @@ export function SocialProof({ productId, stock, size }: { productId: string; sto
       {showLow && (
         <div className="flex items-center gap-2 text-xs text-badge-discount font-medium bg-badge-discount/10 px-3 py-1.5 rounded-lg">
           <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>
-            Only <strong className="font-bold">{stock}</strong> left{size ? ` in size ${size}` : ""}.
-          </span>
+          <span>{size ? t("store.proof.lowSize", { count: num(stock), size }) : t("store.proof.low", { count: num(stock) })}</span>
         </div>
       )}
       {showSold && (
         <div className="flex items-center gap-2 text-xs text-primary font-medium bg-primary/5 px-3 py-1.5 rounded-lg">
           <Flame className="w-4 h-4 shrink-0" />
-          <span>
-            <strong className="font-bold">{proof.sold_24h}</strong> bought in the last 24 hours.
-          </span>
+          <span>{t("store.proof.sold", { count: num(proof.sold_24h ?? 0) })}</span>
         </div>
       )}
       {showViewers && (
         <div className="flex items-center gap-2 text-xs text-text-muted bg-surface-subtle px-3 py-1.5 rounded-lg">
           <Eye className="w-4 h-4 shrink-0" />
-          <span>
-            <strong className="font-bold text-primary">{viewers}</strong> people are looking at this now.
-          </span>
+          <span>{t("store.proof.watching", { count: num(viewers) })}</span>
         </div>
       )}
     </div>

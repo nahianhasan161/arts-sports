@@ -12,11 +12,16 @@ import {
   Palette,
   Percent,
   Sparkles,
+  Star,
   Upload,
   Users,
 } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { formatMoney, type MessageKey } from "@/i18n";
+import { localized } from "@/i18n";
+import { makingDays } from "@/lib/custom-jersey/pricing";
+import type { Fabric } from "@/lib/custom-jersey/types";
+import type { HomeReview } from "@/lib/services/home";
 import { Ball } from "@/components/football/Ball";
 import { FootballScene, Stadium } from "@/components/football/FootballScene";
 import { TeamScene } from "@/components/football/TeamScene";
@@ -39,7 +44,7 @@ export function SectionHeading({ eyebrow, title, text, align = "left", action }:
   return (
     <div className={`flex flex-col gap-3 mb-6 sm:mb-8 ${center ? "items-center text-center" : "sm:flex-row sm:items-end sm:justify-between"}`}>
       <div className={`flex flex-col gap-2 ${center ? "items-center max-w-2xl" : "max-w-2xl"}`}>
-        <span className="inline-flex items-center gap-2 text-accent-gold font-display text-xs uppercase tracking-[0.2em] font-bold">
+        <span className="inline-flex items-center gap-2 text-gold-ink font-display text-xs uppercase tracking-[0.2em] font-bold">
           <Ball className="w-4 h-4" />
           {eyebrow}
         </span>
@@ -61,13 +66,13 @@ export function HomeHero({ startPrice }: { startPrice: number | null }) {
 
       <div className="relative max-w-container-max mx-auto px-4 sm:px-6 pt-10 pb-14 sm:pt-14 sm:pb-16 grid lg:grid-cols-[1fr_1.1fr] gap-6 lg:gap-10 items-center">
         <div className="flex flex-col gap-5 as-rise">
-          <span className="self-start inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] sm:text-xs font-semibold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-accent-gold" />
+          <span className="self-start inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-semibold uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5 text-gold-ink" />
             {t("home.hero.eyebrow")}
           </span>
           <h1 className="font-display uppercase font-bold leading-[0.95] tracking-tight text-5xl sm:text-6xl xl:text-7xl">
             <span className="block">{t("home.hero.title1")}</span>
-            <span className="block text-accent-gold">{t("home.hero.title2")}</span>
+            <span className="block text-gold-ink">{t("home.hero.title2")}</span>
           </h1>
           <p className="text-base sm:text-lg text-white/80 max-w-xl">{t("home.hero.text")}</p>
           <div className="flex flex-wrap gap-3 pt-1">
@@ -89,11 +94,11 @@ export function HomeHero({ startPrice }: { startPrice: number | null }) {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/75">
             {startPrice !== null && (
               <span className="inline-flex items-center gap-1.5 font-semibold text-white">
-                <BadgeCheck className="w-4 h-4 text-accent-gold" />
+                <BadgeCheck className="w-4 h-4 text-gold-ink" />
                 {t("home.hero.from", { price: formatMoney(startPrice, locale) })}
               </span>
             )}
-            <Link href="/shop" className="inline-flex items-center gap-1 underline-offset-4 hover:underline hover:text-white">
+            <Link href="/shop" className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline hover:text-white">
               {t("home.hero.ctaShop")}
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -132,8 +137,10 @@ export function SportsMarquee() {
 
 /* -------------------------------------------------------------- Perks */
 
-export function Perks() {
-  const { t } = useT();
+export function Perks({ normalDays }: { normalDays: number }) {
+  const { t, locale } = useT();
+  const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
+  const days = makingDays(normalDays, num);
   const items: { art: typeof UmpireOutArt; title: MessageKey; sub: MessageKey }[] = [
     { art: UmpireOutArt, title: "home.perks.minimum", sub: "home.perks.minimumSub" },
     { art: UmpireSixArt, title: "home.perks.days", sub: "home.perks.daysSub" },
@@ -150,7 +157,7 @@ export function Perks() {
                 <Art className="w-10 h-10 md:w-12 md:h-12 xl:w-14 xl:h-14 overflow-visible" />
               </span>
               <span className="min-w-0">
-                <span className="block font-display uppercase font-bold text-on-surface text-sm xl:text-base leading-tight [text-wrap:balance]">{t(title)}</span>
+                <span className="block font-display uppercase font-bold text-on-surface text-sm xl:text-base leading-tight [text-wrap:balance]">{t(title, { days })}</span>
                 <span className="block text-xs text-text-muted">{t(sub)}</span>
               </span>
             </li>
@@ -164,12 +171,12 @@ export function Perks() {
 /* ---------------------------------------------------------- Categories */
 
 /* Photos in public/images/categories (800x1000). Replace a file to change its tile. */
-export function ShopCategories({ accessoriesHref = "/shop" }: { accessoriesHref?: string }) {
+export function ShopCategories({ jerseysHref, sportswearHref, accessoriesHref }: { jerseysHref: string; sportswearHref: string; accessoriesHref: string }) {
   const { t } = useT();
   const tiles: { href: string; title: MessageKey; sub: MessageKey; kind: CategoryObject; button: string; image: string }[] = [
     { href: "/custom-jersey", title: "home.categories.custom", sub: "home.categories.customSub", kind: "board", button: "sp-jersey", image: "custom" },
-    { href: "/shop?category=jersey", title: "home.categories.jerseys", sub: "home.categories.jerseysSub", kind: "goal", button: "sp-football", image: "jersey" },
-    { href: "/shop?category=t-shirt", title: "home.categories.sportswear", sub: "home.categories.sportswearSub", kind: "track", button: "sp-dumbbell", image: "sportswear" },
+    { href: jerseysHref, title: "home.categories.jerseys", sub: "home.categories.jerseysSub", kind: "goal", button: "sp-football", image: "jersey" },
+    { href: sportswearHref, title: "home.categories.sportswear", sub: "home.categories.sportswearSub", kind: "track", button: "sp-dumbbell", image: "sportswear" },
     { href: accessoriesHref, title: "home.categories.accessories", sub: "home.categories.accessoriesSub", kind: "bag", button: "sp-bat", image: "accessories" },
   ];
   return (
@@ -184,7 +191,7 @@ export function ShopCategories({ accessoriesHref = "/shop" }: { accessoriesHref?
             image={`/images/categories/${image}.webp`}
             title={t(title)}
             sub={t(sub)}
-            action={<span className={`sp-btn ${button} inline-flex items-center justify-center h-9 text-[11px] sm:text-xs font-bold whitespace-nowrap`}>{t("home.categories.shopNow")}</span>}
+            action={<span className={`sp-btn ${button} inline-flex items-center justify-center h-9 text-xs font-bold whitespace-nowrap`}>{t("home.categories.shopNow")}</span>}
           />
         ))}
       </div>
@@ -243,6 +250,76 @@ export function OwnIdeaBanner() {
   );
 }
 
+/* ------------------------------------------------------ Fabric quality */
+
+/** The fabrics of the order form, with the shop's own description of each. Hidden when there is none. */
+export function FabricQuality({ fabrics }: { fabrics: (Fabric & { price: number })[] }) {
+  const { t, locale } = useT();
+  if (fabrics.length === 0) return null;
+  return (
+    <section className="max-w-container-max mx-auto px-4 sm:px-6 pt-16 sm:pt-24 w-full">
+      <SectionHeading
+        eyebrow={t("home.fabric.eyebrow")}
+        title={t("home.fabric.title")}
+        text={t("home.fabric.text")}
+        action={
+          <Link href="/custom-jersey#order" className="sp-btn sp-goal self-start sm:self-auto shrink-0 h-11 font-display uppercase tracking-wider text-xs font-bold inline-flex items-center gap-2">
+            {t("home.fabric.cta")}
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        }
+      />
+      <ul className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+        {fabrics.map((f) => {
+          const row = f as unknown as Record<string, unknown>;
+          return (
+            <li key={f.id} className="flex flex-col gap-2 rounded-2xl border border-border-light bg-surface-card p-5 shadow-sm">
+              {f.image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={f.image_url} alt="" loading="lazy" className="mb-1 aspect-[4/3] w-full rounded-xl object-cover" />
+              )}
+              <h3 className="font-display uppercase font-bold text-on-surface text-lg leading-tight">{localized(row, "name", locale)}</h3>
+              <p className="text-sm text-on-surface-variant flex-1">{localized(row, "description", locale)}</p>
+              <p className="text-sm font-bold text-on-surface tabular-nums">{t("home.fabric.perPiece", { price: formatMoney(f.price, locale) })}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------- Reviews */
+
+/** Approved reviews of real orders. Hidden when there are none. */
+export function CustomerReviews({ reviews }: { reviews: HomeReview[] }) {
+  const { t, locale } = useT();
+  if (reviews.length === 0) return null;
+  return (
+    <section className="max-w-container-max mx-auto px-4 sm:px-6 pt-16 sm:pt-24 w-full">
+      <SectionHeading eyebrow={t("home.reviews.eyebrow")} title={t("home.reviews.title")} />
+      <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+        {reviews.map((r) => (
+          <li key={r.id} className="flex flex-col gap-3 rounded-2xl border border-border-light bg-surface-card p-5 shadow-sm">
+            <span className="inline-flex" role="img" aria-label={t("home.reviews.stars", { count: r.rating })}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Star key={n} className={`w-4 h-4 ${n <= r.rating ? "fill-accent-gold text-gold-ink" : "text-border-light"}`} />
+              ))}
+            </span>
+            <p className="text-sm text-on-surface flex-1 whitespace-pre-line line-clamp-6">{r.body}</p>
+            <p className="text-sm font-semibold text-on-surface">{r.author_name}</p>
+            {r.product && (
+              <Link href={`/products/${r.product.slug}`} className="text-xs text-text-muted underline underline-offset-2">
+                {(locale === "bn" && r.product.title_bn) || r.product.title}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /* --------------------------------------------------------- How it works */
 
 const STEPS: MessageKey[] = ["customJersey.steps.one", "customJersey.steps.two", "customJersey.steps.three", "customJersey.steps.four"];
@@ -275,13 +352,13 @@ export function TeamBand() {
         <div className="absolute inset-0 as-pitch-lines" aria-hidden />
         <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-accent-gold/25 blur-3xl" aria-hidden />
         <div className="relative flex flex-col gap-4">
-          <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.2em] text-accent-gold">{t("home.team.eyebrow")}</span>
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold-ink">{t("home.team.eyebrow")}</span>
           <h2 className="font-display uppercase font-bold text-3xl sm:text-5xl leading-[1]">{t("home.team.title")}</h2>
           <p className="text-white/80 max-w-xl">{t("home.team.text")}</p>
           <ul className="flex flex-wrap gap-2">
             {points.map(({ icon: Icon, key }) => (
               <li key={key} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-xs font-semibold">
-                <Icon className="w-3.5 h-3.5 text-accent-gold" />
+                <Icon className="w-3.5 h-3.5 text-gold-ink" />
                 {t(key)}
               </li>
             ))}
@@ -321,7 +398,7 @@ export function WhyUs() {
       <ul className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-8">
         {items.map(({ icon: Icon, title, sub }) => (
           <li key={title} className="flex flex-col items-center text-center gap-2">
-            <span className="w-14 h-14 rounded-2xl bg-surface-card border border-border-light shadow-sm text-accent-gold flex items-center justify-center">
+            <span className="w-14 h-14 rounded-2xl bg-surface-card border border-border-light shadow-sm text-gold-ink flex items-center justify-center">
               <Icon className="w-6 h-6" />
             </span>
             <span className="font-display uppercase font-bold text-on-surface text-sm sm:text-base">{t(title)}</span>

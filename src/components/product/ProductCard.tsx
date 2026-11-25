@@ -1,6 +1,5 @@
 "use client";
-import { badgeClass } from "@/lib/badges";
-import { formatTaka } from "@/lib/pricing";
+import { badgeClass, discountBadgePercent } from "@/lib/badges";
 
 import React from "react";
 import Image from "next/image";
@@ -13,14 +12,14 @@ import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useLiveBadges } from "@/lib/promotions/useLiveBadges";
 import { useProofBadge } from "@/lib/catalog/useProofBadge";
 import { useT } from "@/i18n/client";
-import { assignFrames, frameWords, type SportFrame } from "@/lib/sport-frames";
+import { formatMoney } from "@/i18n";
+import { parseSport } from "@/lib/sports";
+import { frameFor, frameWords } from "@/lib/sport-frames";
 import { SportCard } from "./SportCard";
 
 interface ProductCardProps {
   product: Product;
   aspectRatio?: "portrait" | "square";
-  /** From `assignFrames` for a whole grid; without it, the first frame of the product's sport. */
-  frame?: SportFrame;
 }
 
 /** Inner width of the quick add bar on the narrowest card that shows it, and the rows it may fill. */
@@ -43,8 +42,11 @@ function quickCount(labels: string[]): number {
   return labels.length;
 }
 
-export function ProductCard({ product, aspectRatio = "portrait", frame }: ProductCardProps) {
-  const { t } = useT();
+export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardProps) {
+  const { t, locale } = useT();
+  const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
+  const sport = parseSport(product.sub_category?.toLowerCase());
+  const title = (locale === "bn" && product.title_bn) || product.title;
   const { addItem } = useCartStore();
   const { toggleWishlist, isInWishlist } = useWishlistStore();
   const [imgFailed, setImgFailed] = React.useState(false);
@@ -81,8 +83,10 @@ export function ProductCard({ product, aspectRatio = "portrait", frame }: Produc
   // card cannot show a badge its own price contradicts.
   // Computed from real sales/publish dates, and only when nothing else is
   // already labelling the card.
-  const proofText = proof?.bestseller ? "Bestseller" : proof?.new ? "New" : null;
-  const badgeText = live?.badge_label ?? product.badge ?? proofText;
+  const proofText = proof?.bestseller ? t("store.card.bestseller") : proof?.new ? t("store.card.isNew") : null;
+  const label = live?.badge_label ?? product.badge ?? proofText;
+  const badgePercent = discountBadgePercent(label);
+  const badgeText = badgePercent !== null ? t("store.card.off", { percent: num(badgePercent) }) : label;
   const badgeType =
     live?.badge_type ?? product.badge_type ?? (proof?.bestseller ? "popular" : proof?.new ? "new" : undefined);
   const displayPrice = live?.final_price ?? product.price;
@@ -107,7 +111,7 @@ export function ProductCard({ product, aspectRatio = "portrait", frame }: Produc
 
   return (
     <SportCard
-      frame={frame ?? assignFrames([frameWords(product)])[0]}
+      frame={frameFor(frameWords(product))}
       media={
         <Link
           href={`/products/${product.slug}`}
@@ -119,7 +123,7 @@ export function ProductCard({ product, aspectRatio = "portrait", frame }: Produc
             // The small grid version; the original if it has none yet.
             src={imgFailed ? product.images[0] : thumbUrl(product.images[0])}
             onError={() => setImgFailed(true)}
-            alt={product.title}
+            alt={title}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover group-hover:scale-[1.06] transition-transform duration-700 ease-out"
@@ -128,7 +132,7 @@ export function ProductCard({ product, aspectRatio = "portrait", frame }: Produc
           {/* Badges */}
           {badgeText && (
             <span
-              className={`absolute top-2.5 left-2.5 ${badgeColorClass} font-bold text-[10px] px-2 py-1 rounded-full uppercase tracking-wider shadow-sm`}
+              className={`absolute top-2.5 left-2.5 ${badgeColorClass} font-bold text-xs px-2 py-1 rounded-full uppercase tracking-wider shadow-sm`}
             >
               {badgeText}
             </span>
@@ -139,7 +143,7 @@ export function ProductCard({ product, aspectRatio = "portrait", frame }: Produc
             onClick={handleWishlistClick}
             aria-label={t("store.card.wishlist")}
             aria-pressed={isLiked}
-            className="sp-ico sp-medal absolute top-2.5 right-2.5"
+            className="sp-ico sp-medal sp-lg absolute top-1.5 right-1.5"
           >
             <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
           </button>
@@ -148,10 +152,10 @@ export function ProductCard({ product, aspectRatio = "portrait", frame }: Produc
               clickable while hidden, so a tap on the picture opens the product. */}
           {product.sizes.length > 0 && (
             <div className="absolute bottom-2 inset-x-2 translate-y-3 opacity-0 pointer-events-none group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-all duration-300 bg-surface-card/95 backdrop-blur rounded-xl p-2 hidden sm:block shadow-lg">
-              <div className="flex items-center justify-between gap-2 mb-1.5 text-[10px] leading-none font-bold text-text-muted">
+              <div className="flex items-center justify-between gap-2 mb-1.5 text-xs leading-none font-bold text-text-muted">
                 <span className="uppercase truncate">{t("store.card.quickAdd")}</span>
                 {hiddenSizes > 0 && (
-                  <span className="shrink-0 hover:underline">{t("store.card.moreOptions", { count: hiddenSizes })}</span>
+                  <span className="shrink-0 hover:underline">{t("store.card.moreOptions", { count: num(hiddenSizes) })}</span>
                 )}
               </div>
               <div className="flex flex-wrap gap-1">
@@ -160,7 +164,7 @@ export function ProductCard({ product, aspectRatio = "portrait", frame }: Produc
                     key={s.size}
                     disabled={s.stock === 0}
                     onClick={(e) => handleQuickAdd(e, s.size)}
-                    className={`sp-size ${s.size.length > 3 ? "sp-option h-7 px-2" : "w-10 h-9 pt-1.5"} max-w-full text-[11px] font-bold flex items-center justify-center`}
+                    className={`sp-size ${s.size.length > 3 ? "sp-option h-7 px-2" : "w-10 h-9 pt-1.5"} max-w-full text-xs font-bold flex items-center justify-center`}
                     title={s.chest ? `${s.size} · ${s.chest}″` : s.size}
                   >
                     <span className="truncate">{s.size}</span>
@@ -174,27 +178,27 @@ export function ProductCard({ product, aspectRatio = "portrait", frame }: Produc
     >
       <div className="flex flex-col flex-1 justify-between gap-1.5">
         <div className="min-w-0">
-          <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block truncate">
-            {product.sub_category || product.category}
+          <span className="text-xs font-bold text-text-muted uppercase tracking-wider block truncate">
+            {sport ? t(`site.nav.${sport}`) : product.sub_category || product.category}
           </span>
           <Link
             href={`/products/${product.slug}`}
-            className="font-body text-sm sm:text-[15px] text-on-surface font-semibold leading-snug line-clamp-2 hover:underline underline-offset-2 block mt-0.5"
-            title={product.title}
+            className="font-body text-sm sm:text-[15px] text-on-surface font-semibold leading-snug hover:underline underline-offset-2 block py-[13px] -mt-[11px] -mb-[13px]"
+            title={title}
           >
-            {product.title}
+            <span className="line-clamp-2">{title}</span>
           </Link>
         </div>
 
         {/* Pricing */}
         <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5 pt-0.5">
           <span className="as-sc-price font-display font-bold text-base sm:text-lg tabular-nums">
-            {formatTaka(displayPrice)}
+            {formatMoney(displayPrice, locale)}
           </span>
           {offPercent > 0 && (
             <>
-              <span className="text-xs text-text-muted line-through tabular-nums">{formatTaka(basePrice)}</span>
-              <span className="text-[11px] font-bold text-badge-discount">{t("store.card.off", { percent: offPercent })}</span>
+              <span className="text-xs text-text-muted line-through tabular-nums">{formatMoney(basePrice, locale)}</span>
+              <span className="text-xs font-bold text-badge-discount">{t("store.card.off", { percent: num(offPercent) })}</span>
             </>
           )}
         </div>

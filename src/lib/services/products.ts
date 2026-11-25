@@ -2,6 +2,7 @@ import { cache } from "react";
 import { Product, Category } from "@/types";
 import { PRODUCTS, CATEGORIES } from "@/lib/data/mock-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { sportFilter, type StoreSport } from "@/lib/sports";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function getActiveSupabaseClient(): Promise<SupabaseClient | null> {
@@ -25,6 +26,16 @@ function sizesFilter(sizes: string[]): string {
     .join(",");
 }
 
+/** What the shop paid for a product is not for the pages it is sold on. */
+function withoutCost(product: Product): Product {
+  const copy = { ...product };
+  delete copy.cost_price;
+  return copy;
+}
+
+/** Ids as a PostgREST list. They come from the database, never from the URL. */
+const inList = (ids: string[]) => `(${ids.map((id) => `"${id.replace(/["\\]/g, "")}"`).join(",")})`;
+
 export async function getProducts(options?: {
   category?: string;
   subCategory?: string;
@@ -38,6 +49,11 @@ export async function getProducts(options?: {
   offset?: number;
   /** Restrict to these product ids (team/league/season filters). Empty = no matches. */
   productIds?: string[];
+  /** Leave these out (sold-out products, the product being looked at). */
+  excludeIds?: string[];
+  sport?: StoreSport | null;
+  /** Only products with a markdown. */
+  dealsOnly?: boolean;
   /** Column to order by, for callers that need something other than the sort presets. */
   order?: { column: string; ascending?: boolean };
 }): Promise<Product[]> {
@@ -64,6 +80,9 @@ export async function getProducts(options?: {
       if (options?.productIds) {
         query = query.in("id", options.productIds);
       }
+      if (options?.excludeIds?.length) query = query.not("id", "in", inList(options.excludeIds));
+      if (options?.sport) query = query.or(sportFilter(options.sport));
+      if (options?.dealsOnly) query = query.gt("discount_percent", 0);
       if (options?.minPrice !== undefined) {
         query = query.gte("price", options.minPrice);
       }
@@ -105,6 +124,9 @@ export async function getProducts(options?: {
       } else {
         query = query.order("created_at", { ascending: false });
       }
+      // Rows that tie on the column above would come back in any order, so the
+      // next page could repeat some and miss others.
+      if (!options?.order) query = query.order("id", { ascending: true });
 
       if (options?.limit !== undefined) {
         query = query.limit(options.limit);
@@ -129,7 +151,7 @@ export async function getProducts(options?: {
       // was shown products that do not exist. Empty is returned; only a thrown
       // error or a missing client reaches the fallback below.
       if (!error) {
-        return (data ?? []) as Product[];
+        return ((data ?? []) as Product[]).map(withoutCost);
       }
       console.warn("Supabase query failed, falling back to local dataset:", error.message);
     } catch (err) {
@@ -203,7 +225,7 @@ export const getProductBySlug = cache(async (slug: string): Promise<Product | nu
         .eq("status", "published")
         .maybeSingle();
       if (!error) {
-        return (data as Product) ?? null;
+        return data ? withoutCost(data as Product) : null;
       }
       console.warn("Supabase getProductBySlug error, using fallback:", error.message);
     } catch (err) {
@@ -292,6 +314,9 @@ export async function getProductsCount(options?: {
   search?: string;
   status?: string;
   productIds?: string[];
+  excludeIds?: string[];
+  sport?: StoreSport | null;
+  dealsOnly?: boolean;
   sizes?: string[];
   minPrice?: number;
   maxPrice?: number;
@@ -315,6 +340,9 @@ export async function getProductsCount(options?: {
       if (options?.productIds) {
         query = query.in("id", options.productIds);
       }
+      if (options?.excludeIds?.length) query = query.not("id", "in", inList(options.excludeIds));
+      if (options?.sport) query = query.or(sportFilter(options.sport));
+      if (options?.dealsOnly) query = query.gt("discount_percent", 0);
       if (options?.sizes && options.sizes.length > 0) query = query.or(sizesFilter(options.sizes));
       if (options?.minPrice !== undefined) query = query.gte("price", options.minPrice);
       if (options?.maxPrice !== undefined) query = query.lte("price", options.maxPrice);
