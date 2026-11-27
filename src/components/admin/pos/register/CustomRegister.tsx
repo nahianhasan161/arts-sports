@@ -1,22 +1,36 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ImageIcon, LayoutGrid, Palette, Pencil, Percent, Plus, Printer, Search, Shirt, Trash2, UserRound } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka, type PayMethod } from "@/lib/pos/types";
-import { advanceFor, optionName } from "@/lib/custom-jersey/pricing";
+import { advanceFor, advancePresets, optionName } from "@/lib/custom-jersey/pricing";
 import { estimateOrder, itemSummary, MAX_ITEMS } from "@/lib/custom-jersey/items";
 import { JERSEY_TYPES, orderTotal, type CustomJerseyConfig, type Fabric, type JerseyOption, type JerseyOptions, type OptionGroup, type OrderItem, type RosterRow, type SizeOption, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
 import { designImages, type DesignRow } from "@/lib/custom-jersey/designs";
 import { RosterEditor } from "@/components/custom-jersey/RosterEditor";
 import { api, btnGhost, btnPrimary, field } from "../api";
-import { CustomTab } from "../CustomTab";
-import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "./parts";
+import { SkeletonRows } from "@/components/ui/PageSkeleton";
+import { Dialog, OrderPad, SwipeRow, applyKey, type OrderMode, type PadKey } from "./parts";
 import { PaymentScreen, type Pay } from "./PaymentScreen";
 import { DesignRefs, Lightbox, MAX_REFS, type DesignRef } from "./DesignRefs";
 import { GalleryStrip } from "./GalleryStrip";
 import { CustomerInput } from "@/components/admin/pickers";
+import { useUrlState } from "@/lib/url-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FabricDialog, OptionDialog, QtyDialog, type QtyPricing } from "./OptionEditor";
+
+// The order list is only needed on the "Orders" tab: load its code when that tab opens.
+const CustomOrdersView = dynamic(() => import("./CustomOrdersView").then((m) => m.CustomOrdersView), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex flex-col gap-2 p-2">
+      <Skeleton className="h-10 w-full" />
+      <SkeletonRows count={10} />
+    </div>
+  ),
+});
 
 /** The custom-order API takes these (no "other"). */
 const METHODS: readonly PayMethod[] = ["cash", "card", "bkash", "nagad"];
@@ -34,6 +48,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  */
 interface Design {
   id: string;
+  /** Name staff typed ("Home kit", "Goalkeeper"); empty = "Design 1", "Design 2"... */
+  name: string;
   jersey: boolean;
   fabricId: string;
   jerseyType: JerseyType;
@@ -54,6 +70,7 @@ const newId = () => `d${Date.now().toString(36).slice(-4)}${(seq++).toString(36)
 function newDesign(fabricId: string, from?: Design): Design {
   return {
     id: newId(),
+    name: "",
     jersey: from?.jersey ?? true,
     fabricId: from?.fabricId ?? fabricId,
     jerseyType: from?.jerseyType ?? "round",
@@ -90,7 +107,11 @@ function picksOf(d: Design, options: JerseyOptions | null) {
  */
 export function CustomRegister() {
   const { t, locale } = useT();
-  const [mode, setMode] = useState<"new" | "find">("new");
+  // `?tab=orders` opens the order list (find an order, take the balance, hand over).
+  const [mode, setMode] = useUrlState<"new" | "find">("tab", "new", {
+    toUrl: (v) => (v === "find" ? "orders" : v),
+    fromUrl: (s) => (s === "orders" ? "find" : null),
+  });
   const [config, setConfig] = useState<CustomJerseyConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -109,8 +130,11 @@ export function CustomRegister() {
   const [designs, setDesigns] = useState<Design[]>(() => [newDesign("")]);
   const [active, setActive] = useState(0);
   const [sureRemove, setSureRemove] = useState(false);
+  /** The open design's name box is showing. */
+  const [renaming, setRenaming] = useState(false);
   /** The slip line being edited: `${designId}|${size}`. */
   const [selected, setSelected] = useState<string | null>(null);
+  const [swiped, setSwiped] = useState<string | null>(null);
   const [padMode, setPadMode] = useState<OrderMode>("qty");
   const [typed, setTyped] = useState<string | null>(null);
   const [neededBy, setNeededBy] = useState("");
@@ -119,8 +143,12 @@ export function CustomRegister() {
   const [zone, setZone] = useState<"dhaka" | "outside">("dhaka");
   const [address, setAddress] = useState("");
   const [confirm, setConfirm] = useState<"now" | "later">("now");
-  const [price, setPrice] = useState("");
+  /** Price per piece typed on the pad, per design (design id → taka). Empty = use the estimate. */
+  const [unitPrices, setUnitPrices] = useState<Record<string, string>>({});
   const [take, setTake] = useState<"advance" | "full">("advance");
+  /** The advance: a % (null = the settings %), or a typed amount ("0" = no advance). */
+  const [advPct, setAdvPct] = useState<number | null>(null);
+  const [advOwn, setAdvOwn] = useState<string | null>(null);
   const [pays, setPays] = useState<Pay[]>([]);
   const [viewIndex, setViewIndex] = useState(0);
   const [big, setBig] = useState<number | null>(null);
@@ -164,7 +192,7 @@ export function CustomRegister() {
     window.history.replaceState(null, "", window.location.pathname);
     void api<{ designs: DesignRow[] }>(`/api/admin/pos/designs?ids=${encodeURIComponent(ids)}`).then((res) => {
       if (!res.ok) return setError(res.error);
-      setDesigns((l) => l.map((x, i) => (i === 0 ? { ...x, files: [...x.files, ...res.data.designs.filter((g) => g.image_url).slice(0, MAX_REFS).map(galleryRef)] } : x)));
+      setDesigns((l) => l.map((x, i) => (i === 0 ? { ...x, files: [...x.files, ...res.data.designs.filter((g) => g.image_url).flatMap(galleryRefs).slice(0, MAX_REFS)] } : x)));
       setPane("slip");
     });
   }, []);
@@ -181,13 +209,18 @@ export function CustomRegister() {
     };
   }, [phone]);
 
-  const sizes = useMemo(() => options?.sizes ?? [], [options]);
+  const jerseySizes = useMemo(() => options?.sizes ?? [], [options]);
+  const pantSizes = useMemo(() => options?.pant_sizes ?? [], [options]);
+  /** Pant-only designs use the pant size list (waist / length). */
+  const sizesFor = (x: Design) => (x.jersey ? jerseySizes : pantSizes);
+  const sizes = sizesFor(d);
+  const sizeGroup: OptionGroup = d.jersey ? "sizes" : "pant_sizes";
   const sizeCount = (s: SizeOption) => d.rows.filter((r) => r.size === s.label).length;
   /** Make design `id` hold exactly `n` rows of this size: keeps the typed names, adds blank rows or drops the last ones. */
   function setSizeCount(id: string, label: string, n: number) {
-    const size = sizes.find((s) => s.label === label);
     n = Math.max(0, Math.min(500, n));
     patchDesign(id, (x) => {
+      const size = x.jersey ? sizesFor(x).find((s) => s.label === label) : undefined;
       const p = picksOf(x, options);
       let seen = 0;
       const kept = x.rows.filter((r) => (r.size === label ? ++seen <= n : true));
@@ -201,7 +234,7 @@ export function CustomRegister() {
 
   const fabricOf = (id: string | null) => config?.fabrics.find((f) => f.id === id);
   const fabricName = (f: { name_en: string; name_bn: string | null }) => (locale === "bn" && f.name_bn ? f.name_bn : f.name_en);
-  const titleOf = (i: number) => t("shop.customReg.designN", { n: i + 1 });
+  const titleOf = (i: number) => designs[i]?.name.trim() || t("shop.customReg.designN", { n: i + 1 });
 
   /** A design as the order stores it (ids only; the server fills names and prices). */
   function toItem(x: Design, i: number): OrderItem {
@@ -232,9 +265,27 @@ export function CustomRegister() {
   }, [config, options, qty, designs, neededBy, pieces]);
 
   const deliveryCharge = delivery === "pickup" || !config ? 0 : zone === "dhaka" ? config.delivery.dhaka : config.delivery.outside;
-  const agreed = price === "" ? (est?.total ?? 0) : Number(price) || 0;
+  const unitOf = (id: string) => (unitPrices[id] ? Number(unitPrices[id]) || 0 : null);
+  const piecesOf = (x: Design) => x.rows.filter((r) => r.size).length;
+  const hasUnit = designs.some((x) => unitOf(x.id) !== null && piecesOf(x) > 0);
+  // Designs without a typed price keep their estimated share (after discount / rush).
+  const estFactor = est && est.subtotal ? est.total / est.subtotal : 1;
+  const agreed = !hasUnit
+    ? (est?.total ?? 0)
+    : Math.round(
+        designs.reduce((sum, x) => {
+          const u = unitOf(x.id);
+          if (u !== null) return sum + u * piecesOf(x);
+          const e = est?.items.find((it) => it.id === x.id);
+          return sum + (e ? e.subtotal * estFactor : 0);
+        }, 0)
+      );
+  /** The design the price key types into: the selected line's design, else the open one. */
+  const priceId = selected ? selected.split("|")[0] : d.id;
   const total = orderTotal({ final_price: agreed, delivery_charge: deliveryCharge });
-  const advance = config ? advanceFor(total, config.pricing) : 0;
+  const pct = advPct ?? config?.pricing.advance_percent ?? 0;
+  const advance = advOwn !== null ? Math.min(total, Math.max(0, Math.round(Number(advOwn) || 0))) : config ? advanceFor(total, { advance_percent: pct }) : 0;
+  const advanceLabel = advOwn === null ? t("shop.customReg.advance", { percent: String(pct) }) : advance === 0 ? t("shop.customReg.noAdvance") : t("shop.customReg.advanceOwn");
   const target = take === "full" ? total : advance;
   const customerLabel = name || phone || t("shop.customReg.customer");
 
@@ -243,7 +294,8 @@ export function CustomRegister() {
     const m = new Map<string, number>();
     for (const r of x.rows) if (r.size) m.set(r.size, (m.get(r.size) ?? 0) + 1);
     const e = est?.items.find((it) => it.id === x.id);
-    return { design: x, index: i, est: e, perPiece: e && e.pieces ? e.subtotal / e.pieces : 0, lines: [...m.entries()].map(([label, n]) => ({ key: `${x.id}|${label}`, label, n })) };
+    const u = unitOf(x.id);
+    return { design: x, index: i, est: e, unit: u, perPiece: u !== null ? u : e && e.pieces ? e.subtotal / e.pieces : 0, lines: [...m.entries()].map(([label, n]) => ({ key: `${x.id}|${label}`, label, n })) };
   });
 
   // What the open design shows: every picture of its references (a gallery design brings all its pictures).
@@ -255,7 +307,7 @@ export function CustomRegister() {
 
   const pickedDesigns = new Set(d.files.flatMap((f) => (f.design_id ? [f.design_id] : [])));
   function toggleDesign(g: DesignRow) {
-    setFiles((l) => (l.some((r) => r.design_id === g.id) ? l.filter((r) => r.design_id !== g.id) : l.length >= MAX_REFS ? l : [...l, galleryRef(g)]));
+    setFiles((l) => (l.some((r) => r.design_id === g.id) ? l.filter((r) => r.design_id !== g.id) : l.length >= MAX_REFS ? l : [...l, ...galleryRefs(g)].slice(0, MAX_REFS)));
     setViewIndex(viewItems.length);
   }
 
@@ -272,8 +324,10 @@ export function CustomRegister() {
     setZone("dhaka");
     setAddress("");
     setConfirm("now");
-    setPrice("");
+    setUnitPrices({});
     setTake("advance");
+    setAdvPct(null);
+    setAdvOwn(null);
     setPays([]);
     setScreen("slip");
     setError(null);
@@ -283,7 +337,11 @@ export function CustomRegister() {
 
   function openDesign(i: number) {
     setActive(i);
+    setTyped(null);
+    // In price mode the price key then types into this design.
+    if (padMode === "price") setSelected(null);
     setSureRemove(false);
+    setRenaming(false);
     setViewIndex(0);
   }
   function addDesign() {
@@ -307,6 +365,19 @@ export function CustomRegister() {
     setTyped(null);
   }
 
+  /** Swipe +/−: set a slip line's count; 0 removes the line. */
+  function bump(key: string, n: number) {
+    if (n < 1) {
+      setSwiped(null);
+      return removeLine(key);
+    }
+    const [id, size] = key.split("|");
+    setSizeCount(id, size, n);
+    setSelected(key);
+    setPadMode("qty");
+    setTyped(null);
+  }
+
   /** `key` = `${designId}|${size}`, as on the slip line. */
   function removeLine(key: string) {
     const [id, size] = key.split("|");
@@ -318,7 +389,7 @@ export function CustomRegister() {
   function press(key: PadKey) {
     const buf = applyKey(typed ?? "", key);
     setTyped(buf);
-    if (padMode === "price") return setPrice(buf);
+    if (padMode === "price") return setUnitPrices((m) => ({ ...m, [priceId]: buf }));
     if (!selected) return;
     const [id, size] = selected.split("|");
     setSizeCount(id, size, Math.floor(Number(buf) || 0));
@@ -407,6 +478,7 @@ export function CustomRegister() {
       delivery_address: address,
       confirm,
       final_price: confirm === "now" ? agreed : undefined,
+      advance_amount: confirm === "now" ? advance : undefined,
       pay_amount: confirm === "now" && first ? first.amount : 0,
       pay_method: first?.method ?? "cash",
       pay_trx: first?.trx ?? "",
@@ -454,11 +526,7 @@ export function CustomRegister() {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
         {subTabs}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-          <div className="mx-auto w-full max-w-3xl">
-            <CustomTab hideNew />
-          </div>
-        </div>
+        <CustomOrdersView />
       </div>
     );
   }
@@ -486,6 +554,7 @@ export function CustomRegister() {
   }
 
   if (screen === "pay") {
+    const advChip = (on: boolean) => `h-9 px-3 rounded-md border text-sm font-semibold ${on ? "border-accent-gold ring-1 ring-accent-gold bg-accent-gold/10" : "border-border-light bg-surface-card hover:border-accent-gold"}`;
     const choice = (k: "advance" | "full", label: string, amount: number) => (
       <button type="button" onClick={() => { setTake(k); setPays([]); }} className={`h-12 px-3 rounded-lg border flex items-center justify-between gap-2 text-sm font-semibold ${take === k ? "border-accent-gold ring-1 ring-accent-gold bg-accent-gold/10" : "border-border-light bg-surface-card hover:border-accent-gold"}`}>
         <span>{label}</span>
@@ -510,8 +579,25 @@ export function CustomRegister() {
           extra={
             <div className="mt-2 flex flex-col gap-2">
               <p className="text-xs font-semibold text-text-muted">{t("shop.customReg.takeNow")}</p>
-              {choice("advance", t("shop.customReg.advance", { percent: String(config?.pricing.advance_percent ?? "") }), advance)}
+              <div className="flex flex-wrap gap-1.5">
+                {advancePresets(config?.pricing ?? { advance_percent: 30 }).map((p) => (
+                  <button key={p} type="button" onClick={() => { setTake("advance"); setAdvPct(p); setAdvOwn(null); setPays([]); }} className={advChip(take === "advance" && advOwn === null && pct === p)}>
+                    {p}%
+                  </button>
+                ))}
+                <button type="button" onClick={() => { setTake("advance"); setAdvOwn(advOwn && advOwn !== "0" ? advOwn : ""); setPays([]); }} className={advChip(take === "advance" && advOwn !== null && advOwn !== "0")}>
+                  {t("shop.customReg.advanceOwn")}
+                </button>
+                <button type="button" onClick={() => { setTake("advance"); setAdvOwn("0"); setPays([]); }} className={advChip(take === "advance" && advOwn === "0")}>
+                  {t("shop.customReg.noAdvance")}
+                </button>
+              </div>
+              {take === "advance" && advOwn !== null && advOwn !== "0" && (
+                <input autoFocus type="number" inputMode="numeric" min={0} max={total} value={advOwn} placeholder={t("shop.customReg.advanceOwnHint")} onChange={(e) => { setAdvOwn(e.target.value.replace(/[^\d]/g, "")); setPays([]); }} className={`${field} h-11 text-base tabular-nums`} />
+              )}
+              {choice("advance", advanceLabel, advance)}
               {choice("full", t("shop.customNew.fillFull"), total)}
+              {take === "advance" && advance === 0 && <p className="text-xs text-text-muted">{t("shop.customReg.noAdvanceNote")}</p>}
               <p className="text-xs text-text-muted">{t("shop.customReg.orderTotal", { amount: taka(total) })}</p>
             </div>
           }
@@ -603,25 +689,36 @@ export function CustomRegister() {
               <ul>
                 {slip.map((s) => (
                   <li key={s.design.id} className="border-b border-border-light last:border-b-0">
-                    <button type="button" onClick={() => { openDesign(s.index); setPane("tiles"); }} className={`w-full text-left px-3 pt-2 pb-1 ${s.index === active ? "bg-accent-gold/10" : "hover:bg-surface-subtle"}`}>
+                    <button type="button" onClick={() => { openDesign(s.index); setPane("tiles"); }} className={`w-full text-left px-3 pt-2 pb-1 ${padMode === "price" && s.design.id === priceId ? "bg-primary/10" : s.index === active ? "bg-accent-gold/10" : "hover:bg-surface-subtle"}`}>
                       <span className="flex items-baseline gap-2 text-sm font-semibold text-on-surface">
                         <span className="flex-1 truncate">{titleOf(s.index)}</span>
+                        {s.unit !== null && <span className="tabular-nums text-xs text-primary">{taka(s.unit)}/{t("shop.customNew.each")}</span>}
                         {s.est && <span className="tabular-nums text-xs text-text-muted">{t("shop.customReg.pcs", { n: s.est.pieces })}</span>}
                       </span>
                       <span className="block text-[11px] text-text-muted leading-snug">{itemSummary(toItem(s.design, s.index), s.est, locale, t as (k: string) => string)}</span>
                     </button>
+                    <ul>
                     {s.lines.map(({ key, label, n }) => {
                       const on = key === selected && padMode === "qty";
                       return (
-                        <button key={key} type="button" className={`w-full text-left px-3 py-1.5 text-sm ${on ? "bg-primary/10" : "hover:bg-surface-subtle"}`} onClick={() => { setSelected(key); setPadMode("qty"); setTyped(null); }}>
-                          <span className="flex items-baseline gap-3">
+                        <SwipeRow
+                          key={key}
+                          open={swiped === key}
+                          setOpen={(v) => setSwiped(v ? key : null)}
+                          onSelect={() => { setSelected(key); setPadMode("qty"); setTyped(null); }}
+                          onPlus={() => bump(key, n + 1)}
+                          onMinus={() => bump(key, n - 1)}
+                          onRemove={() => { setSwiped(null); removeLine(key); }}
+                        >
+                          <span className={`flex items-baseline gap-3 px-3 py-1.5 ${on ? "bg-primary/10" : "hover:bg-surface-subtle"}`}>
                             <b className="tabular-nums text-on-surface">{n}</b>
                             <span className="flex-1 min-w-0 truncate text-on-surface">{t("shop.customReg.sizeLine", { size: label })}</span>
                             {s.perPiece > 0 && <b className="whitespace-nowrap tabular-nums text-on-surface">{taka(Math.round(s.perPiece * n))}</b>}
                           </span>
-                        </button>
+                        </SwipeRow>
                       );
                     })}
+                    </ul>
                   </li>
                 ))}
               </ul>
@@ -645,7 +742,7 @@ export function CustomRegister() {
                   <span className="tabular-nums">{taka(est.total)}</span>
                 </p>
               )}
-              {price !== "" && (
+              {hasUnit && (
                 <p className={`flex justify-between text-xs ${padMode === "price" ? "text-primary font-semibold" : "text-text-muted"}`}>
                   <span>{t("shop.customReg.agreed")}</span>
                   <span className="tabular-nums">{taka(agreed)}</span>
@@ -663,7 +760,7 @@ export function CustomRegister() {
                 </span>
                 <span className="text-lg font-bold tabular-nums">{taka(total)}</span>
               </p>
-              {confirm === "now" && total > 0 && <p className="flex justify-between text-xs text-text-muted"><span>{t("shop.customReg.advance", { percent: String(config?.pricing.advance_percent ?? "") })}</span><span className="tabular-nums">{taka(advance)}</span></p>}
+              {confirm === "now" && total > 0 && <p className="flex justify-between text-xs text-text-muted"><span>{advanceLabel}</span><span className="tabular-nums">{taka(advance)}</span></p>}
             </div>
             {error && <p className="text-sm text-badge-discount bg-badge-discount/10 rounded p-2">{error}</p>}
 
@@ -694,7 +791,7 @@ export function CustomRegister() {
               }}
               noDisc
               disabled={padMode === "qty" ? !selected : confirm === "later"}
-              labels={{ qty: t("shop.common.qty"), price: t("shop.register.price"), sign: t("shop.register.removeLine") }}
+              labels={{ qty: t("shop.common.qty"), price: t("shop.customReg.unitPrice"), sign: t("shop.register.removeLine") }}
             />
 
             <button type="button" onClick={next} disabled={busy || !config || pieces === 0} className="h-16 rounded-md bg-primary text-primary-foreground text-base font-semibold hover:opacity-90 disabled:opacity-50">
@@ -710,7 +807,7 @@ export function CustomRegister() {
             {designs.map((x, i) => {
               const n = x.rows.filter((r) => r.size).length;
               return (
-                <button key={x.id} type="button" onClick={() => openDesign(i)} className={`shrink-0 h-9 px-3 rounded-md border text-sm font-semibold flex items-center gap-1.5 ${i === active ? "border-accent-gold bg-accent-gold/20 ring-1 ring-accent-gold text-on-surface" : "border-border-light text-on-surface-variant hover:bg-surface-subtle"}`}>
+                <button key={x.id} type="button" onClick={() => openDesign(i)} onDoubleClick={() => { openDesign(i); setRenaming(true); }} title={t("shop.customReg.renameHint")} className={`shrink-0 h-9 px-3 rounded-md border text-sm font-semibold flex items-center gap-1.5 ${i === active ? "border-accent-gold bg-accent-gold/20 ring-1 ring-accent-gold text-on-surface" : "border-border-light text-on-surface-variant hover:bg-surface-subtle"}`}>
                   {x.jersey && <Shirt className="w-4 h-4" />}
                   {titleOf(i)}
                   {n > 0 && <span className="min-w-5 h-5 px-1 rounded bg-neutral-900 text-white text-[11px] flex items-center justify-center tabular-nums">{n}</span>}
@@ -740,10 +837,39 @@ export function CustomRegister() {
           <div className="flex-1 overflow-y-auto p-2">
             {editMode && <p className="text-xs text-text-muted mb-1 text-right">{t("shop.customOpt.editHint")}</p>}
 
+            <p className={heading.replace("mt-3", "mt-0")}>{t("shop.customReg.jerseyOrPant")}</p>
+            <div className="grid grid-cols-3 gap-2 max-w-md mb-3">
+              {JERSEY_TYPES.map((c) => (
+                <button key={c} type="button" className={tile(d.jersey && d.jerseyType === c)} onClick={() => pickKind(c)}>
+                  {t(c === "polo" ? "customJersey.options.poloName" : "customJersey.options.tshirtName")}
+                </button>
+              ))}
+              <button type="button" className={tile(!d.jersey)} onClick={() => pickKind("pant")}>
+                {t("shop.customReg.pantOnly")}
+              </button>
+            </div>
+
             {/* The chosen design: browse all its pictures */}
             <div className="flex items-center justify-between gap-2 mb-1.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                {titleOf(active)} · {t("shop.customReg.chosenDesign")}
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted flex items-center gap-1 flex-wrap min-w-0">
+                {renaming ? (
+                  <input
+                    autoFocus
+                    value={d.name}
+                    maxLength={60}
+                    placeholder={t("shop.customReg.designN", { n: active + 1 })}
+                    onChange={(e) => patch({ name: e.target.value })}
+                    onBlur={() => setRenaming(false)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") setRenaming(false); }}
+                    aria-label={t("shop.customReg.rename")}
+                    className="h-8 w-44 px-2 rounded-md border border-accent-gold bg-surface-card text-sm normal-case tracking-normal font-semibold text-on-surface"
+                  />
+                ) : (
+                  <button type="button" onClick={() => setRenaming(true)} title={t("shop.customReg.rename")} className="inline-flex items-center gap-1 uppercase hover:text-on-surface">
+                    {titleOf(active)} <Pencil className="w-3 h-3" />
+                  </button>
+                )}
+                <span>· {t("shop.customReg.chosenDesign")}</span>
                 {dEst && dEst.pieces > 0 && <span className="normal-case font-normal"> · {t("shop.customReg.designTotal")} {taka(dEst.subtotal)}</span>}
               </p>
               <div className="flex items-center gap-1.5">
@@ -794,18 +920,6 @@ export function CustomRegister() {
 
             <p className={`${heading} mt-3`}>{t("shop.customReg.gallery")}</p>
             <GalleryStrip picked={pickedDesigns} onToggle={toggleDesign} onMore={() => setPopup("design")} />
-
-            <p className={heading}>{t("shop.customReg.jerseyOrPant")}</p>
-            <div className="grid grid-cols-3 gap-2 max-w-md">
-              {JERSEY_TYPES.map((c) => (
-                <button key={c} type="button" className={tile(d.jersey && d.jerseyType === c)} onClick={() => pickKind(c)}>
-                  {t(c === "polo" ? "customJersey.options.poloName" : "customJersey.options.tshirtName")}
-                </button>
-              ))}
-              <button type="button" className={tile(!d.jersey)} onClick={() => pickKind("pant")}>
-                {t("shop.customReg.pantOnly")}
-              </button>
-            </div>
 
             {d.jersey && (
               <>
@@ -891,30 +1005,34 @@ export function CustomRegister() {
               {sizes.map((s) => {
                 const n = sizeCount(s);
                 return (
-                  <button key={s.id} type="button" onClick={pickOr("sizes", s, () => addSize(s))} className={`relative h-20 rounded-md border bg-surface-card text-on-surface border-b-4 transition active:scale-[0.98] flex flex-col items-center justify-center ${n && !editMode ? "border-accent-gold" : "border-border-light border-b-accent-gold/60 hover:border-accent-gold"}`}>
+                  <button key={s.id} type="button" onClick={pickOr(sizeGroup, s, () => addSize(s))} className={`relative h-20 rounded-md border bg-surface-card text-on-surface border-b-4 transition active:scale-[0.98] flex flex-col items-center justify-center ${n && !editMode ? "border-accent-gold" : "border-border-light border-b-accent-gold/60 hover:border-accent-gold"}`}>
                     {editBadge}
                     <span className="text-xl font-bold leading-tight">{s.label}</span>
-                    {(s.chest || s.length) && (
+                    {(s.chest || s.waist || s.length) && (
                       <span className="text-[11px] text-text-muted tabular-nums leading-tight">
-                        {[s.chest ? t("shop.customOpt.chestShort", { n: s.chest }) : "", s.length ? t("shop.customOpt.lengthShort", { n: s.length }) : ""].filter(Boolean).join(" · ")}
+                        {[s.waist ? t("shop.customOpt.waistShort", { n: s.waist }) : "", s.chest ? t("shop.customOpt.chestShort", { n: s.chest }) : "", s.length ? t("shop.customOpt.lengthShort", { n: s.length }) : ""].filter(Boolean).join(" · ")}
                       </span>
                     )}
                     {n > 0 && <span className="absolute bottom-1.5 right-1.5 min-w-6 h-6 px-1.5 rounded-md bg-neutral-900 text-white text-xs font-bold flex items-center justify-center tabular-nums">{n}</span>}
                   </button>
                 );
               })}
-              {addTile(() => setEditing({ group: "sizes", item: null }), "h-20")}
+              {addTile(() => setEditing({ group: sizeGroup, item: null }), "h-20")}
             </div>
 
-            {/* Names list: one row per piece of this design, follows the size counts above. */}
-            <p className={heading}>
-              {t("shop.customReg.list")} · {t("shop.register.pieces", { n: d.rows.length })}
-              {dEst && dEst.pants > 0 && ` · ${t("shop.customReg.pants", { n: dEst.pants })}`}
-            </p>
-            {d.rows.length === 0 ? (
-              <p className="text-xs text-text-muted">{t("shop.customReg.listHint")}</p>
-            ) : (
-              <RosterEditor key={d.id} rows={d.rows} onChange={setRows} defaultSleeve={pk.sleeveKind} sizes={sizes} pant={d.jersey && Boolean(pk.pant)} noSleeve={!d.jersey} />
+            {/* Names list: one row per jersey of this design, follows the size counts above. Pant-only designs have no names, so the list is hidden (the size counts still set the pieces). */}
+            {d.jersey && (
+              <>
+                <p className={heading}>
+                  {t("shop.customReg.list")} · {t("shop.register.pieces", { n: d.rows.length })}
+                  {dEst && dEst.pants > 0 && ` · ${t("shop.customReg.pants", { n: dEst.pants })}`}
+                </p>
+                {d.rows.length === 0 ? (
+                  <p className="text-xs text-text-muted">{t("shop.customReg.listHint")}</p>
+                ) : (
+                  <RosterEditor key={d.id} rows={d.rows} onChange={setRows} defaultSleeve={pk.sleeveKind} sizes={sizes} pant={Boolean(pk.pant)} />
+                )}
+              </>
             )}
           </div>
         </section>
@@ -995,7 +1113,9 @@ export function CustomRegister() {
   );
 }
 
-/** A gallery design as a reference on the slip, with all its pictures for browsing. */
-function galleryRef(g: DesignRow): DesignRef {
-  return { path: g.image_url, name: g.title || g.caption || "design", mime: "image/*", size: 0, kind: "reference", design_id: g.id, preview: g.image_url, images: designImages(g) };
+/** A gallery design on the slip: one card per picture (front, back...) so each can be labelled. */
+function galleryRefs(g: DesignRow): DesignRef[] {
+  const pics = designImages(g);
+  const name = g.title || g.caption || "design";
+  return pics.map((src, k) => ({ path: src, name: pics.length > 1 ? `${name} (${k + 1}/${pics.length})` : name, mime: "image/*", size: 0, kind: "reference", design_id: g.id, preview: src }));
 }

@@ -14,6 +14,7 @@ import {
   RotateCcw,
   FileSpreadsheet,
   Eye,
+  EyeOff,
 } from "lucide-react";
 import { ProductFormModal } from "@/components/admin/products/ProductFormModal";
 import { ProductImport } from "@/components/admin/products/ProductImport";
@@ -617,10 +618,13 @@ export default function AdminProducts() {
                       <span className="p-2.5 flex flex-col gap-0.5 flex-1">
                         <span className="text-sm font-medium text-on-surface line-clamp-2">{product.title}</span>
                         <span className="text-xs text-text-muted truncate">{product.category || "—"}</span>
-                        <span className="text-sm font-semibold text-on-surface tabular-nums">৳ {Number(product.price || 0).toLocaleString("en-US")}</span>
+                        <span className="text-sm font-semibold text-on-surface tabular-nums pr-6">৳ {Number(product.price || 0).toLocaleString("en-US")}</span>
                         <span className="text-xs mt-auto pt-1"><UpdatedAgo at={product.updated_at} inline /></span>
                       </span>
                     </button>
+                    <span className="absolute right-2 bottom-[2.1rem]">
+                      <CostPeek cost={product.cost_price} />
+                    </span>
                     <a
                       href={`/preview/product/${product.id}`}
                       target="_blank"
@@ -822,7 +826,10 @@ export default function AdminProducts() {
                     </td>
 
                     <td className="px-4 py-3 text-sm text-on-surface text-right whitespace-nowrap">
-                      <div>৳ {Number(product.price || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</div>
+                      <div className="flex items-center justify-end gap-1">
+                        <CostPeek cost={product.cost_price} />
+                        <span>৳ {Number(product.price || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                      </div>
                       {/* A discount that is entered but not visible is a
                           discount an admin cannot check, so it is shown as the
                           struck-through original next to the real price. */}
@@ -972,6 +979,39 @@ export default function AdminProducts() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Buying price, hidden until asked for. Hover shows it on a mouse; a click
+ * (or tap) keeps it shown, so it works on a phone too. Hidden by default so a
+ * customer standing at the counter does not read the cost off the screen.
+ */
+function CostPeek({ cost }: { cost: number | null | undefined }) {
+  const [open, setOpen] = useState(false);
+  const value = Number(cost || 0);
+  return (
+    <span className="relative inline-flex items-center group/cost">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setOpen((v) => !v);
+        }}
+        className={`p-1 rounded transition-colors ${open ? "text-primary" : "text-text-muted hover:text-primary"}`}
+        aria-label={open ? "Hide buying price" : "Show buying price"}
+        aria-pressed={open}
+      >
+        {open ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+      </button>
+      <span
+        className={`absolute right-full mr-1 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-on-surface px-2 py-1 text-xs font-medium text-surface-card shadow-md pointer-events-none z-10 ${open ? "block" : "hidden group-hover/cost:block"}`}
+        role="status"
+      >
+        Buying: {value > 0 ? `৳ ${value.toLocaleString("en-US")}` : "not set"}
+      </span>
+    </span>
   );
 }
 

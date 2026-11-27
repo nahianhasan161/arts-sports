@@ -136,11 +136,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Order must be in a cancellable state
-    if (["shipped", "delivered", "returned"].includes(order.status)) {
+    if (["shipped", "delivered", "returned", "cancelled"].includes(order.status)) {
       return NextResponse.json(
         { error: `Cannot cancel order in '${order.status}' status` },
         { status: 400 }
       );
+    }
+
+    // One open request per order.
+    const { data: open } = await supabase
+      .from("cancellations")
+      .select("id")
+      .eq("order_id", order_id)
+      .eq("status", "pending")
+      .limit(1);
+    if (open && open.length > 0) {
+      return NextResponse.json({ error: "A cancel request for this order is already pending" }, { status: 409 });
     }
 
     const { data, error } = await supabase

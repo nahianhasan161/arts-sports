@@ -5,6 +5,8 @@ export interface StockRow {
   label: string;
   /** The product's first picture (cards view). */
   image?: string | null;
+  /** Product page slug, for the QR on labels. */
+  slug?: string | null;
   sku: string | null;
   barcode: string | null;
   stock: number;

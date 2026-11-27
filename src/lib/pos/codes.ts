@@ -1,7 +1,7 @@
 import qrcode from "qrcode-generator";
 
 /**
- * Barcode (Code 128, set B) and QR code drawing, as plain SVG data so the
+ * Barcode (Code 128: set C for an even number of digits, set B otherwise) and QR code drawing, as plain SVG data so the
  * labels and receipts print sharply from the browser on any printer.
  */
 
@@ -12,6 +12,7 @@ const PATTERNS =
   );
 
 const START_B = 104;
+const START_C = 105;
 const STOP = 106;
 
 /** Text a Code 128 B barcode can carry: printable ASCII only. */
@@ -28,13 +29,17 @@ export interface Bars {
 
 export function code128(value: string): Bars | null {
   if (!isBarcodeText(value)) return null;
-  const symbols = [START_B];
-  let sum = START_B;
-  for (let i = 0; i < value.length; i++) {
-    const v = value.charCodeAt(i) - 32;
+  // Set C packs two digits per symbol: a long number (the 20-digit label) stays
+  // half as wide, so its bars are thick enough for a scanner to read.
+  const pairs = /^(\d\d)+$/.test(value);
+  const start = pairs ? START_C : START_B;
+  const values = pairs ? (value.match(/\d\d/g) ?? []).map(Number) : [...value].map((ch) => ch.charCodeAt(0) - 32);
+  const symbols = [start];
+  let sum = start;
+  values.forEach((v, i) => {
     symbols.push(v);
     sum += v * (i + 1);
-  }
+  });
   symbols.push(sum % 103, STOP);
 
   const quiet = 10;

@@ -2,24 +2,30 @@ import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { normalizeBdPhone } from "@/lib/phone";
-import { customerLink, dueFor, explainDbError, findOrder, loadConfig, moveOrder, notifyCustomOrder, paidTotal, recordManualPayment } from "@/lib/custom-jersey/server";
-import { advanceFor, estimate, parseChoice, parseLogoType, resolveChoice } from "@/lib/custom-jersey/pricing";
+import { customerLink, dueFor, explainDbError, findOrder, loadConfig, moveOrder, notifyCustomOrder, paidTotal, queueIfAdvanceCovered, recordManualPayment, stageLabel } from "@/lib/custom-jersey/server";
+import { formatMoney, resolveLocale } from "@/i18n";
+import { advanceFor, estimate, parseAdvance, parseChoice, parseLogoType, resolveChoice } from "@/lib/custom-jersey/pricing";
 import { isDesignPath } from "@/lib/custom-jersey/files";
 import { cleanRosterRow } from "@/lib/custom-jersey/roster";
-import { SPORTS, orderTotal, type Collar, type OrderItem, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
+import { COUNTER_STEPS, SPORTS, STATUSES, orderTotal, type Collar, type OrderItem, type RosterRow, type Sleeve, type UploadedFile } from "@/lib/custom-jersey/types";
 import { estimateOrder, MAX_ITEMS } from "@/lib/custom-jersey/items";
 import { bad, failed } from "@/lib/pos/http";
 import type { CounterOrder } from "@/components/admin/pos/CustomTab";
 
+/** Latest orders per page when the search box is empty. */
+const PAGE = 12;
 const PAY_METHODS = ["cash", "card", "bkash", "nagad"];
 const NOT_PAYABLE = ["submitted", "in_review", "changes_needed", "mockup_sent", "revision_requested", "rejected", "cancelled"];
 
 /**
  * Custom jersey orders at the counter (roadmap 4.3).
  *
- * GET  ?q=<order number, phone, or the scanned receipt QR>   stage and balance
+ * GET  ?q=<order number, name, phone, or the scanned receipt QR>   stage and balance
+ *      (no q: the latest orders, PAGE at a time from ?offset=, so the counter can see what was just taken)
+ *      &status=<status> or status=open (not delivered/rejected/cancelled) narrows the list
  * POST { id, action: "payment", amount, method, trx_id }     take the advance or the balance
  *      { id, action: "handover" }                            ready -> delivered, once fully paid
+ *      { id, action: "move", to, from }                      production step (any of queued … ready)
  *      { action: "create", ... }                             a new order taken at the counter (see createOrder)
  */
 export async function GET(request: Request) {
@@ -28,21 +34,32 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const id = params.get("id");
     const q = (params.get("q") ?? "").trim().slice(0, 200);
-    if (!q && !id) return NextResponse.json({ orders: [] });
     const db = getServiceSupabase(actor);
 
     const columns = "id, order_number, access_token, customer_name, customer_phone, quantity, fabric_name, sport, final_price, estimated_price, advance_amount, delivery_charge, status, due_date, needed_by, created_at";
-    let query = db.from("custom_orders").select(columns).order("created_at", { ascending: false }).limit(10);
+    const offset = Math.max(0, Math.floor(Number(params.get("offset")) || 0));
+    const latest = !q && !id;
+    let query = db.from("custom_orders").select(columns).order("created_at", { ascending: false });
+    // One extra row tells the list whether there is another page.
+    query = latest ? query.range(offset, offset + PAGE) : query.limit(10);
     // The receipt QR is the customer's link, which ends in the access token.
     const token = q.match(/order\/([0-9a-f]{40,})/i)?.[1];
     const phone = normalizeBdPhone(q);
+    const status = params.get("status") ?? "";
+    if (status === "open") query = query.not("status", "in", "(delivered,rejected,cancelled)");
+    else if ((STATUSES as readonly string[]).includes(status)) query = query.eq("status", status);
     if (id) query = query.eq("id", id);
     else if (token) query = query.eq("access_token", token);
     else if (phone) query = query.eq("customer_phone", phone);
-    else query = query.ilike("order_number", `%${q.replace(/[%,()]/g, "")}%`);
+    else if (q) {
+      const term = q.replace(/[%,()*]/g, "");
+      query = query.or(`order_number.ilike.%${term}%,customer_name.ilike.%${term}%`);
+    }
 
-    const { data, error } = await query;
+    const { data: found, error } = await query;
     if (error) return bad(explainDbError(error.message), 500);
+    const more = latest && (found ?? []).length > PAGE;
+    const data = more ? (found ?? []).slice(0, PAGE) : found;
     // The designs, when the order has several (column from migration 20261121100000; skipped before it).
     const ids = (data ?? []).map((o) => o.id);
     const designsOf = new Map<string, NonNullable<CounterOrder["designs"]>>();
@@ -60,14 +77,21 @@ export async function GET(request: Request) {
       }
     }
 
+    // Paid so far, read once for the whole page (not one query per order).
+    const paidOf = new Map<string, number>();
+    if (ids.length) {
+      const { data: pays } = await db.from("custom_order_payments").select("custom_order_id, amount").in("custom_order_id", ids).eq("status", "successful");
+      for (const p of pays ?? []) paidOf.set(p.custom_order_id, (paidOf.get(p.custom_order_id) ?? 0) + Number(p.amount));
+    }
+
     const orders = [];
     for (const o of data ?? []) {
-      const paid = await paidTotal(o.id);
+      const paid = paidOf.get(o.id) ?? 0;
       const due = dueFor({ ...o, final_price: o.final_price === null ? null : Number(o.final_price), delivery_charge: Number(o.delivery_charge), advance_amount: o.advance_amount === null ? null : Number(o.advance_amount) }, paid);
       const { access_token, ...rest } = o;
       orders.push({ ...rest, designs: designsOf.get(o.id) ?? [], link: customerLink(access_token), paid: due.paid, total: due.total, payable: due.payable, kind: due.kind, can_pay: !NOT_PAYABLE.includes(o.status) && o.final_price !== null });
     }
-    return NextResponse.json({ orders });
+    return NextResponse.json({ orders, more });
   } catch (error) {
     return failed(error);
   }
@@ -103,6 +127,24 @@ export async function POST(request: Request) {
       if (due.total - due.paid > 0.001) return bad(`৳${due.total - due.paid} is still to be paid`);
       const moved = await moveOrder(order, "delivered", { kind: "staff", id: user.id }, { note: "Handed over at the shop" });
       if (!moved) return bad("Someone else just changed this order. Search again.", 409);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (b.action === "move") {
+      const to = COUNTER_STEPS.find((x) => x === b.to);
+      // `from` = the status the screen showed, so a stale screen cannot skip a step.
+      if (typeof b.from === "string" && b.from !== order.status) return bad("Someone else just changed this order. Search again.", 409);
+      // Any production step to any other (staff pick the step from a list); review/mockup stay on the online board.
+      if (!to || to === order.status || !(COUNTER_STEPS as readonly string[]).includes(order.status)) {
+        return bad(`An order that is "${order.status}" cannot be moved to "${String(b.to)}" here`);
+      }
+      const moved = await moveOrder(order, to, { kind: "staff", id: user.id }, { note: "Moved at the shop counter" });
+      if (!moved) return bad("Someone else just changed this order. Search again.", 409);
+      // Same customer messages as the online board, only when the order moves forward.
+      const forward = COUNTER_STEPS.indexOf(to) > COUNTER_STEPS.indexOf(order.status as (typeof COUNTER_STEPS)[number]);
+      if (!forward) { /* sent back to fix something: no message */ }
+      else if (to === "ready") await notifyCustomOrder(order, "custom_ready", { amount: formatMoney(dueFor({ ...order, status: to }, paid).payable, resolveLocale(order.locale)) });
+      else if (to !== "queued") await notifyCustomOrder(order, "custom_stage", { stage: stageLabel(to, order.locale) });
       return NextResponse.json({ ok: true });
     }
 
@@ -228,7 +270,13 @@ async function saveCounterOrder(
 
   const now = new Date().toISOString();
   const total = finalPrice === null ? 0 : orderTotal({ final_price: finalPrice, delivery_charge: deliveryCharge });
-  const advance = finalPrice === null ? null : advanceFor(total, config.pricing);
+  // Staff pick the advance (30%, 50%, any amount, or none); empty = the settings %.
+  let advance: number | null = null;
+  if (finalPrice !== null) {
+    const asked = parseAdvance(b.advance_amount, total);
+    if (Number.isNaN(asked)) return bad("The advance must be between ৳0 and the order total");
+    advance = asked ?? advanceFor(total, config.pricing);
+  }
   const { data: created, error } = await db
     .from("custom_orders")
     .insert({
@@ -283,7 +331,11 @@ async function saveCounterOrder(
     }
   }
 
-  await notifyCustomOrder(order, confirmNow ? "custom_approved" : "custom_submitted", confirmNow ? { amount: `৳${advance}` } : {});
+  // No advance (or the advance paid in full above): straight into the production queue.
+  const queued = confirmNow && advance === 0 ? await queueIfAdvanceCovered(order.id, { kind: "staff", id: staffId }, "No advance (agreed at the counter)") : false;
+
+  if (!queued) await notifyCustomOrder(order, confirmNow ? "custom_approved" : "custom_submitted", confirmNow ? { amount: `৳${advance}` } : {});
+  else await notifyCustomOrder(order, "custom_stage", { stage: stageLabel("queued", order.locale) });
   return NextResponse.json({ ok: true, id: order.id, order_number: order.order_number, estimated_price: o.estimate, payment_error: paymentError });
 }
 

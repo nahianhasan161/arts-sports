@@ -226,7 +226,7 @@ export function OrderDrawer({
             <section className="bg-surface-card rounded-xl border border-border-light p-4 flex flex-col gap-3">
               <h3 className={sectionTitle}>Next step</h3>
               {o.status_reason && <p className="text-sm bg-surface-subtle rounded p-2">Reason given: {o.status_reason}</p>}
-              {o.status === "approved" && <p className="text-sm">The customer confirmed the design. Waiting for the advance of <strong>{taka(o.advance_amount ?? 0)}</strong>; it moves to the queue by itself once that is paid.</p>}
+              {o.status === "approved" && <p className="text-sm">The customer confirmed the design. Waiting for the advance of <strong>{taka(o.advance_amount ?? 0)}</strong>; it moves to the queue by itself once that is paid. (Change the advance under Payments; No advance starts it now.)</p>}
               {o.status === "changes_needed" && <p className="text-sm">Waiting for the customer to send it again.</p>}
 
               {(forward || backward) && (
@@ -449,6 +449,9 @@ export function OrderDrawer({
                   Total {taka(data.due.total)} · Advance {o.advance_amount === null ? "after the customer confirms" : taka(o.advance_amount)} · Paid <strong>{taka(data.due.paid)}</strong> · Left <strong>{taka(Math.max(0, data.due.total - data.due.paid))}</strong>
                 </p>
               )}
+              {o.final_price !== null && (BEFORE_APPROVAL.includes(o.status) || o.status === "approved") && (
+                <AdvancePicker total={data.due.total} current={o.advance_amount} busy={busy !== null} onSave={(n) => act("update", { advance_amount: n })} />
+              )}
               {o.payments.length > 0 && (
                 <ul className="text-sm divide-y divide-border-light">
                   {o.payments.map((p) => (
@@ -539,4 +542,27 @@ function chosenText(b: Record<string, unknown> | null | undefined, collar: strin
   if (!c) return "";
   const type = collar === "polo" ? "polo" : "T-shirt";
   return [type, c.sleeve?.name_en, c.collar?.name_en, ...(c.extras ?? []).map((x) => x.name_en), c.logo ? `logo: ${c.logo.name_en}` : ""].filter(Boolean).join(" · ");
+}
+
+/** The advance for this order: 30%, 50%, any amount, or none. Customers often pay 30%, sometimes 50%. */
+function AdvancePicker({ total, current, busy, onSave }: { total: number; current: number | null; busy: boolean; onSave: (amount: number) => Promise<boolean> }) {
+  const [own, setOwn] = useState("");
+  const of = (p: number) => Math.ceil((total * p) / 100);
+  const chip = (on: boolean) => `h-8 px-2.5 rounded border text-xs font-semibold tabular-nums ${on ? "border-primary bg-primary/10 text-on-surface" : "border-border-light bg-surface-card hover:border-primary"}`;
+  const choices = [30, 50].map((p) => ({ label: `${p}% · ${taka(of(p))}`, amount: of(p) }));
+  const ownAmount = own === "" ? null : Math.round(Number(own));
+  const ownOk = ownAmount !== null && Number.isFinite(ownAmount) && ownAmount >= 0 && ownAmount <= total;
+  return (
+    <div className="flex flex-col gap-1.5 border-t border-border-light pt-3">
+      <span className="text-xs font-semibold">Advance {current === null ? "(settings % when the customer confirms)" : `now ${taka(current)}`}</span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {choices.map((c) => (
+          <button key={c.label} type="button" className={chip(current === c.amount)} disabled={busy} onClick={() => void onSave(c.amount)}>{c.label}</button>
+        ))}
+        <button type="button" className={chip(current === 0)} disabled={busy} onClick={() => void onSave(0)}>No advance</button>
+        <input type="number" min={0} max={total} placeholder="Other ৳" className={`${field} w-24 h-8`} value={own} onChange={(e) => setOwn(e.target.value)} />
+        <button type="button" className={chip(false)} disabled={busy || !ownOk} onClick={() => ownAmount !== null && void onSave(ownAmount).then((ok) => ok && setOwn(""))}>Set</button>
+      </div>
+    </div>
+  );
 }

@@ -169,7 +169,20 @@ function seedOptions(x: PricingConfig["extras"]): JerseyOptions {
       ["3XL", 46, 31],
     ].map(([label, chest, length]) => ({ id: String(label).toLowerCase(), label: String(label), chest: Number(chest), length: Number(length) })),
     pants: seedPants(x),
+    pant_sizes: seedPantSizes(),
   };
+}
+
+/** Starting pant sizes (waist / length, inches); staff change or delete them. */
+function seedPantSizes(): SizeOption[] {
+  return [
+    ["28", 28, 38],
+    ["30", 30, 39],
+    ["32", 32, 40],
+    ["34", 34, 40],
+    ["36", 36, 41],
+    ["38", 38, 41],
+  ].map(([label, waist, length]) => ({ id: `p${label}`, label: String(label), chest: null, waist: Number(waist), length: Number(length) }));
 }
 
 /** Starting pant styles (placeholder prices; staff change them in the POS panel). */
@@ -222,6 +235,13 @@ export function normalizeOptions(raw: unknown, extras: PricingConfig["extras"] =
       const label = optText(o.label, 12).toUpperCase();
       return label ? { id: id(o), label, chest: optInches(o.chest), length: optInches(o.length) } : null;
     }),
+    pant_sizes:
+      r.pant_sizes === undefined
+        ? seedPantSizes()
+        : list(r.pant_sizes, (o): SizeOption | null => {
+            const label = optText(o.label, 12).toUpperCase();
+            return label ? { id: id(o), label, chest: null, waist: optInches(o.waist), length: optInches(o.length) } : null;
+          }),
     // Lists saved before pants existed start with the seeded pant styles.
     pants: r.pants === undefined ? seedPants(extras) : list(r.pants, base),
   };
@@ -381,8 +401,24 @@ export function parseLogoType(v: unknown): LogoType | null {
 }
 
 /** The advance (30% by default), rounded up to a whole taka. */
-export function advanceFor(total: number, pricing: PricingConfig): number {
+export function advanceFor(total: number, pricing: PricingConfig | { advance_percent: number }): number {
   return Math.ceil((total * pricing.advance_percent) / 100);
+}
+
+/** The usual advance choices staff tap (with the settings % first when it differs). */
+export function advancePresets(pricing: { advance_percent: number }): number[] {
+  return [...new Set([30, 50, pricing.advance_percent])].filter((p) => p > 0 && p < 100).sort((a, b) => a - b);
+}
+
+/**
+ * An advance amount sent by staff: a number from 0 (no advance) up to the total, whole taka.
+ * Undefined / empty = not given (use the default). NaN = not valid.
+ */
+export function parseAdvance(v: unknown, total: number): number | undefined {
+  if (v === undefined || v === null || v === "") return undefined;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0 || n > total + 0.001) return NaN;
+  return Math.round(n);
 }
 
 /** "M", "BOYS 26", "CUSTOM": the size with its fit, for counts and lists. */

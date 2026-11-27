@@ -11,6 +11,7 @@ import { QrCode } from "@/components/admin/pos/Codes";
 import { Lines, ReceiptShop } from "@/components/admin/pos/ReceiptShop";
 import { useReceiptSettings } from "@/components/admin/pos/useReceiptSettings";
 import { CopyImageButton } from "@/components/admin/pos/CopyImageButton";
+import { CopiesPicker, type Copies } from "@/components/admin/pos/CopiesPicker";
 import type { CounterOrder } from "@/components/admin/pos/CustomTab";
 
 /**
@@ -26,6 +27,7 @@ export default function CustomReceiptPage({ params }: { params: Promise<{ id: st
   const [order, setOrder] = useState<CounterOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const rs = useReceiptSettings();
+  const [copies, setCopies] = useState<Copies>("both");
 
   useEffect(() => {
     void api<{ orders: CounterOrder[] }>(`/api/admin/pos/custom?id=${encodeURIComponent(id)}`).then((res) => {
@@ -91,16 +93,21 @@ export default function CustomReceiptPage({ params }: { params: Promise<{ id: st
         <button className={btnPrimary} onClick={() => window.print()}>
           <Printer className="w-4 h-4" /> {t("shop.common.print")}
         </button>
+        <CopiesPicker value={copies} onChange={setCopies} />
         <CopyImageButton target={imgRef} fileName={`custom-receipt-${id}`} className={btnGhost} />
         <CopyImageButton mode="download" target={imgRef} fileName={`custom-receipt-${id}`} className={btnGhost} />
       </div>
       <style>{`@media print { @page { size: A4; margin: 10mm; } body { background: #fff !important; } }`}</style>
       <div className="bg-white w-full max-w-[190mm] p-4 print:p-0 mx-auto print:mx-0">
-        <div ref={imgRef} className="bg-white">{copy(t("shop.receipt.customerCopy"))}</div>
-        <div className="my-5 border-t border-dashed border-black relative">
-          <span className="absolute -top-2 left-4 bg-white px-1 text-[10px] text-black">✂ {t("shop.receipt.cut")}</span>
-        </div>
-        {copy(t("shop.receipt.shopCopy"))}
+        {copies !== "shop" && <div ref={imgRef} className="bg-white">{copy(t("shop.receipt.customerCopy"))}</div>}
+        {copies === "both" && (
+          <div className="my-5 border-t border-dashed border-black relative">
+            <span className="absolute -top-2 left-4 bg-white px-1 text-[10px] text-black">✂ {t("shop.receipt.cut")}</span>
+          </div>
+        )}
+        {copies !== "customer" && (
+          <div ref={copies === "shop" ? imgRef : undefined} className="bg-white">{copy(t("shop.receipt.shopCopy"))}</div>
+        )}
       </div>
     </div>
   );

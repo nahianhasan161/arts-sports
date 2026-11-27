@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, Tag, Users, Palette, Ruler, Percent, Ticket, Shield, Images,
   CreditCard, RotateCcw, AlertCircle, KeyRound, History, PhoneCall, Settings2, Truck, Trophy,
   MessageSquareText, Shirt, Store, Boxes, Contact, LifeBuoy, Building2, ScanBarcode, SlidersHorizontal,
-  Receipt, Wallet, PackagePlus, Handshake, Layers, Sticker, Factory,
+  Receipt, Wallet, PackagePlus, Handshake, Layers, Sticker, Factory, ChartColumnBig,
 } from "lucide-react";
 import type { AdminMessages } from "@/i18n/messages/admin.en";
 
@@ -43,7 +43,13 @@ export interface NavGroup {
 }
 
 export const NAV: NavGroup[] = [
-  { id: "overview", items: [{ id: "dashboard", href: ONLINE, icon: LayoutDashboard }] },
+  {
+    id: "overview",
+    items: [
+      { id: "dashboard", href: ONLINE, icon: LayoutDashboard },
+      { id: "reports", href: `${ONLINE}/reports`, icon: ChartColumnBig, perm: "reports.financial" },
+    ],
+  },
   {
     id: "sales",
     items: [
@@ -110,6 +116,7 @@ export const NAV: NavGroup[] = [
 /** The shop's top menu, in the order a day at the counter goes. */
 export const OFFLINE_NAV: NavItem[] = [
   { id: "storeHome", href: OFFLINE, icon: Store, perm: "pos.use" },
+  { id: "reports", href: `${OFFLINE}/reports`, icon: ChartColumnBig, perm: "reports.financial" },
   { id: "pos", href: REGISTER, icon: ScanBarcode, perm: "pos.use" },
   { id: "shopOrders", href: `${OFFLINE}/orders`, icon: Receipt, perm: "pos.use" },
   { id: "shopCustom", href: `${OFFLINE}/pos?type=custom-jersey`, icon: Shirt, perm: "pos.use" },

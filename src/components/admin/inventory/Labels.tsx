@@ -4,13 +4,19 @@ import { useState } from "react";
 import { Printer } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { api, btnGhost, btnPrimary, field } from "@/components/admin/pos/api";
-import { Barcode } from "@/components/admin/pos/Codes";
+import { QrCode } from "@/components/admin/pos/Codes";
+import { labelNumber } from "@/lib/pos/label-code";
 import type { StockRow } from "./types";
 
 /**
  * Barcode labels (Code 128) for an A4 sticker sheet, 3 across and 8 down.
  * The code printed is the variant's barcode, or its SKU when it has no
  * barcode; "Give barcodes" makes one for every chosen item that has neither.
+ *
+ * The code on each label is a QR holding the 20-digit label number, with the
+ * number printed under it (`lib/pos/label-code.ts`): first 8 digits = the item,
+ * 3rd group = buying price + 50 (staff only). The register reads it back on a
+ * scan, from a QR/barcode scanner or the camera.
  */
 export function Labels({ rows, onChanged }: { rows: StockRow[]; onChanged: (message: string) => void }) {
   const { t } = useT();
@@ -68,8 +74,8 @@ export function Labels({ rows, onChanged }: { rows: StockRow[]; onChanged: (mess
             <p className="text-[9px] font-semibold leading-tight line-clamp-2 w-full">
               {row.title} {row.label && `· ${row.label}`}
             </p>
-            <Barcode value={code(row)} height={36} className="w-full h-[14mm] my-[1mm]" />
-            <p className="text-[9px] font-mono leading-none">{code(row)}</p>
+            <QrCode value={labelNumber(code(row), row.cost_price).bars} size={96} className="w-[20mm] h-[20mm] my-[0.8mm]" />
+            <p className="text-[9px] font-mono leading-none whitespace-nowrap">{labelNumber(code(row), row.cost_price).text}</p>
           </div>
         ))}
       </div>

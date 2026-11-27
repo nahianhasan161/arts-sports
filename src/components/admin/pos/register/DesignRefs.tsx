@@ -5,7 +5,7 @@ import { Check, ChevronLeft, ChevronRight, FileText, FileUp, Images, Loader2, Ma
 import { useT } from "@/i18n/client";
 import { usePasteDrop } from "@/components/custom-jersey/usePasteDrop";
 import type { UploadedFile } from "@/lib/custom-jersey/types";
-import { categoryName, OTHER_CATEGORY, type DesignCategoryRow, type DesignRow } from "@/lib/custom-jersey/designs";
+import { categoryName, designImages, OTHER_CATEGORY, type DesignCategoryRow, type DesignRow } from "@/lib/custom-jersey/designs";
 import { usePosCatalog, useCatalog } from "@/lib/pos/catalog-store";
 import type { PosProduct } from "@/lib/pos/types";
 import { api, btnGhost, field } from "../api";
@@ -64,8 +64,8 @@ export function DesignRefs({ refs, setRefs, uploading, onUpload }: {
             setRefs((l) => [
               ...l,
               ...list
-                .slice(0, MAX_REFS - l.length)
-                .map((p) => ({ path: p.image, name: p.title, mime: "image/*", size: 0, kind: "reference" as const, product_id: p.product_id, design_id: p.design_id, preview: p.image })),
+                .flatMap((p) => (p.images?.length ? p.images : [p.image]).map((img, k, arr) => ({ path: img, name: arr.length > 1 ? `${p.title} (${k + 1}/${arr.length})` : p.title, mime: "image/*", size: 0, kind: "reference" as const, product_id: p.product_id, design_id: p.design_id, preview: img })))
+                .slice(0, MAX_REFS - l.length),
             ])
           }
         />
@@ -84,7 +84,7 @@ export function DesignRefs({ refs, setRefs, uploading, onUpload }: {
                   {r.preview ? (
                     <button type="button" onClick={() => setBig(shown.findIndex((x) => x.i === i))} aria-label={t("shop.customNew.viewBig")} className="absolute inset-0 cursor-zoom-in">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={r.preview} alt={r.note || r.name} className="w-full h-full object-cover" />
+                      <img src={r.preview} alt={r.note || r.name} className="w-full h-full object-contain" />
                     </button>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 text-text-muted">
@@ -169,7 +169,7 @@ export function Lightbox({ items, index, setIndex }: { items: { src: string; tit
   );
 }
 
-type Pick = { key: string; image: string; title: string; product_id?: string; design_id?: string };
+type Pick = { key: string; image: string; images?: string[]; title: string; product_id?: string; design_id?: string };
 type Tab = "designs" | "products";
 
 /**
@@ -205,7 +205,7 @@ function CatalogGallery({ room, onAdd, onClose }: { room: number; onAdd: (list: 
           (!needle || `${d.title ?? ""}\n${d.caption ?? ""}`.toLowerCase().includes(needle))
       );
       return {
-        list: all.slice(offset, offset + 40).map((d) => ({ key: `d:${d.id}`, image: d.image_url, title: d.title || d.caption || t("shop.customNew.tabDesigns"), design_id: d.id })),
+        list: all.slice(offset, offset + 40).map((d) => ({ key: `d:${d.id}`, image: d.image_url, title: d.title || d.caption || t("shop.customNew.tabDesigns"), design_id: d.id, images: designImages(d) })),
         more: all.length > offset + 40,
       };
     }
@@ -228,7 +228,7 @@ function CatalogGallery({ room, onAdd, onClose }: { room: number; onAdd: (list: 
       if (!res.ok) return { list: [] as Pick[], more: false };
       if (res.data.categories) setCats(res.data.categories);
       return {
-        list: res.data.designs.map((d) => ({ key: `d:${d.id}`, image: d.image_url, title: d.title || d.caption || t("shop.customNew.tabDesigns"), design_id: d.id })),
+        list: res.data.designs.map((d) => ({ key: `d:${d.id}`, image: d.image_url, title: d.title || d.caption || t("shop.customNew.tabDesigns"), design_id: d.id, images: designImages(d) })),
         more: Boolean(res.data.has_more),
       };
     }

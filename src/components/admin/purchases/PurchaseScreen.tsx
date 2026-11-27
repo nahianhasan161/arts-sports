@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ChevronDown, FolderPlus, LayoutGrid, List, Menu, Monitor, Moon, PackagePlus, Plus, RotateCw, Search, Sun, Truck, UserRound, X } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, ChevronDown, FolderPlus, LayoutGrid, List, Menu, Monitor, Moon, PackagePlus, Plus, RotateCw, Search, Sun, Truck, UserRound, X } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useAdminAccess } from "@/components/admin/access";
 import { LanguageToggle } from "@/components/layout/Preferences";
@@ -19,6 +19,7 @@ import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "@/compo
 import type { Showroom, StockRow } from "@/components/admin/inventory/types";
 import { methodKey, plainItemId, purchaseNo, SUPPLIER_PAY_METHODS, type PurchaseRow, type SupplierBalance, type SupplierFull, type SupplierPayMethod } from "@/lib/pos/purchase-types";
 import { SupplierForm } from "./SupplierForm";
+import { CameraScan } from "@/components/admin/pos/CameraScan";
 import { PurchaseList } from "./PurchaseList";
 import { NewCategory, NewProduct } from "./QuickAdd";
 import { searchLocal, useCatalogIndex } from "@/lib/pos/catalog-store";
@@ -68,6 +69,8 @@ export function PurchaseScreen() {
   const [serverCategories, setCategories] = useState<{ id: string; name: string; image?: string | null }[]>([]);
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
+  // Camera scanner panel (QR or barcode read by the camera).
+  const [camera, setCamera] = useState(false);
   const [serverProducts, setProducts] = useState<PosProduct[] | null>(null);
   const [serverHasMore, setHasMore] = useState(false);
   // The catalogue kept on this device (same copy as the register). Once it and
@@ -424,6 +427,9 @@ export function PurchaseScreen() {
             </button>
           )}
         </form>
+        <button type="button" onClick={() => setCamera(true)} className="h-10 w-11 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center flex-shrink-0" title={t("shop.scan.camera")} aria-label={t("shop.scan.camera")}>
+          <Camera className="w-5 h-5" />
+        </button>
         <div className="relative flex-shrink-0">
           <button type="button" onClick={() => setNewMenu((o) => !o)} className="h-10 px-3 rounded-md bg-primary text-primary-foreground hover:opacity-90 flex items-center gap-1.5 text-sm font-semibold" aria-haspopup="menu" aria-expanded={newMenu}>
             <Plus className="w-5 h-5" /> <span className="hidden sm:inline">{t("shop.purchase.newMenu")}</span> <ChevronDown className="w-4 h-4" />
@@ -800,6 +806,20 @@ export function PurchaseScreen() {
               ))}
           </div>
         </Dialog>
+      )}
+
+      {camera && (
+        <CameraScan
+          onCode={(text) => {
+            setView("buy");
+            setQ(text);
+            void load(text, true);
+          }}
+          onClose={() => {
+            setCamera(false);
+            searchRef.current?.focus();
+          }}
+        />
       )}
 
       {popup === "supplier" && (

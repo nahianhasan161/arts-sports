@@ -48,7 +48,7 @@ export async function PUT(request: Request) {
 
     const current = await loadPricing();
     const cleaned = normalizeOptions({ ...current.options, [group]: b.items }, current.extras);
-    if (group === "sizes" && cleaned.sizes.length === 0) return bad("Keep at least one size");
+    if ((group === "sizes" || group === "pant_sizes") && cleaned[group].length === 0) return bad("Keep at least one size");
     const pricing = normalizePricing({ ...current, options: cleaned });
     const { error } = await getServiceSupabase(user)
       .from("app_settings")

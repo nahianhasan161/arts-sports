@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ArrowRight, User, Mail, Phone, MapPin, Edit, Save, Shield } from "lucide-react";
+import { ArrowRight, User, Mail, Edit, Save, Shield } from "lucide-react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { MyOrders } from "@/components/account/MyOrders";
 import { MyCustomOrders } from "@/components/account/MyCustomOrders";
+import { DeliveryDetails } from "@/components/account/DeliveryDetails";
 
 const AccountPage = () => {
   const { user, isAdmin, signOut } = useAuth();
@@ -211,67 +212,10 @@ const AccountPage = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-on-surface mb-1.5">Phone</label>
-                {editing ? (
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                    <input
-                      type="tel"
-                      value={profile.phone}
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                      placeholder="+880 1xxx xxxxxx"
-                      className="w-full h-10 pl-9 pr-3 border border-border-light rounded-lg text-xs font-medium focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-on-surface py-2.5 px-3 bg-surface-subtle rounded-lg">
-                    {profile.phone || "Not set"}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-on-surface mb-1.5">Address</label>
-                {editing ? (
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 w-4 h-4 text-text-muted" />
-                    <textarea
-                      value={profile.address}
-                      onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                      rows={2}
-                      placeholder="House, Road, Area, Dhaka"
-                      className="w-full px-3 py-2.5 border border-border-light rounded-lg text-xs font-medium focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors resize-none"
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-on-surface py-2.5 px-3 bg-surface-subtle rounded-lg">
-                    {profile.address || "Not set"}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-on-surface mb-1.5">City</label>
-                {editing ? (
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                    <input
-                      type="text"
-                      value={profile.city}
-                      onChange={(e) => setProfile({ ...profile, city: e.target.value })}
-                      placeholder="Dhaka, Chattogram, etc."
-                      className="w-full h-10 pl-9 pr-3 border border-border-light rounded-lg text-xs font-medium focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-on-surface py-2.5 px-3 bg-surface-subtle rounded-lg">
-                    {profile.city || "Not set"}
-                  </p>
-                )}
-              </div>
             </div>
           </div>
+
+          <DeliveryDetails />
 
           <div className="bg-surface-card border border-border-light rounded-xl p-space-lg shadow-sm">
             <h2 className="font-display text-lg uppercase tracking-wider font-bold text-primary mb-space-lg">

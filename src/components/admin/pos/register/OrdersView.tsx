@@ -38,6 +38,9 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
   const [active, setActive] = useState<string | null>(null);
   const [buffer, setBuffer] = useState("");
   const [method, setMethod] = useState<(typeof METHODS)[number]>("cash");
+  // Part refund: empty = give back the full value; otherwise what the customer actually gets.
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -69,6 +72,8 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
     setQty({});
     setActive(null);
     setBuffer("");
+    setAmount("");
+    setReason("");
   }
 
   const open = useCallback(async (id: string) => {
@@ -77,6 +82,8 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
     setQty({});
     setActive(null);
     setBuffer("");
+    setAmount("");
+    setReason("");
     const res = await api<SaleDetail>(`/api/admin/pos/sales/${id}`);
     if (res.ok) setDetail(res.data);
     else setMsg({ ok: false, text: res.error });
@@ -101,7 +108,18 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
 
   const left = (i: SaleDetail["items"][number]) => i.quantity - (i.returned_quantity ?? 0);
   const unit = (i: SaleDetail["items"][number]) => (i.quantity ? Number(i.line_total) / i.quantity : 0);
-  const refundTotal = detail ? detail.items.reduce((sum, i) => sum + unit(i) * (qty[i.id] ?? 0), 0) : 0;
+  // Same sum as pos_return_sale: each line's price less its share of the bill discount, capped at what is left.
+  const fullRefund = useMemo(() => {
+    if (!detail) return 0;
+    const lines = detail.items.reduce((sum, i) => sum + Number(i.line_total || 0), 0);
+    const factor = lines > 0 ? Number(detail.sale.total) / lines : 0;
+    const sum = detail.items.reduce((acc, i) => acc + Math.round(unit(i) * (qty[i.id] ?? 0) * factor * 100) / 100, 0);
+    return Math.max(0, Math.min(sum, Number(detail.sale.total) - Number(detail.sale.refunded_total || 0)));
+  }, [detail, qty]);
+  const picked = Object.values(qty).some((n) => n > 0);
+  const asked = amount.trim() === "" ? null : Number(amount);
+  const amountBad = asked !== null && (!Number.isFinite(asked) || asked < 0 || asked > fullRefund + 0.001);
+  const refundTotal = asked === null || amountBad ? fullRefund : asked;
 
   function press(key: PadKey) {
     if (!detail || !active) return;
@@ -130,7 +148,10 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
     if (!items.length) return;
     setBusy(true);
     setMsg(null);
-    const res = await api<{ refund_amount?: number }>(`/api/admin/pos/sales/${selected}`, { items, refund_method: method, restock: true, reason: "" });
+    if (amountBad) return;
+    const body: Record<string, unknown> = { items, refund_method: method, restock: true, reason: reason.trim() };
+    if (asked !== null && asked < fullRefund) body.refund_amount = asked;
+    const res = await api<{ refund_amount?: number }>(`/api/admin/pos/sales/${selected}`, body);
     setBusy(false);
     if (!res.ok) return setMsg({ ok: false, text: res.error });
     setMsg({ ok: true, text: t("shop.sales.returned", { amount: taka(res.data.refund_amount ?? refundTotal) }) });
@@ -277,8 +298,33 @@ export function OrdersView({ canManage, onCopy }: { canManage: boolean; onCopy: 
                     </option>
                   ))}
                 </select>
+                {picked && (
+                  <div className="rounded-md border border-border-light p-2 flex flex-col gap-1.5">
+                    <label className="flex items-center gap-2 text-sm text-on-surface">
+                      <span className="flex-1">{t("shop.sales.giveBack")}</span>
+                      <input
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                        inputMode="decimal"
+                        placeholder={String(Math.round(fullRefund * 100) / 100)}
+                        aria-invalid={amountBad}
+                        className={`w-32 h-10 rounded-md bg-surface-card border px-2 text-right text-base tabular-nums text-on-surface placeholder:text-text-muted focus:outline-none ${amountBad ? "border-badge-discount" : "border-border-light focus:border-primary"}`}
+                      />
+                    </label>
+                    <p className={`text-xs ${amountBad ? "text-badge-discount" : "text-text-muted"}`}>
+                      {amountBad
+                        ? t("shop.sales.giveBackTooMuch", { amount: taka(fullRefund) })
+                        : asked !== null && asked < fullRefund
+                          ? t("shop.sales.kept", { full: taka(fullRefund), kept: taka(fullRefund - asked) })
+                          : t("shop.sales.giveBackHint", { amount: taka(fullRefund) })}
+                    </p>
+                    {asked !== null && asked < fullRefund && (
+                      <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder={t("shop.sales.partReason")} className="h-9 rounded-md bg-surface-card border border-border-light px-2 text-sm text-on-surface placeholder:text-text-muted focus:outline-none focus:border-primary" />
+                    )}
+                  </div>
+                )}
                 {msg && <p className={`text-sm ${msg.ok ? "text-green-700 dark:text-green-400" : "text-badge-discount"}`}>{msg.text}</p>}
-                <button type="button" disabled={busy || refundTotal <= 0} onClick={() => void refund()} className="h-14 rounded-md bg-primary text-primary-foreground text-lg font-semibold disabled:opacity-40">
+                <button type="button" disabled={busy || !picked || amountBad} onClick={() => void refund()} className="h-14 rounded-md bg-primary text-primary-foreground text-lg font-semibold disabled:opacity-40">
                   {t("shop.sales.refund")} {refundTotal > 0 ? taka(refundTotal) : ""}
                 </button>
               </div>

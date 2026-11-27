@@ -13,6 +13,7 @@ import { AddressPicker, EMPTY_ADDRESS, type AddressValue } from "@/components/ch
 import { Turnstile, TURNSTILE_ENABLED } from "@/components/checkout/Turnstile";
 import { GoogleOneTap } from "@/components/checkout/GoogleOneTap";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { readDelivery } from "@/lib/delivery-details";
 import { useCheckoutSettings } from "@/lib/checkout-settings";
 import { formatMoney, type MessageKey } from "@/i18n";
 import { useT } from "@/i18n/client";
@@ -126,6 +127,18 @@ function CheckoutInner() {
     const meta = user.user_metadata ?? {};
     setName((n) => n || (typeof meta.full_name === "string" ? meta.full_name : ""));
     setEmail((e) => e || user.email || "");
+    // Details saved on the profile win over the last order's address.
+    const own = readDelivery(user);
+    if (own) {
+      if (own.name) setName(own.name);
+      if (own.phone) setPhone((p) => p || own.phone);
+      if (own.district) {
+        const a = { division: own.division, district: own.district, thana: own.thana, line: own.line };
+        setSavedAddress(a);
+        setAddress((cur) => (cur.district ? cur : a));
+      }
+      return;
+    }
     const supabase = getSupabaseBrowserClient();
     supabase
       ?.from("orders")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { Banknote, Receipt, Wallet, Boxes, Shirt, Contact, Building2, Link2, UserRound, Store, Play } from "lucide-react";
 import { useT } from "@/i18n/client";
@@ -8,6 +8,8 @@ import PageSkeleton from "@/components/ui/PageSkeleton";
 import { formatMoney } from "@/i18n";
 import { api } from "@/components/admin/pos/api";
 import { Stat, QuickLink, panel, num } from "@/components/admin/dashboard/parts";
+import { useAdminAccess } from "@/components/admin/access";
+import TodaySummary from "@/components/admin/reports/TodaySummary";
 
 interface StoreOverview {
   shops: { id: string; name: string; bills: number; total: number }[];
@@ -18,8 +20,24 @@ interface StoreOverview {
   low_stock: number;
 }
 
-/** The shop (POS) dashboard: every branch at a glance. Needs `pos.use`. */
+/**
+ * The shop app's home. The owner (anyone with "reports.financial") sees only
+ * today's summary and the last 30 days; each number opens the full report
+ * (/admin/offline/reports). Everyone else (`pos.use`): every branch at a glance
+ * and its register.
+ */
 export default function StoreOverviewPage() {
+  const { offlineItems } = useAdminAccess();
+  const canReport = offlineItems.some((i) => i.id === "reports");
+  if (!canReport) return <StoreOverview />;
+  return (
+    <Suspense>
+      <TodaySummary />
+    </Suspense>
+  );
+}
+
+function StoreOverview() {
   const { t, locale } = useT();
   const [data, setData] = useState<StoreOverview | null>(null);
   const [error, setError] = useState<string | null>(null);

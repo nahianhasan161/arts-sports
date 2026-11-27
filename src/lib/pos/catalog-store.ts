@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import type { CatalogProduct, PosCatalog, PosProduct, PosStock } from "./types";
+import { labelHead, labelScanHead } from "./label-code";
 
 /**
  * The register's catalogue, kept on this device (IndexedDB) so the register
@@ -150,6 +151,9 @@ export function buildIndex(catalog: PosCatalog, stock: PosStock): LocalIndex {
     c.variants.forEach((v, i) => {
       addCode(v.barcode, p, i);
       addCode(v.sku, p, i);
+      // The 20-digit number on a printed label: found by its first 8 digits.
+      const code = v.barcode ?? v.sku;
+      if (code) addCode(`label:${labelHead(code)}`, p, i);
     });
     text.set(p.product_id, [c.title, c.sku ?? "", ...c.variants.map((v) => v.sku ?? "")].join("\n").toLowerCase());
   }
@@ -159,7 +163,8 @@ export function buildIndex(catalog: PosCatalog, stock: PosStock): LocalIndex {
 export function searchLocal(index: LocalIndex, term: string, category: string): { products: PosProduct[]; scanned: string | null } {
   const q = term.trim().toLowerCase();
   if (q) {
-    const exact = index.codes.get(q);
+    const head = labelScanHead(q);
+    const exact = index.codes.get(q) ?? (head ? index.codes.get(`label:${head}`) : undefined);
     if (exact?.length) {
       const products = [...new Set(exact.map((e) => e.product))];
       const scanned = exact.length === 1 ? exact[0].product.variants[exact[0].variant].variant_id : null;

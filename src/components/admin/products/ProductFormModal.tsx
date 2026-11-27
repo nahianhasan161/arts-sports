@@ -163,6 +163,12 @@ interface FormState {
    * badge describing it.
    */
   comparison_price: number;
+  /**
+   * Buying price (what one piece cost us). Kept as text so blank stays
+   * "not recorded" (NULL) rather than 0. Sends cost_price; the business report
+   * reads it for cost and profit. Without it in the payload every save wiped it.
+   */
+  cost_price: string;
   stock: number;
   is_featured: boolean;
   status: ProductStatus;
@@ -209,6 +215,7 @@ function blankState(): FormState {
     discount_type: "percentage",
     discount_value: 0,
     comparison_price: 0,
+    cost_price: "",
     stock: 0,
     is_featured: false,
     status: "draft",
@@ -1040,6 +1047,7 @@ export function ProductFormModal({
       // comparison mode round-trips a product saved through it instead of
       // coming back with an empty second field.
       comparison_price: Number(p.price ?? p.regular_price ?? 0),
+      cost_price: p.cost_price === null || p.cost_price === undefined ? "" : String(Number(p.cost_price)),
       stock: Number(p.stock ?? 0),
       is_featured: p.is_featured ?? false,
       status: p.status ?? "draft",
@@ -1219,6 +1227,8 @@ export function ProductFormModal({
       discount_type: state.discount_type,
       discount_value: state.discount_value,
       comparison_price: state.comparison_price,
+      // Blank = not recorded (server stores NULL), never 0.
+      cost_price: state.cost_price.trim(),
       // badge and badge_type are NOT sent. They are derived from the discount
       // above, on every save, by the server -- which is what stops a badge from
       // being able to contradict the price beside it.
@@ -1268,6 +1278,10 @@ export function ProductFormModal({
     // database reader rather than for the person holding the form.
     if (!(state.regular_price > 0)) {
       setFormError("Enter a price greater than zero.");
+      return;
+    }
+    if (state.cost_price.trim() !== "" && !(Number(state.cost_price) >= 0)) {
+      setFormError("Buying price must be zero or more (or leave it blank).");
       return;
     }
     // The discount is validated through the same normalisation the payload is
@@ -1692,6 +1706,35 @@ export function ProductFormModal({
                   )}
                 </p>
               )}
+            </div>
+
+            <div>
+              <label htmlFor="pf-cost" className={labelClass}>
+                Buying price
+              </label>
+              <input
+                id="pf-cost"
+                type="number"
+                min={0}
+                step="0.01"
+                value={state.cost_price}
+                onChange={(e) => set("cost_price", e.target.value)}
+                className={inputClass}
+                placeholder="2800"
+              />
+              <p className="mt-1 text-[11px] text-text-muted">
+                What one piece cost you. Not shown to shoppers. Used for cost and profit in the business report;
+                a supplier purchase also updates it.
+                {state.cost_price.trim() !== "" && state.regular_price > 0 && (
+                  <>
+                    {" "}Margin:{" "}
+                    <span className="font-semibold text-on-surface">
+                      {formatTaka(derived.sale - Number(state.cost_price))}
+                    </span>{" "}
+                    a piece.
+                  </>
+                )}
+              </p>
             </div>
 
             <Dropdown

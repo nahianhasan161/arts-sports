@@ -1,3 +1,4 @@
+import { labelToBarcode } from "@/lib/pos/label-code";
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -70,7 +71,9 @@ export async function GET(request: Request) {
 
     let variants: VariantRow[];
     const ids = (url.searchParams.get("ids") ?? "").split(",").filter(Boolean).slice(0, 300);
-    const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    const rawQ = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    // A scanned label number (20 digits) stands for its AS barcode.
+    const q = labelToBarcode(rawQ) ?? rawQ;
     if (ids.length) {
       variants = await loadVariants(db, { variantIds: ids });
     } else {

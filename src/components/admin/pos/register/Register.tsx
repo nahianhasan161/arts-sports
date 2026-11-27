@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/lib/theme";
 import { useAdminAccess } from "@/components/admin/access";
-import { ArrowLeft, Coins, EllipsisVertical, MapPin, Minus, Phone, History, Menu, PauseCircle, Plus, Printer, ScanLine, Search, Shirt, Ticket, Trash2, Upload, X, ShoppingCart, LayoutGrid, LifeBuoy, Monitor, Moon, Sun, Download, Banknote, RotateCw, ChevronLeft, KeyRound, UserRound } from "lucide-react";
+import { ArrowLeft, Camera, Coins, EllipsisVertical, MapPin, Phone, History, Menu, PauseCircle, Plus, Printer, ScanLine, Search, Shirt, Ticket, Trash2, Upload, X, ShoppingCart, LayoutGrid, LifeBuoy, Monitor, Moon, Sun, Download, Banknote, RotateCw, ChevronLeft, KeyRound, UserRound } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { useConfirm } from "@/components/ui/confirm";
 import PageSkeleton, { SkeletonRows, SkeletonTiles } from "@/components/ui/PageSkeleton";
@@ -14,10 +14,11 @@ import { lineDiscount, taka, type CartLine, type PosProduct, type PosVariant, ty
 import { OFFLINE, REGISTER } from "@/components/admin/nav";
 import { LanguageToggle } from "@/components/layout/Preferences";
 import { api, btnGhost, btnPrimary, dateTime, field } from "../api";
+import { CameraScan } from "../CameraScan";
 import { DayTab, type SessionInfo } from "../DayTab";
 import { CustomRegister } from "./CustomRegister";
 import { useUrlState } from "@/lib/url-state";
-import { Dialog, OrderPad, applyKey, type OrderMode, type PadKey } from "./parts";
+import { Dialog, OrderPad, SwipeRow, applyKey, type OrderMode, type PadKey } from "./parts";
 import { PaymentScreen, type Pay } from "./PaymentScreen";
 import { OrdersView } from "./OrdersView";
 import { QuickAdd, type QuickAddTab } from "./QuickAdd";
@@ -42,6 +43,7 @@ interface CustomerSuggestion {
   id: string;
   phone: string;
   name: string | null;
+  address: string | null;
   is_blacklisted: boolean;
   last_purchase_at: string | null;
 }
@@ -115,6 +117,8 @@ export function Register() {
 
   const [serverCategories, setCategories] = useState<{ id: string; name: string; image?: string | null }[]>([]);
   const [category, setCategory] = useState("");
+  // Camera scanner panel (QR or barcode read by the phone/PC camera).
+  const [camera, setCamera] = useState(false);
   const [q, setQ] = useState("");
   const [serverProducts, setProducts] = useState<PosProduct[] | null>(null);
   // Lazy loading: the grid and the category row fetch one screenful at a time.
@@ -143,10 +147,14 @@ export function Register() {
   const known = lookup?.phone === phone ? lookup.customer : null;
   // Customer picker: recent buyers when the box is empty, matches as you type.
   // The list filters by what is typed in the phone box (or the name box when phone is empty).
-  const custQuery = phone.trim() || name.trim();
+  // Search box in the customer popup; when empty, the list follows what is typed in the fields.
+  const [custSearch, setCustSearch] = useState("");
+  const [custSaving, setCustSaving] = useState(false);
+  const [custError, setCustError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<{ q: string; list: CustomerSuggestion[] } | null>(null);
   // For home delivery: kept with the sale and on the customer.
   const [address, setAddress] = useState("");
+  const custQuery = custSearch.trim() || phone.trim() || name.trim() || address.trim();
   const [coupon, setCoupon] = useState("");
   const [couponOff, setCouponOff] = useState<{ code: string; amount: number } | null>(null);
   const [billDiscount, setBillDiscount] = useState("");
@@ -178,6 +186,8 @@ export function Register() {
   const [orderNo, setOrderNo] = useState(1001);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const nextNo = useRef(1002);
+  const MAX_ORDERS = 5;
+  const atMax = drafts.length + 1 >= MAX_ORDERS;
 
   const loadInfo = useCallback(async () => {
     const res = await api<SessionInfo>("/api/admin/pos/session");
@@ -567,10 +577,9 @@ export function Register() {
     const text = applyKey(before, key);
     if (mode === "qty") {
       const quantity = Math.floor(Number(text) || 0);
-      if (text === "" || quantity < 1) {
-        if (key === "back" || key === "clear") return removeLine(line.key);
-        return;
-      }
+      // Clearing the number (backspace to empty) keeps the line: the next digit starts a new
+      // quantity, so 100 → ⌫ → 10 or 100 → ⌫⌫⌫ → 5 both work. Removing is the − / bin button.
+      if (text === "" || quantity < 1) return setTyped({ key: line.key, mode, text: "" });
       setLine(line.key, { quantity });
     } else if (mode === "disc") {
       setLine(line.key, { pct: text === "" ? undefined : Math.min(100, Number(text) || 0), unit: undefined, discount: 0 });
@@ -582,7 +591,6 @@ export function Register() {
   }
 
   const snapshot = (): Draft => ({ no: orderNo, lines, selected, phone, name, address, coupon, couponOff, billDiscount, note, heldId });
-  const isEmpty = () => !lines.length && !phone && !name && !address && !note;
 
   function load(d: Draft) {
     reset();
@@ -603,15 +611,28 @@ export function Register() {
     if (no === orderNo) return;
     const target = drafts.find((d) => d.no === no);
     if (!target) return;
-    setDrafts((list) => [...list.filter((d) => d.no !== no), ...(isEmpty() ? [] : [snapshot()])]);
+    // Keep the current bill as a tab even when it is empty (a counter the cashier opened on purpose).
+    setDrafts((list) => [...list.filter((d) => d.no !== no), snapshot()]);
     load(target);
   }
 
   function newOrder() {
-    if (isEmpty()) return;
+    if (atMax) return setError(t("shop.register.maxOrders"));
     setDrafts((list) => [...list, snapshot()]);
     reset();
     setOrderNo(nextNo.current++);
+  }
+
+  /** Close a counter tab. A bill with something on it asks first. The last tab can't be closed. */
+  async function closeOrder(no: number) {
+    if (!drafts.length) return;
+    const d = no === orderNo ? null : drafts.find((x) => x.no === no);
+    const hasStuff = d ? d.lines.length > 0 || Boolean(d.phone || d.name) : lines.length > 0 || Boolean(phone || name);
+    if (hasStuff && !(await confirm({ title: t("shop.register.closeOrderAsk"), confirmText: t("shop.register.closeOrder"), danger: true }))) return;
+    if (d) return setDrafts((list) => list.filter((x) => x.no !== no));
+    const [first, ...rest] = [...drafts].sort((x, y) => x.no - y.no);
+    setDrafts(rest);
+    load(first);
   }
 
   function menuPick(id: string) {
@@ -839,8 +860,28 @@ export function Register() {
   const selectedLine = lines.find((l) => l.key === selected);
 
   const phoneOk = /^01\d{9}$/.test(phone.replace(/\D/g, ""));
+  /** Done in the customer popup: a new number (or a new name/address) is saved to the customer list right away. */
+  const saveCustomer = async () => {
+    setCustError(null);
+    if (!phone.trim()) return setPopup(null);
+    if (!phoneOk) return setCustError(t("shop.register.custPhoneBad"));
+    const same = known && (known.address ?? "") === address.trim() && (known.name || !name.trim());
+    if (same) {
+      setCustSearch("");
+      return setPopup(null);
+    }
+    setCustSaving(true);
+    const res = await api<{ customer: KnownCustomer | null }>("/api/admin/pos/customer", { phone, name, address });
+    setCustSaving(false);
+    if (!res.ok) return setCustError(res.error ?? t("shop.register.custSaveFailed"));
+    setLookup({ phone, customer: res.data.customer });
+    if (res.data.customer?.name && !name.trim()) setName(res.data.customer.name);
+    setSuggestions(null);
+    setCustSearch("");
+    setPopup(null);
+  };
   const customerDialog = popup === "customer" && (
-    <Dialog title={t("shop.register.customer")} wide onClose={() => setPopup(null)}>
+    <Dialog title={t("shop.register.customer")} wide onClose={() => { setCustSearch(""); setCustError(null); setPopup(null); }}>
       <div className="grid gap-4 md:grid-cols-[1fr_15rem]">
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
@@ -864,6 +905,7 @@ export function Register() {
               <textarea value={address} onChange={(e) => setAddress(e.target.value.slice(0, 500))} rows={2} placeholder={t("shop.register.custAddressHint")} className={`${field} pl-9 py-2.5 text-base w-full resize-none`} />
             </span>
           </label>
+          {custError && <p className="text-sm rounded-md px-3 py-2 bg-badge-discount/10 text-badge-discount">{custError}</p>}
           {phoneOk && (
             <p
               className={`text-sm rounded-md px-3 py-2 ${
@@ -876,6 +918,10 @@ export function Register() {
           <p className="text-xs text-text-muted">{t("shop.register.customerShared")}</p>
         </div>
         <div className="flex flex-col min-h-0">
+          <span className="relative mb-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <input value={custSearch} onChange={(e) => setCustSearch(e.target.value)} placeholder={t("shop.register.customerSearch")} className={`${field} h-10 pl-9 text-sm w-full`} />
+          </span>
           <div className="px-1 pb-1.5 text-xs font-semibold text-text-muted">{custQuery.trim() ? t("shop.register.matches") : t("shop.register.recentCustomers")}</div>
           <div className="flex flex-col max-h-72 overflow-y-auto rounded-md border border-border-light divide-y divide-border-light">
             {suggestions?.q === custQuery.trim() ? (
@@ -887,6 +933,8 @@ export function Register() {
                     onClick={() => {
                       setPhone(c.phone);
                       setName(c.name ?? "");
+                      setAddress(c.address ?? "");
+                      setCustError(null);
                     }}
                     className={`flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-container ${c.phone === phone ? "bg-primary/10" : ""}`}
                   >
@@ -894,6 +942,7 @@ export function Register() {
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-on-surface truncate">{c.name || c.phone}</span>
                       <span className="block text-xs text-text-muted tabular-nums">{c.phone}</span>
+                      {c.address && <span className="block text-xs text-text-muted truncate">{c.address}</span>}
                     </span>
                     {c.is_blacklisted && <span className="text-xs text-badge-discount font-semibold shrink-0">{t("shop.pos.blacklisted")}</span>}
                   </button>
@@ -914,13 +963,15 @@ export function Register() {
               setPhone("");
               setName("");
               setAddress("");
+              setCustSearch("");
+              setCustError(null);
               setLookup(null);
             }}
           >
             {t("shop.sales.walkIn")}
           </button>
-          <button type="button" className={`${btnPrimary} flex-1 h-11`} onClick={() => setPopup(null)}>
-            {t("shop.register.done")}
+          <button type="button" className={`${btnPrimary} flex-1 h-11`} disabled={custSaving} onClick={() => void saveCustomer()}>
+            {custSaving ? t("shop.common.loading") : t("shop.register.done")}
           </button>
         </div>
       </div>
@@ -942,16 +993,23 @@ export function Register() {
             <Shirt className="w-4 h-4" /> {t("shop.pos.tabs.custom")}
           </button>
         </div>
-        <button type="button" onClick={() => { setView("register"); newOrder(); }} className="h-10 w-11 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center flex-shrink-0" title={t("shop.register.newOrder")} aria-label={t("shop.register.newOrder")}>
+        <button type="button" onClick={() => { setView("register"); newOrder(); }} disabled={atMax} className="h-10 w-11 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0" title={atMax ? t("shop.register.maxOrders") : t("shop.register.newOrder")} aria-label={t("shop.register.newOrder")}>
           <Plus className="w-5 h-5" />
         </button>
         <div className="flex gap-1 overflow-x-auto no-scrollbar min-w-0 pl-1 border-l border-border-light">
           {[orderNo, ...drafts.map((d) => d.no)]
             .sort((a, b) => a - b)
             .map((no) => (
-              <button key={no} type="button" onClick={() => { setView("register"); switchOrder(no); }} className={`h-10 px-3.5 rounded-md border text-sm tabular-nums flex-shrink-0 ${no === orderNo ? "border-primary bg-primary/10 text-on-surface font-semibold" : "border-border-light text-on-surface-variant hover:bg-surface-subtle"}`}>
-                {no}
-              </button>
+              <div key={no} className={`h-10 flex items-center rounded-md border text-sm tabular-nums flex-shrink-0 ${no === orderNo ? "border-primary bg-primary/10 text-on-surface font-semibold" : "border-border-light text-on-surface-variant hover:bg-surface-subtle"}`}>
+                <button type="button" onClick={() => { setView("register"); switchOrder(no); }} className={`h-full ${drafts.length ? "pl-3 pr-1" : "px-3.5"}`}>
+                  {no}
+                </button>
+                {drafts.length > 0 && (
+                  <button type="button" onClick={() => void closeOrder(no)} className="h-full px-1.5 rounded-r-md text-on-surface-variant hover:text-red-600" title={t("shop.register.closeOrder")} aria-label={`${t("shop.register.closeOrder")} ${no}`}>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             ))}
         </div>
 
@@ -984,6 +1042,9 @@ export function Register() {
             </button>
           )}
         </form>
+        <button type="button" onClick={() => setCamera(true)} className="h-10 w-11 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center flex-shrink-0" title={t("shop.scan.camera")} aria-label={t("shop.scan.camera")}>
+          <Camera className="w-5 h-5" />
+        </button>
         <button type="button" onClick={() => setPopup("held")} className="relative h-10 w-11 rounded-md border border-border-light text-on-surface-variant hover:bg-surface-subtle flex items-center justify-center flex-shrink-0" title={t("shop.register.draftBills")} aria-label={t("shop.register.draftBills")}>
           <PauseCircle className="w-5 h-5" />
           {held.length > 0 && <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-accent-gold text-white text-[11px] font-bold flex items-center justify-center tabular-nums">{held.length}</span>}
@@ -1251,6 +1312,19 @@ export function Register() {
         </Dialog>
       )}
 
+      {camera && (
+        <CameraScan
+          onCode={(text) => {
+            setQ(text);
+            void list(text, true);
+          }}
+          onClose={() => {
+            setCamera(false);
+            searchRef.current?.focus();
+          }}
+        />
+      )}
+
       {popup === "add" && (
         <QuickAdd
           categories={categories}
@@ -1504,63 +1578,22 @@ function BillLine({ line: l, stock, active, open, setOpen, onSelect, onQty, onRe
   onRemove: () => void;
 }) {
   const { t } = useT();
-  const WIDTH = 112;
-  const start = useRef<{ x: number; y: number; base: number } | null>(null);
-  const moved = useRef(false);
-  const [drag, setDrag] = useState<number | null>(null);
   const off = lineDiscount(l);
   const over = l.quantity > stock;
-  const shift = drag ?? (open ? WIDTH : 0);
 
   return (
-    <li className={`relative overflow-hidden border-l-4 ${over ? "border-badge-discount bg-badge-discount/10" : "border-transparent"}`}>
-      <div className={`absolute inset-y-0 left-0 flex ${shift > 0 ? "" : "invisible"}`} style={{ width: WIDTH }} aria-hidden={!open}>
-        <button type="button" tabIndex={open ? 0 : -1} onClick={onRemove} className="w-14 flex items-center justify-center bg-badge-discount text-white active:opacity-80" aria-label={t("shop.register.removeLine")}>
-          <Trash2 className="w-5 h-5" />
-        </button>
-        <div className="flex flex-col w-14">
-          <button type="button" tabIndex={open ? 0 : -1} onClick={() => onQty(l.quantity + 1)} className="flex-1 flex items-center justify-center bg-emerald-600 text-white active:opacity-80" aria-label="+1">
-            <Plus className="w-5 h-5" />
-          </button>
-          <button type="button" tabIndex={open ? 0 : -1} onClick={() => onQty(l.quantity - 1)} className="flex-1 flex items-center justify-center bg-amber-500 text-white active:opacity-80" aria-label="-1">
-            <Minus className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-      <button
-        type="button"
-        style={{ transform: `translateX(${shift}px)`, transition: drag === null ? "transform 150ms ease-out" : "none", touchAction: "pan-y" }}
-        className={`relative block w-full text-left text-sm bg-surface-card ${over || active ? "" : "hover:bg-surface-subtle"}`}
-        onPointerDown={(e) => {
-          start.current = { x: e.clientX, y: e.clientY, base: open ? WIDTH : 0 };
-          moved.current = false;
-        }}
-        onPointerMove={(e) => {
-          const s = start.current;
-          if (!s) return;
-          const dx = e.clientX - s.x;
-          if (!moved.current && (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(e.clientY - s.y))) return;
-          if (!moved.current) e.currentTarget.setPointerCapture(e.pointerId);
-          moved.current = true;
-          setDrag(Math.max(0, Math.min(WIDTH, s.base + dx)));
-        }}
-        onPointerUp={() => {
-          if (moved.current && drag !== null) setOpen(drag > WIDTH / 2);
-          start.current = null;
-          setDrag(null);
-        }}
-        onPointerCancel={() => {
-          start.current = null;
-          setDrag(null);
-        }}
-        onClick={() => {
-          if (moved.current) return void (moved.current = false);
-          if (open) return setOpen(false);
-          onSelect();
-        }}
-      >
+    <>
+    <SwipeRow
+      open={open}
+      setOpen={setOpen}
+      onSelect={onSelect}
+      onPlus={() => onQty(l.quantity + 1)}
+      onMinus={() => onQty(l.quantity - 1)}
+      onRemove={onRemove}
+      className={`border-l-4 ${over ? "border-badge-discount bg-badge-discount/10" : "border-transparent"}`}
+    >
         {/* Tint sits on an inner layer so the row stays opaque and the swipe buttons don't show through. */}
-        <span className={`block px-3 py-2 ${over ? "bg-badge-discount/10" : active ? "bg-primary/10" : ""}`}>
+        <span className={`block px-3 py-2 ${over ? "bg-badge-discount/10" : active ? "bg-primary/10" : "hover:bg-surface-subtle"}`}>
         <span className="flex items-baseline gap-3">
           <b className={`tabular-nums ${over ? "text-badge-discount" : "text-on-surface"}`}>{l.quantity}</b>
           <span className="flex-1 min-w-0 truncate text-on-surface">{l.title}</span>
@@ -1579,7 +1612,54 @@ function BillLine({ line: l, stock, active, open, setOpen, onSelect, onQty, onRe
           </span>
         )}
         </span>
-      </button>
+    </SwipeRow>
+    {active && <QtyEdit value={l.quantity} onChange={onQty} label={t("shop.common.qty")} />}
+    </>
+  );
+}
+
+/** Type the quantity straight in (keyboard or touch), plus −/+ buttons, for the selected line. */
+function QtyEdit({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
+  const [text, setText] = useState(String(value));
+  const [focus, setFocus] = useState(false);
+  useEffect(() => {
+    if (!focus) setText(String(value));
+  }, [value, focus]);
+  const commit = () => {
+    const n = Math.floor(Number(text));
+    if (Number.isFinite(n) && n >= 1) onChange(n);
+    else setText(String(value));
+  };
+  return (
+    <li className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 text-sm">
+      <span className="text-text-muted">{label}</span>
+      <button type="button" onClick={() => onChange(value - 1)} className="w-9 h-9 rounded-lg border border-border-light flex items-center justify-center text-on-surface active:bg-surface-subtle" aria-label="-1">−</button>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={text}
+        onFocus={(e) => {
+          setFocus(true);
+          e.currentTarget.select();
+        }}
+        onBlur={() => {
+          setFocus(false);
+          commit();
+        }}
+        onChange={(e) => setText(e.target.value.replace(/\D/g, "").slice(0, 5))}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            setText(String(value));
+            setFocus(false);
+            e.currentTarget.blur();
+          }
+        }}
+        className="w-20 h-9 rounded-lg border border-border-light bg-surface-card text-center font-semibold tabular-nums text-on-surface"
+        aria-label={label}
+      />
+      <button type="button" onClick={() => onChange(value + 1)} className="w-9 h-9 rounded-lg border border-border-light flex items-center justify-center text-on-surface active:bg-surface-subtle" aria-label="+1">+</button>
     </li>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { ExternalLink, Plus, Printer, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ExternalLink, Link2, Plus, Printer, Search } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { taka } from "@/lib/pos/types";
 import { STATUS_LABEL } from "@/components/admin/custom-orders/labels";
 import type { CustomOrderStatus } from "@/lib/custom-jersey/types";
+import { OrderCardsSkeleton } from "./OrderCardsSkeleton";
 import { api, btnGhost, btnPrimary, card, field } from "./api";
 import { NewCustomOrder } from "./NewCustomOrder";
 
@@ -33,6 +34,7 @@ export interface CounterOrder {
 
 const METHODS = ["cash", "card", "bkash", "nagad"] as const;
 
+
 /** Custom jersey at the counter (roadmap 4.3): start an order, find one by scan or phone, take money, hand it over. */
 export function CustomTab({ hideNew = false }: { hideNew?: boolean } = {}) {
   const { t } = useT();
@@ -42,14 +44,57 @@ export function CustomTab({ hideNew = false }: { hideNew?: boolean } = {}) {
   const [pay, setPay] = useState<Record<string, { amount: string; method: (typeof METHODS)[number]; trx: string }>>({});
   const [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  // Latest-orders list (empty search) loads a page at a time as you scroll.
+  const [more, setMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [listed, setListed] = useState("");
+  const sentinel = useRef<HTMLDivElement>(null);
 
+  async function copyLink(o: CounterOrder) {
+    try {
+      await navigator.clipboard.writeText(o.link);
+      setCopied(o.id);
+      setTimeout(() => setCopied((c) => (c === o.id ? null : c)), 1500);
+    } catch {
+      window.prompt(t("shop.custom.copyLink"), o.link);
+    }
+  }
+
+  // Empty search = the latest orders, so an order just taken shows up straight away.
   async function search(term = q) {
-    if (!term.trim()) return;
-    const res = await api<{ orders: CounterOrder[] }>(`/api/admin/pos/custom?q=${encodeURIComponent(term)}`);
+    setLoading(true);
+    const res = await api<{ orders: CounterOrder[]; more?: boolean }>(`/api/admin/pos/custom?q=${encodeURIComponent(term)}`);
+    setLoading(false);
     if (!res.ok) return setError(res.error);
     setError(null);
     setOrders(res.data.orders);
+    setMore(!!res.data.more);
+    setListed(term.trim());
   }
+
+  async function loadMore() {
+    if (loadingMore || !more || listed || !orders) return;
+    setLoadingMore(true);
+    const res = await api<{ orders: CounterOrder[]; more?: boolean }>(`/api/admin/pos/custom?q=&offset=${orders.length}`);
+    setLoadingMore(false);
+    if (!res.ok) return setError(res.error);
+    const seen = new Set(orders.map((o) => o.id));
+    setOrders([...orders, ...res.data.orders.filter((o) => !seen.has(o.id))]);
+    setMore(!!res.data.more);
+  }
+
+  // Load the next page when the end of the list scrolls into view.
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !more || listed) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) void loadMore();
+    }, { rootMargin: "300px" });
+    io.observe(el);
+    return () => io.disconnect();
+  });
 
   async function act(body: Record<string, unknown>) {
     setBusy(true);
@@ -59,6 +104,21 @@ export function CustomTab({ hideNew = false }: { hideNew?: boolean } = {}) {
     setPay({});
     await search();
   }
+
+  useEffect(() => {
+    let alive = true;
+    void api<{ orders: CounterOrder[]; more?: boolean }>("/api/admin/pos/custom?q=").then((res) => {
+      if (!alive) return;
+      setLoading(false);
+      if (res.ok) {
+        setOrders(res.data.orders);
+        setMore(!!res.data.more);
+      } else setError(res.error);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-4 max-w-3xl">
@@ -99,9 +159,11 @@ export function CustomTab({ hideNew = false }: { hideNew?: boolean } = {}) {
         <button className={btnPrimary}>{t("shop.common.search")}</button>
       </form>
       {error && <p className="text-sm text-badge-discount">{error}</p>}
-      {orders?.length === 0 && <p className="text-sm text-text-muted">{t("shop.common.none")}</p>}
+      {!listed && !!orders?.length && <h3 className="text-sm font-semibold text-on-surface-variant">{t("shop.custom.recent")}</h3>}
+      {loading && <OrderCardsSkeleton />}
+      {!loading && orders?.length === 0 && <p className="text-sm text-text-muted">{t("shop.common.none")}</p>}
 
-      {orders?.map((o) => {
+      {!loading && orders?.map((o) => {
         const left = Math.max(0, o.total - o.paid);
         const p = pay[o.id] ?? { amount: String(o.payable || ""), method: "cash" as const, trx: "" };
         const set = (patch: Partial<typeof p>) => setPay((c) => ({ ...c, [o.id]: { ...p, ...patch } }));
@@ -119,9 +181,17 @@ export function CustomTab({ hideNew = false }: { hideNew?: boolean } = {}) {
               </div>
               <div className="text-right">
                 <span className="inline-block text-xs font-bold uppercase rounded px-2 py-1 bg-primary text-primary-foreground">{STATUS_LABEL[o.status]}</span>
-                <a className={`${btnGhost} !py-1 text-xs mt-2 flex`} href={`/admin/offline/pos/custom-receipt/${o.id}`} target="_blank" rel="noreferrer">
-                  <Printer className="w-3.5 h-3.5" /> {t("shop.custom.printReceipt")}
-                </a>
+                <div className="mt-2 flex flex-wrap justify-end gap-1.5">
+                  <a className={`${btnGhost} !py-1 text-xs`} href={o.link} target="_blank" rel="noreferrer" title={t("shop.custom.openLinkHint")}>
+                    <ExternalLink className="w-3.5 h-3.5" /> {t("shop.custom.openLink")}
+                  </a>
+                  <button type="button" className={`${btnGhost} !py-1 text-xs`} onClick={() => void copyLink(o)}>
+                    {copied === o.id ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />} {t(copied === o.id ? "shop.custom.copied" : "shop.custom.copyLink")}
+                  </button>
+                  <a className={`${btnGhost} !py-1 text-xs`} href={`/admin/offline/pos/custom-receipt/${o.id}`} target="_blank" rel="noreferrer">
+                    <Printer className="w-3.5 h-3.5" /> {t("shop.custom.printReceipt")}
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -167,6 +237,18 @@ export function CustomTab({ hideNew = false }: { hideNew?: boolean } = {}) {
           </article>
         );
       })}
+
+      {!loading && more && !listed && (
+        <div ref={sentinel} className="flex flex-col gap-4">
+          {loadingMore ? (
+            <OrderCardsSkeleton count={2} />
+          ) : (
+            <button type="button" className={`${btnGhost} self-center`} onClick={() => void loadMore()}>
+              {t("shop.custom.loadMore")}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

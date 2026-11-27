@@ -12,6 +12,7 @@ import {
   moveOrder,
   notifyCustomOrder,
   paidTotal,
+  queueIfAdvanceCovered,
   startCustomPayment,
   type OrderRow,
 } from "@/lib/custom-jersey/server";
@@ -119,7 +120,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         if (b.accept_terms !== true) return bad("Please tick the box to accept that a confirmed order cannot be cancelled or refunded");
         const pricing = await loadPricing();
         const now = new Date().toISOString();
-        const advance = advanceFor(orderTotal(order), pricing);
+        // An advance staff agreed with the customer (30%, 50%, any amount, none) stays; else the settings %.
+        const total = orderTotal(order);
+        const advance = order.advance_amount !== null ? Math.min(order.advance_amount, total) : advanceFor(total, pricing);
         const moved = await moveOrder(order, "approved", customer, {
           reason: null,
           note: "Design confirmed; accepted no cancellation or refund after confirming",
@@ -127,6 +130,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         });
         if (!moved) return stale();
         await notifyCustomOrder(order, "custom_approved", { amount: formatMoney(advance, resolveLocale(order.locale)) });
+        if (advance === 0) await queueIfAdvanceCovered(order.id, customer, "No advance");
         break;
       }
 

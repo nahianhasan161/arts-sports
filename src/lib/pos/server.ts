@@ -28,6 +28,7 @@ const MESSAGES: Record<string, string> = {
   coupon_user_limit_reached: "That coupon has been used up",
   sale_not_found: "Sale not found",
   invalid_return_quantity: "More is being returned than was bought",
+  invalid_refund_amount: "The amount to give back cannot be more than the items' full value",
   no_items: "Choose at least one item",
   showroom_not_found: "No shop is set up. Add a showroom first.",
   invalid_reason: "Choose a reason",
@@ -84,6 +85,8 @@ export interface VariantRow {
   sku: string | null;
   barcode: string | null;
   image: string | null;
+  /** Product page slug (the QR on barcode labels links to it). */
+  slug: string | null;
   /** Total the editor and the site show. */
   stock: number;
   cost_price: number | null;
@@ -115,7 +118,7 @@ export async function loadVariants(
    * anyway. Passing them skips a second products query and lets the variant,
    * colour and size reads run alongside the caller's.
    */
-  knownProducts?: PromiseLike<{ id: string; title: string; images: unknown }[]>
+  knownProducts?: PromiseLike<{ id: string; title: string; images: unknown; slug?: string | null }[]>
 ): Promise<VariantRow[]> {
   let query = db.from("product_variants").select(VARIANT_COLUMNS).limit(2000);
   if ("productIds" in by) {
@@ -142,8 +145,8 @@ export async function loadVariants(
   let productRows = known;
   if (!productRows) {
     const productIds = [...new Set(variants.map((v) => v.product_id))];
-    const { data: rows } = await db.from("products").select("id, title, images").in("id", productIds);
-    productRows = (rows ?? []) as { id: string; title: string; images: unknown }[];
+    const { data: rows } = await db.from("products").select("id, title, images, slug").in("id", productIds);
+    productRows = (rows ?? []) as { id: string; title: string; images: unknown; slug: string | null }[];
   }
   const product = new Map(productRows.map((p) => [p.id, p]));
   const color = new Map((colors.data ?? []).map((c) => [c.id as string, c.name as string]));
@@ -160,6 +163,7 @@ export async function loadVariants(
       sku: v.sku,
       barcode: v.barcode,
       image: typeof images[0] === "string" ? (images[0] as string) : null,
+      slug: p?.slug ?? null,
       stock: Number(v.stock) || 0,
       cost_price: v.cost_price === null ? null : Number(v.cost_price),
       low_stock_threshold: v.low_stock_threshold,

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw, XCircle } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart-store";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatTaka } from "@/lib/pricing";
@@ -26,6 +26,15 @@ interface MyOrder {
   order_items: Line[];
 }
 
+const CLOSED = ["shipped", "delivered", "returned", "cancelled", "completed"];
+const REASONS: [string, string][] = [
+  ["changed_mind", "Changed my mind"],
+  ["duplicate", "Ordered twice"],
+  ["delivery_delay", "Takes too long"],
+  ["wrong_item", "Wrong item / size"],
+  ["other", "Other"],
+];
+
 /** The customer's orders, with one-click reorder and tracking. */
 export function MyOrders() {
   const router = useRouter();
@@ -33,13 +42,53 @@ export function MyOrders() {
   const [orders, setOrders] = useState<MyOrder[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<Set<string>>(new Set());
+  const [cancelFor, setCancelFor] = useState<string | null>(null);
+  const [reasonCat, setReasonCat] = useState("changed_mind");
+  const [reasonText, setReasonText] = useState("");
 
   useEffect(() => {
     fetch("/api/account/orders?limit=10", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((json) => setOrders(json.data ?? []))
       .catch(() => setOrders([]));
+    fetch("/api/cancellations?status=pending&limit=50", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((json) => setPendingCancel(new Set((json.data ?? []).map((c: { order_id: string }) => c.order_id))))
+      .catch(() => {});
   }, []);
+
+  const canCancel = (o: MyOrder) => !CLOSED.includes(o.status) && !pendingCancel.has(o.id);
+
+  const submitCancel = async (order: MyOrder) => {
+    setBusy(order.id);
+    setMessage(null);
+    try {
+      const label = REASONS.find((r) => r[0] === reasonCat)?.[1] ?? "Other";
+      const res = await fetch("/api/cancellations", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: order.id,
+          type: "order",
+          reason_category: reasonCat,
+          reason: reasonText.trim() || label,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok && res.status !== 409) {
+        setMessage(json.error || "Could not send the cancel request.");
+        return;
+      }
+      setPendingCancel((s) => new Set(s).add(order.id));
+      setCancelFor(null);
+      setReasonText("");
+      setMessage("Cancel request sent. We will confirm it shortly.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   // Current prices, not the old ones: the order RPC charges today's price anyway.
   const reorder = async (order: MyOrder) => {
@@ -115,6 +164,47 @@ export function MyOrders() {
               >
                 {busy === o.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Order again
               </button>
+              {pendingCancel.has(o.id) ? (
+                <span className="text-xs font-semibold text-amber-700">Cancel requested</span>
+              ) : canCancel(o) && cancelFor !== o.id ? (
+                <button
+                  type="button"
+                  onClick={() => setCancelFor(o.id)}
+                  className="sp-btn sp-red h-8 inline-flex items-center gap-1.5 font-bold uppercase text-xs"
+                >
+                  <XCircle className="w-3.5 h-3.5" /> Cancel order
+                </button>
+              ) : null}
+              {cancelFor === o.id && (
+                <div className="basis-full flex flex-wrap items-center gap-2 rounded-lg border border-border-light bg-surface-subtle p-2">
+                  <select
+                    value={reasonCat}
+                    onChange={(e) => setReasonCat(e.target.value)}
+                    className="h-8 rounded-md border border-border-light bg-surface-card px-2 text-xs"
+                  >
+                    {REASONS.map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={reasonText}
+                    onChange={(e) => setReasonText(e.target.value)}
+                    placeholder="Note (optional)"
+                    className="h-8 flex-1 min-w-[140px] rounded-md border border-border-light bg-surface-card px-2 text-xs"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy === o.id}
+                    onClick={() => void submitCancel(o)}
+                    className="sp-btn sp-red h-8 inline-flex items-center gap-1.5 font-bold uppercase text-xs"
+                  >
+                    {busy === o.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Confirm cancel
+                  </button>
+                  <button type="button" onClick={() => setCancelFor(null)} className="text-xs text-text-muted underline">
+                    Keep order
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

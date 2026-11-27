@@ -1,3 +1,4 @@
+import { labelToBarcode } from "@/lib/pos/label-code";
 import { NextResponse } from "next/server";
 import { failed } from "@/lib/pos/http";
 import { requirePermission } from "@/lib/auth/permissions";
@@ -23,7 +24,9 @@ export async function GET(request: Request) {
     // The register and the supplier-purchase screen share this grid.
     const { user: actor } = await requirePermission("pos.use").catch(() => requirePermission("inventory.manage"));
     const url = new URL(request.url);
-    const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    const rawQ = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    // A scanned label number (20 digits) stands for its AS barcode.
+    const q = labelToBarcode(rawQ) ?? rawQ;
     const db = getServiceSupabase(actor);
     const categoryId = (url.searchParams.get("category_id") ?? "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
 
@@ -108,8 +111,8 @@ export async function GET(request: Request) {
     if (!productIds.length) return NextResponse.json({ products: [], scanned: null, has_more: false, categories, categoriesHasMore });
 
     // One products read, shared with loadVariants (it used to fetch them again).
-    const plainQuery = db.from("products").select("id, title, images, stock").in("id", productIds);
-    const plainRows = Promise.resolve(plainQuery).then((r) => (r.data ?? []) as { id: string; title: string; images: unknown; stock: number }[]);
+    const plainQuery = db.from("products").select("id, title, images, slug, stock").in("id", productIds);
+    const plainRows = Promise.resolve(plainQuery).then((r) => (r.data ?? []) as { id: string; title: string; images: unknown; slug: string | null; stock: number }[]);
     const [variants, prices, plain] = await Promise.all([
       loadVariants(db, { productIds }, plainRows),
       effectivePrices(db, productIds),

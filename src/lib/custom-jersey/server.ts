@@ -232,6 +232,22 @@ export async function moveOrder(
   return true;
 }
 
+/**
+ * An approved order whose advance is already covered (no advance, or paid enough) goes
+ * into the production queue now, like the payment RPC does when the advance comes in.
+ * Returns true when it moved.
+ */
+export async function queueIfAdvanceCovered(orderId: string, actor: Actor, note: string): Promise<boolean> {
+  const order = await findOrder({ id: orderId });
+  if (!order || order.status !== "approved") return false;
+  if (await paidTotal(order.id) < Number(order.advance_amount ?? 0)) return false;
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  const today = new Date();
+  const plus = (n: number) => day(new Date(today.getTime() + n * 86_400_000));
+  const dueDate = order.due_date ?? [order.needed_by ?? plus(7), plus(1)].sort().pop()!;
+  return moveOrder(order, "queued", actor, { reason: null, note, patch: { due_date: dueDate } });
+}
+
 type CustomTemplate = Extract<Template, `custom_${string}`>;
 
 /** Message to the customer about their custom order. Never throws. */

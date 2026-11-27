@@ -6,7 +6,8 @@ import { bad, failed } from "@/lib/pos/http";
 
 /**
  * GET  /api/admin/pos/sales/<id or receipt no>   one sale, for the receipt and the return screen
- * POST /api/admin/pos/sales/<id>                 { items: [{ sale_item_id, quantity }], refund_method, reason, restock }
+ * POST /api/admin/pos/sales/<id>                 { items: [{ sale_item_id, quantity }], refund_method, reason, restock, refund_amount? }
+ *                                                refund_amount = give back less than the full value (0 .. full); left out = full
  *                                                take goods back (pos.manage)
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -55,8 +56,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .filter((i) => i.sale_item_id && i.quantity > 0);
     if (!items.length) return bad("Choose what is coming back");
 
+    // Optional part refund. The database checks it is not more than the full value.
+    const rawAmount = b.refund_amount;
+    const amount = rawAmount === undefined || rawAmount === null || rawAmount === "" ? null : Math.round(Number(rawAmount) * 100) / 100;
+    if (amount !== null && (!Number.isFinite(amount) || amount < 0)) return bad("Enter the amount to give back");
+    if (amount !== null) {
+      // The older pos_return_sale ignores refund_amount and pays in full; refuse until 20261128110000 is applied.
+      const probe = await db.from("pos_returns").select("full_amount").limit(0);
+      if (probe.error) return bad("Part refunds need the latest database update (20261128110000). Ask the admin to apply it.", 400);
+    }
+
     const { data: session } = await db.from("pos_sessions").select("id").eq("opened_by", user.id).eq("status", "open").maybeSingle();
-    if (method === "cash" && !session) return bad("Open your cash drawer first: the refund comes out of it");
+    if (method === "cash" && amount !== 0 && !session) return bad("Open your cash drawer first: the refund comes out of it");
 
     const { data, error } = await db.rpc("pos_return_sale", {
       p: {
@@ -67,6 +78,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         reason: typeof b.reason === "string" ? b.reason.slice(0, 300) : "",
         restock: b.restock !== false,
         items,
+        ...(amount !== null ? { refund_amount: amount } : {}),
       },
     });
     if (error) return bad(explainPosError(error.message), 400);

@@ -46,12 +46,14 @@ export function OptionDialog({
   const [means, setMeans] = useState<ExtraOption["means"]>(o.means ?? null);
   const [sizeLabel, setSizeLabel] = useState(o.label ?? "");
   const [chest, setChest] = useState(o.chest == null ? "" : String(o.chest));
+  const [waist, setWaist] = useState(o.waist == null ? "" : String(o.waist));
   const [length, setLength] = useState(o.length == null ? "" : String(o.length));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sure, setSure] = useState(false);
 
-  const isSize = group === "sizes";
+  const isSize = group === "sizes" || group === "pant_sizes";
+  const isPant = group === "pant_sizes";
   const list = options[group] as AnyOption[];
 
   async function put(items: AnyOption[]) {
@@ -71,10 +73,10 @@ export function OptionDialog({
       const l = sizeLabel.trim().toUpperCase();
       if (!l) return setError(t("shop.customOpt.needLabel"));
       if (list.some((x) => x.id !== id && (x as SizeOption).label === l)) return setError(t("shop.customOpt.sameLabel"));
-      const c = num(chest);
+      const c = num(isPant ? waist : chest);
       const h = num(length);
       if ((c !== null && !(c >= 4 && c <= 80)) || (h !== null && !(h >= 4 && h <= 80))) return setError(t("shop.customOpt.badInches"));
-      next = { id, label: l, chest: c, length: h };
+      next = isPant ? { id, label: l, chest: null, waist: c, length: h } : { id, label: l, chest: c, length: h };
     } else {
       if (!nameEn.trim() && !nameBn.trim()) return setError(t("shop.customOpt.needName"));
       const p = price.trim() === "" ? 0 : Number(price);
@@ -99,16 +101,16 @@ export function OptionDialog({
           <>
             <label className={label}>
               <span className={caption}>{t("shop.customOpt.sizeLabel")}</span>
-              <input autoFocus value={sizeLabel} maxLength={12} onChange={(e) => setSizeLabel(e.target.value)} placeholder="XL" className={`${field} h-11 text-base uppercase`} />
+              <input autoFocus value={sizeLabel} maxLength={12} onChange={(e) => setSizeLabel(e.target.value)} placeholder={isPant ? "32" : "XL"} className={`${field} h-11 text-base uppercase`} />
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className={label}>
-                <span className={caption}>{t("shop.customOpt.chest")}</span>
-                <input value={chest} onChange={(e) => setChest(e.target.value)} inputMode="decimal" placeholder="42" className={`${field} h-11 text-base`} />
+                <span className={caption}>{t(isPant ? "shop.customOpt.waist" : "shop.customOpt.chest")}</span>
+                <input value={isPant ? waist : chest} onChange={(e) => (isPant ? setWaist : setChest)(e.target.value)} inputMode="decimal" placeholder={isPant ? "32" : "42"} className={`${field} h-11 text-base`} />
               </label>
               <label className={label}>
-                <span className={caption}>{t("shop.customOpt.length")}</span>
-                <input value={length} onChange={(e) => setLength(e.target.value)} inputMode="decimal" placeholder="29" className={`${field} h-11 text-base`} />
+                <span className={caption}>{t(isPant ? "shop.customOpt.pantLength" : "shop.customOpt.length")}</span>
+                <input value={length} onChange={(e) => setLength(e.target.value)} inputMode="decimal" placeholder={isPant ? "40" : "29"} className={`${field} h-11 text-base`} />
               </label>
             </div>
           </>

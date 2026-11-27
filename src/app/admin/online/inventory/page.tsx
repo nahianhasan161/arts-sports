@@ -46,7 +46,7 @@ export default function InventoryPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [historyOf, setHistoryOf] = useState<string | null>(null);
-  const [view, setView] = useUrlState<ListView>("view", "list", { fromUrl: (v) => (LIST_VIEWS.includes(v as ListView) ? (v as ListView) : null) });
+  const [view, setView] = useUrlState<ListView>("view", "cards", { fromUrl: (v) => (LIST_VIEWS.includes(v as ListView) ? (v as ListView) : null) });
 
   const load = useCallback(async () => {
     const res = await api<{ rows: StockRow[]; showrooms: Showroom[]; showroom_id: string }>(`/api/admin/inventory?q=${encodeURIComponent(q)}&low=${lowOnly ? 1 : 0}&showroom_id=${encodeURIComponent(showroomId)}`);

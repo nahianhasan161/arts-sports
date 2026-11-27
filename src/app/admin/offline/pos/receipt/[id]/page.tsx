@@ -10,6 +10,7 @@ import { QrCode } from "@/components/admin/pos/Codes";
 import { Lines, ReceiptShop } from "@/components/admin/pos/ReceiptShop";
 import { useReceiptSettings } from "@/components/admin/pos/useReceiptSettings";
 import { CopyImageButton } from "@/components/admin/pos/CopyImageButton";
+import { CopiesPicker, type Copies } from "@/components/admin/pos/CopiesPicker";
 
 /**
  * A shop receipt (roadmap 4.2).
@@ -30,6 +31,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   const [doc, setDoc] = useState<Doc>("a4");
   const thermal = doc === "thermal";
   const rs = useReceiptSettings();
+  const [copies, setCopies] = useState<Copies>("both");
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -237,19 +239,22 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
         {docBtn("invoice", t("shop.register.invoice"))}
         {docBtn("a4", t("shop.pos.printA4"))}
         {docBtn("thermal", t("shop.pos.printThermal"))}
+        {doc === "a4" && <CopiesPicker value={copies} onChange={setCopies} />}
         <CopyImageButton target={imgRef} fileName={`receipt-${id}`} className={btnGhost} />
         <CopyImageButton mode="download" target={imgRef} fileName={`receipt-${id}`} className={btnGhost} />
       </div>
       <style>{`@media print { @page { size: ${thermal ? "80mm auto" : "A4"}; margin: ${thermal ? "3mm" : "10mm"}; } body { background: #fff !important; } }`}</style>
       <div className={`bg-white ${thermal ? "w-[72mm] p-1" : "w-full max-w-[190mm] p-4 print:p-0"} mx-auto print:mx-0`}>
-        <div ref={imgRef} className="bg-white">{doc === "invoice" ? invoice : copy(t("shop.receipt.customerCopy"))}</div>
-        {doc === "a4" && (
-          <>
-            <div className="my-5 border-t border-dashed border-black relative">
-              <span className="absolute -top-2 left-4 bg-white px-1 text-[10px] text-black">✂ {t("shop.receipt.cut")}</span>
-            </div>
-            {copy(t("shop.receipt.shopCopy"))}
-          </>
+        {(doc !== "a4" || copies !== "shop") && (
+          <div ref={imgRef} className="bg-white">{doc === "invoice" ? invoice : copy(t("shop.receipt.customerCopy"))}</div>
+        )}
+        {doc === "a4" && copies === "both" && (
+          <div className="my-5 border-t border-dashed border-black relative">
+            <span className="absolute -top-2 left-4 bg-white px-1 text-[10px] text-black">✂ {t("shop.receipt.cut")}</span>
+          </div>
+        )}
+        {doc === "a4" && copies !== "customer" && (
+          <div ref={copies === "shop" ? imgRef : undefined} className="bg-white">{copy(t("shop.receipt.shopCopy"))}</div>
         )}
       </div>
     </div>

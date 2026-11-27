@@ -101,6 +101,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // The business report counts a website order as sold on its delivery day.
+    if (status === "delivered") {
+      await supabase.from("orders").update({ delivered_at: new Date().toISOString() }).eq("id", id).is("delivered_at", null);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return handleAdminError(error);

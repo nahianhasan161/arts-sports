@@ -11,11 +11,13 @@ import {
   loadDetail,
   moveOrder,
   notifyCustomOrder,
+  queueIfAdvanceCovered,
   recordManualPayment,
   stageLabel,
   type OrderRow,
 } from "@/lib/custom-jersey/server";
-import { BEFORE_APPROVAL, STAFF_TRANSITIONS, STATUSES, type CustomOrderStatus } from "@/lib/custom-jersey/types";
+import { parseAdvance } from "@/lib/custom-jersey/pricing";
+import { BEFORE_APPROVAL, orderTotal, STAFF_TRANSITIONS, STATUSES, type CustomOrderStatus } from "@/lib/custom-jersey/types";
 import { formatMoney, resolveLocale } from "@/i18n";
 
 /**
@@ -23,7 +25,8 @@ import { formatMoney, resolveLocale } from "@/i18n";
  * PATCH /api/admin/custom-orders/<id>   { action }
  *         move          { to, reason? }                 next step, send back, reject
  *         send_mockup   { images: paths[], note?, final_price }
- *         update        { final_price?, delivery_charge?, assigned_to?, due_date?, staff_note? }
+ *         update        { final_price?, delivery_charge?, advance_amount?, assigned_to?, due_date?, staff_note? }
+ *                       advance_amount: 0..total (0 = no advance); only until production starts
  *         message       { body }
  *         payment       { amount, method, kind?, trx_id?, note? }   cash/card/wallet taken by staff
  *         gallery_add   { image: path, caption? }       needs the customer's consent
@@ -144,6 +147,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             patch.delivery_charge = n;
           }
         }
+        let advanceSet = false;
+        if (b.advance_amount !== undefined) {
+          if (!BEFORE_APPROVAL.includes(order.status) && order.status !== "approved") return bad("The advance cannot be changed once production has started");
+          const total = orderTotal({
+            final_price: (patch.final_price as number | undefined) ?? order.final_price,
+            delivery_charge: (patch.delivery_charge as number | undefined) ?? order.delivery_charge,
+          });
+          const n = parseAdvance(b.advance_amount, total);
+          if (n === undefined || Number.isNaN(n)) return bad("The advance must be between ৳0 and the order total");
+          patch.advance_amount = n;
+          advanceSet = true;
+        }
         if (b.assigned_to !== undefined) patch.assigned_to = typeof b.assigned_to === "string" && b.assigned_to ? b.assigned_to : null;
         if (b.due_date !== undefined) {
           const d = text(b.due_date, 10);
@@ -154,6 +169,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         if (Object.keys(patch).length === 0) return bad("Nothing to change");
         const { error } = await db.from("custom_orders").update(patch).eq("id", order.id);
         if (error) return bad(error.message, 500);
+        // Waiting for an advance that is now 0 (or already paid): start production.
+        if (advanceSet && order.status === "approved") {
+          const note = Number(patch.advance_amount) === 0 ? "No advance" : "Advance changed; already paid";
+          if (await queueIfAdvanceCovered(order.id, staff, note)) {
+            await notifyCustomOrder(order, "custom_stage", { stage: stageLabel("queued", order.locale) });
+          }
+        }
         break;
       }
 

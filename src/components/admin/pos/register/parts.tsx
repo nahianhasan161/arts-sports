@@ -1,6 +1,8 @@
 "use client";
 
-import { Delete, X } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
+import { Delete, Minus, Plus, Trash2, X } from "lucide-react";
+import { useT } from "@/i18n/client";
 
 /** One press on the number pad: a digit, ".", "back" or "clear". */
 export type PadKey = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "back" | "clear";
@@ -88,5 +90,74 @@ export function OrderPad({ onKey, onSign, mode, setMode, disabled, labels, noDis
         <Delete className="w-5 h-5" />
       </button>
     </div>
+  );
+}
+
+/** A slip line that swipes right to show delete / +1 / −1 (shop bill and custom order slip). */
+export function SwipeRow({ open, setOpen, onSelect, onPlus, onMinus, onRemove, className = "", children }: {
+  open: boolean;
+  setOpen: (on: boolean) => void;
+  onSelect: () => void;
+  onPlus: () => void;
+  onMinus: () => void;
+  onRemove: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  const { t } = useT();
+  const WIDTH = 132;
+  const start = useRef<{ x: number; y: number; base: number } | null>(null);
+  const moved = useRef(false);
+  const [drag, setDrag] = useState<number | null>(null);
+  const shift = drag ?? (open ? WIDTH : 0);
+
+  return (
+    <li className={`relative overflow-hidden ${className}`}>
+      <div className={`absolute inset-y-0 left-0 flex ${shift > 0 ? "" : "invisible"}`} style={{ width: WIDTH }} aria-hidden={!open}>
+        <button type="button" tabIndex={open ? 0 : -1} onClick={onRemove} className="w-11 flex items-center justify-center bg-badge-discount text-white active:opacity-80" aria-label={t("shop.register.removeLine")}>
+          <Trash2 className="w-4 h-4" />
+        </button>
+        <button type="button" tabIndex={open ? 0 : -1} onClick={onMinus} className="w-11 flex items-center justify-center bg-amber-500 text-white active:opacity-80" aria-label="-1">
+          <Minus className="w-4 h-4" />
+        </button>
+        <button type="button" tabIndex={open ? 0 : -1} onClick={onPlus} className="w-11 flex items-center justify-center bg-emerald-600 text-white active:opacity-80" aria-label="+1">
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
+      <button
+        type="button"
+        style={{ transform: `translateX(${shift}px)`, transition: drag === null ? "transform 150ms ease-out" : "none", touchAction: "pan-y" }}
+        className="relative block w-full text-left text-sm bg-surface-card"
+        onPointerDown={(e) => {
+          start.current = { x: e.clientX, y: e.clientY, base: open ? WIDTH : 0 };
+          moved.current = false;
+        }}
+        onPointerMove={(e) => {
+          const s = start.current;
+          if (!s) return;
+          const dx = e.clientX - s.x;
+          if (!moved.current && (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(e.clientY - s.y))) return;
+          if (!moved.current) e.currentTarget.setPointerCapture(e.pointerId);
+          moved.current = true;
+          setDrag(Math.max(0, Math.min(WIDTH, s.base + dx)));
+        }}
+        onPointerUp={() => {
+          if (moved.current && drag !== null) setOpen(drag > WIDTH / 2);
+          start.current = null;
+          setDrag(null);
+        }}
+        onPointerCancel={() => {
+          start.current = null;
+          setDrag(null);
+        }}
+        onClick={() => {
+          if (moved.current) return void (moved.current = false);
+          if (open) return setOpen(false);
+          onSelect();
+        }}
+      >
+        {children}
+      </button>
+    </li>
   );
 }

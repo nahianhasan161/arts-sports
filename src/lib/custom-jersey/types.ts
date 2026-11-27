@@ -84,6 +84,9 @@ export const STAFF_TRANSITIONS: Record<CustomOrderStatus, CustomOrderStatus[]> =
   cancelled: [],
 };
 
+/** Production steps the shop counter may move an order between (review, mockup and reject stay on the online board). */
+export const COUNTER_STEPS = ["queued", "cutting", "printing", "sewing", "qc", "ready"] as const satisfies readonly CustomOrderStatus[];
+
 export interface Fabric {
   id: string;
   slug: string;
@@ -174,6 +177,8 @@ export interface SizeOption {
   label: string;
   chest: number | null;
   length: number | null;
+  /** Pant sizes only: waist (inches). `length` is then the pant length. */
+  waist?: number | null;
 }
 export interface JerseyOptions {
   sleeves: SleeveOption[];
@@ -181,11 +186,13 @@ export interface JerseyOptions {
   extras: ExtraOption[];
   logos: JerseyOption[];
   sizes: SizeOption[];
+  /** Sizes for pant-only designs: waist / length instead of chest / length. */
+  pant_sizes: SizeOption[];
   /** Pant / shorts styles, price per pant. A player gets a pant when their row has a pant size. */
   pants: JerseyOption[];
 }
 export type OptionGroup = keyof JerseyOptions;
-export const OPTION_GROUPS: OptionGroup[] = ["sleeves", "collars", "extras", "logos", "sizes", "pants"];
+export const OPTION_GROUPS: OptionGroup[] = ["sleeves", "collars", "extras", "logos", "sizes", "pant_sizes", "pants"];
 
 /** What an order picked from the option lists (ids), sent by the POS panel. */
 export interface OptionChoice {
@@ -209,7 +216,7 @@ export const DEFAULT_PRICING: PricingConfig = {
   advance_percent: 30,
   free_revisions: 2,
   min_per_piece: 0,
-  options: { sleeves: [], collars: [], extras: [], logos: [], sizes: [], pants: [] },
+  options: { sleeves: [], collars: [], extras: [], logos: [], sizes: [], pant_sizes: [], pants: [] },
 };
 
 export interface RosterRow {

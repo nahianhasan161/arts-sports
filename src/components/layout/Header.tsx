@@ -238,13 +238,11 @@ export function Header() {
                   {isAdmin && (
                     <Link
                       href="/admin"
-                      className="sp-nav block px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
+                      className="sp-nav flex items-center gap-2 px-4 py-2 text-sm text-on-surface hover:bg-surface-subtle transition-colors"
                       onClick={() => setUserMenuOpen(false)}
                     >
-                      <span className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-gold-ink" />
-                        {t("site.header.adminPanel")}
-                      </span>
+                      <Shield className="w-4 h-4 text-gold-ink" />
+                      {t("site.header.adminPanel")}
                     </Link>
                   )}
                   <button
