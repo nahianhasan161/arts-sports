@@ -84,14 +84,15 @@ export function bucketName(): string {
 }
 
 /**
- * Extensions the app will ever store, as decided by sniffImage().
+ * Extensions the app will ever store: the images sniffImage() accepts, plus
+ * the product videos (mp4/webm, checked by sniffVideo() in validate.ts).
  *
  * The object path is generated server-side, so this is not a security control
  * on upload. It is the allow-list the read route enforces, because that route
  * is anonymous and must never be turned into a general-purpose reader for
  * whatever else lands in the bucket.
  */
-const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "avif"]);
+const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "avif", "mp4", "webm"]);
 
 export class StorageNotConfiguredError extends Error {
   constructor(missing: string[]) {
@@ -334,6 +335,8 @@ export interface FetchedObject {
   contentType: string | null;
   contentLength: number | null;
   etag: string | null;
+  /** Set when a byte range was asked for and the provider answered with one. */
+  contentRange: string | null;
 }
 
 /**
@@ -344,14 +347,17 @@ export interface FetchedObject {
  * expected state here: a row can outlive its file if a previous delete failed,
  * and the read route has to render that as a broken image, not a server fault.
  */
-export async function getObjectStream(path: string): Promise<FetchedObject | null> {
+export async function getObjectStream(path: string, range?: string | null): Promise<FetchedObject | null> {
   try {
-    const result = await storageClient().send(new GetObjectCommand({ Bucket: bucketName(), Key: path }));
+    const result = await storageClient().send(
+      new GetObjectCommand({ Bucket: bucketName(), Key: path, ...(range ? { Range: range } : {}) }),
+    );
     return {
       body: result.Body as Readable,
       contentType: result.ContentType ?? null,
       contentLength: result.ContentLength ?? null,
       etag: result.ETag ?? null,
+      contentRange: result.ContentRange ?? null,
     };
   } catch (error) {
     const name = (error as { name?: string }).name ?? "";

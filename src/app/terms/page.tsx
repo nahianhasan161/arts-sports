@@ -1,17 +1,22 @@
 import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
+import { termsBn } from "./bn";
 
 export const metadata = {
-  title: "Terms of Service",
+  title: "শর্তাবলি",
   description:
-    "The terms that apply when you shop at Arts Sports: orders and acceptance, pricing, payment, delivery, returns, liability limits, and how complaints are escalated.",
+    "Arts Sports থেকে কেনাকাটার শর্ত: অর্ডার গ্রহণ, দাম, পেমেন্ট, ডেলিভারি, রিটার্ন, দায়ের সীমা আর অভিযোগ।",
 };
 
 export default function TermsPage() {
   return (
     <LegalPage
-      title="Terms of Service"
-      intro="These terms are the agreement between you and Arts Sports when you place an order. Please read them before ordering — using this site to buy something means you accept them."
-    >
+      bn={termsBn}
+      en={{
+        title: "Terms of Service",
+        intro:
+          "These terms are the agreement between you and Arts Sports when you place an order. Please read them before ordering — using this site to buy something means you accept them.",
+        children: (
+          <>
       <LegalSection title="1. Who may order">
         <p>
           You must be at least 18 years old, or have the permission of a parent
@@ -144,6 +149,9 @@ export default function TermsPage() {
           at the top tells you which version you are reading.
         </p>
       </LegalSection>
-    </LegalPage>
+          </>
+        ),
+      }}
+    />
   );
 }

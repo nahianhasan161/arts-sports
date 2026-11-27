@@ -1,17 +1,22 @@
 import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
+import { shippingBn } from "./bn";
 
 export const metadata = {
-  title: "Shipping Policy",
+  title: "ডেলিভারি নীতি",
   description:
-    "Arts Sports delivery charges and timelines: ৳70 inside Dhaka, ৳120 nationwide, free over ৳1,500, dispatch times and how to track an order.",
+    "Arts Sports ডেলিভারি চার্জ ও সময়: ঢাকায় ৳৭০, সারা দেশে ৳১২০, ৳১,৫০০-এর বেশি অর্ডারে ফ্রি; কত দিনে পাবেন আর কীভাবে ট্র্যাক করবেন।",
 };
 
 export default function ShippingPolicyPage() {
   return (
     <LegalPage
-      title="Shipping Policy"
-      intro="Where we deliver, what it costs, and how long it takes. The delivery charge is always shown to you before you confirm an order — there are no charges added afterwards."
-    >
+      bn={shippingBn}
+      en={{
+        title: "Shipping Policy",
+        intro:
+          "Where we deliver, what it costs, and how long it takes. The delivery charge is always shown to you before you confirm an order — there are no charges added afterwards.",
+        children: (
+          <>
       <LegalSection title="1. Delivery charges">
         <div className="flex flex-col gap-2">
           <div className="flex justify-between border-b border-border-light pb-2">
@@ -107,6 +112,9 @@ export default function ShippingPolicyPage() {
           wrong or incomplete. Please check these carefully before confirming.
         </p>
       </LegalSection>
-    </LegalPage>
+          </>
+        ),
+      }}
+    />
   );
 }

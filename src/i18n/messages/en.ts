@@ -3,6 +3,7 @@ import { homeEn } from "./home.en";
 import { buyEn } from "./buy.en";
 import type { shopEn } from "./shop.en";
 import { siteEn } from "./site.en";
+import { authEn } from "./auth.en";
 import type { adminEn } from "./admin.en";
 
 /**
@@ -373,6 +374,7 @@ export const en = {
     },
   },
   site: siteEn,
+  auth: authEn,
   home: homeEn,
   store: storeEn,
   buy: buyEn,

@@ -10,7 +10,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { isInsideDhaka, isValidLocation, parseDhakaOverride } from "@/lib/bd-geo";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { gatherRiskSignals, hashIp, loadRiskSettings, scoreRisk, type RiskResult } from "@/lib/risk";
-import { clientIp, cookieValue, sendCapiEvent } from "@/lib/tracking/capi";
+import { clientIp } from "@/lib/tracking/capi";
+import { browserIds, sendServerEvent } from "@/lib/tracking/server";
 import { notifyOrderEvent } from "@/lib/notifications";
 import type {
   CheckoutItemPayload,
@@ -345,6 +346,13 @@ export async function POST(request: Request) {
     else if (risk && risk.level === "low") confirmation = "confirmed";
     else confirmation = "needs_call";
 
+    // Ad-platform ids of this browser, for the server-side order events now
+    // and for the Purchase the payment webhook sends later (orders.tracking).
+    const attributionIds = (payload?.attribution ?? {}) as Record<string, unknown>;
+    const trackingIds = browserIds(headers);
+    if (!trackingIds.ttclid && attributionIds.ttclid) trackingIds.ttclid = str(attributionIds.ttclid, 300) || null;
+    if (!trackingIds.epik && attributionIds.epik) trackingIds.epik = str(attributionIds.epik, 300) || null;
+
     // Extras the RPC does not know about; written with the service key.
     if (isServiceSupabaseConfigured()) {
       const attribution = payload?.attribution ?? {};
@@ -379,6 +387,12 @@ export async function POST(request: Request) {
         })
         .eq("id", result.order_id);
       if (extraErr) console.error("Order placed but its Phase 1 details could not be saved:", extraErr.message);
+      // Separate write: before migration 20261126110000 the column is missing, and that must not lose the rest.
+      await db
+        .from("orders")
+        .update({ tracking: trackingIds })
+        .eq("id", result.order_id)
+        .then(({ error: e }) => e && !/tracking/.test(e.message) && console.error("Order tracking ids not saved:", e.message));
 
       if (sessionId) {
         await db
@@ -389,28 +403,18 @@ export async function POST(request: Request) {
       }
     }
 
-    // Meta: a COD order with nothing paid is a Lead; paid ones send Purchase
-    // when the payment completes. Same event_id as the browser pixel.
+    // A COD order with nothing paid is a Lead (TikTok PlaceAnOrder, Pinterest
+    // lead); paid ones send Purchase when the payment completes. Same event_id
+    // as the browser tags, so each platform counts it once.
     if (effectivePlan === "cod") {
-      sendCapiEvent({
+      sendServerEvent({
         name: "Lead",
         eventId: `lead-${result.order_id}`,
         value: total,
-        contentIds: items.map((i) => i.product_id),
-        numItems: items.reduce((s, i) => s + i.quantity, 0),
+        items: items.map((i) => ({ id: i.product_id, quantity: i.quantity, name: i.title })),
         orderId: result.order_id,
-        sourceUrl: headers.get("referer") ?? undefined,
-        user: {
-          phone,
-          email: payload.customer_email,
-          name,
-          district,
-          ip,
-          userAgent: headers.get("user-agent"),
-          fbc: cookieValue(headers, "_fbc"),
-          fbp: cookieValue(headers, "_fbp"),
-          externalId: phone,
-        },
+        user: { phone, email: payload.customer_email, name, district },
+        ids: trackingIds,
       }).catch(() => {});
       if (isServiceSupabaseConfigured()) {
         notifyOrderEvent(result.order_id, confirmation === "confirmed" ? "order_confirmed" : "order_placed").catch(

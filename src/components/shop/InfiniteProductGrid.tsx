@@ -72,8 +72,8 @@ export function InfiniteProductGrid({
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4">
-        {items.map((product) => (
-          <ProductCard key={product.id} product={product} />
+        {items.map((product, i) => (
+          <ProductCard key={product.id} product={product} eager={i < 4} />
         ))}
         {loading && <ProductGridSkeleton count={4} />}
       </div>

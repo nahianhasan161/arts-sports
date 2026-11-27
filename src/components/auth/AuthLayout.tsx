@@ -1,4 +1,7 @@
-import { ArrowRight, LockKeyhole, Mail, UserPlus } from "lucide-react";
+"use client";
+
+import { ArrowRight, LockKeyhole, Package, Zap } from "lucide-react";
+import { useT } from "@/i18n/client";
 import Link from "next/link";
 
 type AuthLayoutProps = {
@@ -18,6 +21,7 @@ export function AuthLayout({
   footerLinkLabel,
   footerLinkHref,
 }: AuthLayoutProps) {
+  const { t } = useT();
   return (
     <div className="min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-164px)] flex items-center justify-center px-space-base py-space-2xl">
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-space-2xl items-center">
@@ -25,11 +29,11 @@ export function AuthLayout({
           <div className="inline-flex items-center gap-2 text-gold-ink mb-space-lg">
             <span className="w-10 h-px bg-accent-gold"></span>
             <span className="font-display uppercase text-xs tracking-[0.25em] font-bold">
-              Arts Sports Account
+              {t("auth.layout.eyebrow")}
             </span>
             <span className="w-10 h-px bg-accent-gold"></span>
           </div>
-          <h1 className="font-display text-4xl xl:text-5xl uppercase text-primary leading-[1.05] font-bold">
+          <h1 className="font-display text-4xl xl:text-5xl text-primary leading-[1.05] font-bold">
             {title}
           </h1>
           <p className="text-text-muted mt-space-lg max-w-md text-sm leading-7">
@@ -37,21 +41,9 @@ export function AuthLayout({
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-space-base mt-space-2xl">
             {[
-              {
-                icon: LockKeyhole,
-                label: "Secure access",
-                value: "Protected by Supabase Auth",
-              },
-              {
-                icon: Mail,
-                label: "Fast checkout",
-                value: "Save your account details",
-              },
-              {
-                icon: UserPlus,
-                label: "One click return",
-                value: "Shop again in seconds",
-              },
+              { icon: LockKeyhole, label: t("auth.layout.secure"), value: t("auth.layout.secureText") },
+              { icon: Zap, label: t("auth.layout.fast"), value: t("auth.layout.fastText") },
+              { icon: Package, label: t("auth.layout.orders"), value: t("auth.layout.ordersText") },
             ].map((feature) => {
               const Icon = feature.icon;
               return (

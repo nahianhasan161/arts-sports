@@ -11,6 +11,7 @@
  */
 
 import { useRef, useState } from "react";
+import { usePasteImages } from "@/lib/media/paste";
 import { ImagePlus, Star, X, Loader2 } from "lucide-react";
 import { optimizeImageFile } from "@/lib/media/client-optimize";
 import { MEDIA_ACCEPTED_TYPES, MEDIA_MAX_BYTES, MEDIA_MAX_PER_PRODUCT } from "@/types";
@@ -20,6 +21,25 @@ export interface StagedImage {
   file: File;
   preview: string;
   originalBytes: number;
+}
+
+/**
+ * Shrinks picked/pasted files into staged pictures (at most `room` of them).
+ * Also used by the colour media box, which adds pasted pictures for a colour.
+ */
+export async function stageImageFiles(files: File[], room: number): Promise<{ added: StagedImage[]; rejected: number }> {
+  const added: StagedImage[] = [];
+  let rejected = 0;
+  for (const original of files.slice(0, Math.max(0, room))) {
+    const file = await optimizeImageFile(original);
+    const okType = (MEDIA_ACCEPTED_TYPES as readonly string[]).includes(file.type);
+    if (!okType || file.size > MEDIA_MAX_BYTES) {
+      rejected++;
+      continue;
+    }
+    added.push({ id: crypto.randomUUID(), file, preview: URL.createObjectURL(file), originalBytes: original.size });
+  }
+  return { added, rejected };
 }
 
 function kb(bytes: number): string {
@@ -46,23 +66,8 @@ export default function StagedImagePicker({ images, onChange, disabled }: Props)
     }
     setBusy(true);
     try {
-      const next = [...images];
-      let rejected = 0;
-      for (const original of files.slice(0, room)) {
-        const file = await optimizeImageFile(original);
-        const okType = (MEDIA_ACCEPTED_TYPES as readonly string[]).includes(file.type);
-        if (!okType || file.size > MEDIA_MAX_BYTES) {
-          rejected++;
-          continue;
-        }
-        next.push({
-          id: crypto.randomUUID(),
-          file,
-          preview: URL.createObjectURL(file),
-          originalBytes: original.size,
-        });
-      }
-      onChange(next);
+      const { added, rejected } = await stageImageFiles(files, room);
+      onChange([...images, ...added]);
       if (rejected > 0) setError(`${rejected} file(s) skipped: only JPEG, PNG, WebP or AVIF under 5 MB.`);
       else if (files.length > room) setError(`Only ${room} more image(s) fit; the rest were skipped.`);
     } finally {
@@ -76,13 +81,28 @@ export default function StagedImagePicker({ images, onChange, disabled }: Props)
     onChange(images.filter((i) => i.id !== id));
   };
 
+  // Ctrl/⌘+V pastes pictures in; tiles can be dragged into a new order.
+  const rootRef = useRef<HTMLDivElement>(null);
+  usePasteImages(rootRef, (files) => void add(files), !disabled && !busy);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const dropOn = (targetId: string) => {
+    const from = images.findIndex((i) => i.id === dragId);
+    const to = images.findIndex((i) => i.id === targetId);
+    setDragId(null);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = [...images];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+  };
+
   const makeFirst = (id: string) => {
     const pick = images.find((i) => i.id === id);
     if (pick) onChange([pick, ...images.filter((i) => i.id !== id)]);
   };
 
   return (
-    <div className="space-y-3">
+    <div ref={rootRef} className="space-y-3">
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -101,7 +121,7 @@ export default function StagedImagePicker({ images, onChange, disabled }: Props)
           {busy ? "Optimising…" : "Add images"}
         </button>
         <p className="mt-2 text-[11px] text-text-muted">
-          Drop files here or browse. Every image is converted to a smaller WebP automatically. The first one is the
+          Drop files here, browse, or paste with Ctrl/⌘+V. Drag the pictures below to change their order. Every image is converted to a smaller WebP automatically. The first one is the
           main image.
         </p>
         <input
@@ -123,7 +143,25 @@ export default function StagedImagePicker({ images, onChange, disabled }: Props)
       {images.length > 0 && (
         <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {images.map((img, i) => (
-            <li key={img.id} className="relative border border-border-light rounded-lg overflow-hidden bg-surface-card">
+            <li
+              key={img.id}
+              draggable={!disabled}
+              onDragStart={(e) => {
+                setDragId(img.id);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onDragOver={(e) => dragId && e.preventDefault()}
+              onDrop={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                e.stopPropagation();
+                dropOn(img.id);
+              }}
+              onDragEnd={() => setDragId(null)}
+              className={`relative border border-border-light rounded-lg overflow-hidden bg-surface-card cursor-grab active:cursor-grabbing ${
+                dragId === img.id ? "opacity-40" : ""
+              }`}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={img.preview} alt="" className="w-full aspect-square object-cover" />
               <div className="px-2 py-1 text-[10px] text-text-muted">

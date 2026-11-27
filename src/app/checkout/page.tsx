@@ -84,7 +84,10 @@ function CheckoutInner() {
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState<AddressValue>(EMPTY_ADDRESS);
   const [savedAddress, setSavedAddress] = useState<AddressValue | null>(null);
-  const [plan, setPlan] = useState<PaymentPlan>(ONLINE_ENABLED ? "cod_advance" : "cod");
+  // Plain cash on delivery first: it is what most shoppers here expect. The
+  // server asks for the delivery charge up front only when the order's risk
+  // score is high (reason "advance_required"), and then this switches over.
+  const [plan, setPlan] = useState<PaymentPlan>("cod");
   const [manualMethod, setManualMethod] = useState<ManualMethod>("cod");
   const [transactionId, setTransactionId] = useState("");
   const [notes, setNotes] = useState("");
@@ -398,13 +401,13 @@ function CheckoutInner() {
   const rest = Math.max(0, grandTotal - advance);
   // With free delivery there is no charge to prepay: the same money is an advance on the products.
   const planOptions: { id: PaymentPlan; title: string; detail: string }[] = [
+    { id: "cod", title: t("buy.checkout.planCod"), detail: t("buy.checkout.planCodText") },
     {
       id: "cod_advance",
       title: t("buy.checkout.planAdvance", { amount: taka(advance) }),
       detail: t(shippingFee > 0 ? "buy.checkout.planAdvanceText" : "buy.checkout.planAdvanceFreeText", { amount: taka(advance), rest: taka(rest) }),
     },
     { id: "full", title: t("buy.checkout.planFull", { amount: taka(grandTotal) }), detail: t("buy.checkout.planFullText") },
-    { id: "cod", title: t("buy.checkout.planCod"), detail: t("buy.checkout.planCodText") },
   ];
 
   return (
@@ -432,14 +435,14 @@ function CheckoutInner() {
           <div className="flex flex-col gap-space-base">
             {/* Sign in or guest */}
             {authConfigured && !user && (
-              <section className="bg-surface-card border border-border-light rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <section className="bg-surface-card border border-border-light rounded-xl p-3 sm:p-4 flex items-center gap-3">
                 <div className="flex-1">
                   <p className="text-sm font-bold text-on-surface">{t("buy.checkout.google")}</p>
-                  <p className="text-xs text-text-muted mt-0.5">
+                  <p className="hidden sm:block text-xs text-text-muted mt-0.5">
                     {t("buy.checkout.googleText")}
                   </p>
                 </div>
-                <div className="sm:w-56">
+                <div className="w-40 sm:w-56 shrink-0">
                   <GoogleSignInButton returnTo={buyNowMode ? "/checkout?mode=buynow" : "/checkout"} />
                 </div>
               </section>

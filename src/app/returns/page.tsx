@@ -1,4 +1,5 @@
 import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
+import { returnsBn } from "./bn";
 
 /**
  * Return & Exchange policy.
@@ -11,17 +12,21 @@ import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
  */
 
 export const metadata = {
-  title: "Return & Exchange Policy",
+  title: "রিটার্ন ও এক্সচেঞ্জ নীতি",
   description:
-    "Arts Sports's 7-day return and size-exchange policy: what qualifies, how to request a return, who pays return shipping, and how long a refund takes.",
+    "Arts Sports-এ ৭ দিনের রিটার্ন ও সাইজ বদলের নিয়ম: কোন পণ্য ফেরত হয়, কীভাবে অনুরোধ করবেন, কুরিয়ার খরচ কে দেবে আর টাকা ফেরতে কত দিন লাগে।",
 };
 
 export default function ReturnsPolicyPage() {
   return (
     <LegalPage
-      title="Return & Exchange Policy"
-      intro="You have 7 days from delivery to return or exchange an item. This page explains exactly what qualifies, how to start a request, and what to expect at each step."
-    >
+      bn={returnsBn}
+      en={{
+        title: "Return & Exchange Policy",
+        intro:
+          "You have 7 days from delivery to return or exchange an item. This page explains exactly what qualifies, how to start a request, and what to expect at each step.",
+        children: (
+          <>
       <LegalSection title="1. The 7-day window">
         <p>
           You may return or exchange any item within <strong>7 days</strong> of
@@ -112,6 +117,9 @@ export default function ReturnsPolicyPage() {
           charge, and we do not require the item to be returned in these cases.
         </p>
       </LegalSection>
-    </LegalPage>
+          </>
+        ),
+      }}
+    />
   );
 }

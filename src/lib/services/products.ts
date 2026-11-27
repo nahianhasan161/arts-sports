@@ -3,6 +3,7 @@ import { Product, Category } from "@/types";
 import { PRODUCTS, CATEGORIES } from "@/lib/data/mock-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { sportFilter, type StoreSport } from "@/lib/sports";
+import { productTextFilter, searchTerms } from "@/lib/search";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function getActiveSupabaseClient(): Promise<SupabaseClient | null> {
@@ -98,12 +99,8 @@ export async function getProducts(options?: {
       if (options?.search) {
         // Title and the plain-text summary only. `description` is rich HTML
         // and matching inside markup produces hits on attribute names.
-        const term = options.search.replace(/[,%()]/g, " ").trim();
-        if (term) {
-          query = query.or(
-            `title.ilike.%${term}%,short_description.ilike.%${term}%`
-          );
-        }
+        const terms = searchTerms(options.search);
+        if (terms.length > 0) query = query.or(productTextFilter(terms));
       }
 
       if (options?.sortBy === "price_asc") {
@@ -151,7 +148,12 @@ export async function getProducts(options?: {
       // was shown products that do not exist. Empty is returned; only a thrown
       // error or a missing client reaches the fallback below.
       if (!error) {
-        return ((data ?? []) as Product[]).map(withoutCost);
+        // Lists (cards, grids) don't show the search text; only the product page reads it.
+        return ((data ?? []) as Product[]).map((row) => {
+          const copy = withoutCost(row);
+          delete copy.seo;
+          return copy;
+        });
       }
       console.warn("Supabase query failed, falling back to local dataset:", error.message);
     } catch (err) {
@@ -236,6 +238,77 @@ export const getProductBySlug = cache(async (slug: string): Promise<Product | nu
   const found = PRODUCTS.find((p) => p.slug === slug);
   return found || null;
 });
+
+/**
+ * The colour + size pairs a product can be bought in, for the product page.
+ * Only switched-on variants (checkout's `resolve_order_variant()` refuses an
+ * off one). Names are what the page and the cart use: the colour name and the
+ * size's display name / name, lower-cased.
+ */
+export interface VariantCombo {
+  color: string | null;
+  sizes: string[];
+  stock: number;
+  /**
+   * Set when the variation has its own price: its regular price and what it
+   * sells for after the product's discount / live promotion
+   * (`get_effective_variant_prices()`, the same source checkout charges from).
+   */
+  price?: { regular: number; final: number };
+}
+
+export const getVariantCombos = cache(async (productId: string): Promise<VariantCombo[]> => {
+  const supabase = await getActiveSupabaseClient();
+  if (!supabase) return [];
+  return variantCombosFrom(supabase, productId);
+});
+
+/** getVariantCombos with a given client (the admin preview reads a draft's variants with the service client). */
+export async function variantCombosFrom(
+  supabase: SupabaseClient,
+  productId: string
+): Promise<VariantCombo[]> {
+  try {
+    const { data, error } = await supabase
+      .from("product_variants")
+      .select("id, stock, regular_price_override, colors(name), sizes(name, display_name)")
+      .eq("product_id", productId)
+      .eq("is_active", true);
+    if (error || !data) return [];
+    type Row = {
+      id: string;
+      stock: number | null;
+      regular_price_override: number | string | null;
+      colors: { name: string } | { name: string }[] | null;
+      sizes: { name: string; display_name: string | null } | { name: string; display_name: string | null }[] | null;
+    };
+    const one = <T,>(x: T | T[] | null): T | null => (Array.isArray(x) ? (x[0] ?? null) : x);
+    const rows = data as Row[];
+    const priced = new Map<string, { regular: number; final: number }>();
+    const own = rows.filter((r) => r.regular_price_override != null).map((r) => r.id);
+    if (own.length > 0) {
+      const { data: prices } = await supabase.rpc("get_effective_variant_prices", { p_variant_ids: own });
+      for (const p of (prices ?? []) as { variant_id: string; regular_price: number | string; final_price: number | string }[]) {
+        const regular = Number(p.regular_price);
+        const final = Number(p.final_price);
+        if (regular > 0 && final > 0) priced.set(p.variant_id, { regular, final });
+      }
+    }
+    return rows.map((r) => {
+      const c = one(r.colors);
+      const s = one(r.sizes);
+      const price = priced.get(r.id);
+      return {
+        color: c ? c.name.toLowerCase() : null,
+        sizes: s ? [...new Set([s.name, s.display_name ?? ""].filter(Boolean).map((x) => x.toLowerCase()))] : [],
+        stock: Math.max(0, r.stock ?? 0),
+        ...(price ? { price } : {}),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
 
 export async function getFeaturedProducts(): Promise<Product[]> {
   return getProducts({ limit: 6 });
@@ -347,10 +420,8 @@ export async function getProductsCount(options?: {
       if (options?.minPrice !== undefined) query = query.gte("price", options.minPrice);
       if (options?.maxPrice !== undefined) query = query.lte("price", options.maxPrice);
       if (options?.search) {
-        const term = options.search.replace(/[,%()]/g, " ").trim();
-        if (term) {
-          query = query.or(`title.ilike.%${term}%,short_description.ilike.%${term}%`);
-        }
+        const terms = searchTerms(options.search);
+        if (terms.length > 0) query = query.or(productTextFilter(terms));
       }
 
       const { count, error } = await query;

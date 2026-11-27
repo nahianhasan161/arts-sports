@@ -3,6 +3,10 @@ import type { SiteMessages } from "./en";
 /** কার্ট, পছন্দের তালিকা, চেকআউট আর "পেজ পাওয়া যায়নি"। */
 export const buyBn: SiteMessages["buy"] = {
   cart: {
+    addOns: "সাথে নিতে পারেন",
+    add: "যোগ করুন",
+    addOne: "{name} যোগ করুন",
+    choose: "বেছে নিন",
     title: "আপনার কার্ট",
     close: "কার্ট বন্ধ করুন",
     empty: "আপনার কার্ট খালি",

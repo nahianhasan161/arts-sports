@@ -7,7 +7,7 @@ import { getPublicCatalogue, getPublicFabrics, onePiecePrice, startPrice } from 
 import { loadPublicPricing } from "@/lib/custom-jersey/server";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ErrorBoundary, ProductGridErrorFallback } from "@/components/ui/ErrorBoundary";
-import { ProductSchema } from "@/components/seo/ProductSchema";
+import { HomeSchema } from "@/components/seo/HomeSchema";
 import {
   CatalogueShowcase,
   CustomerReviews,
@@ -68,9 +68,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col w-full pb-24">
-      {newArrivals.slice(0, 3).map((p) => (
-        <ProductSchema key={p.id} product={p} />
-      ))}
+      <HomeSchema products={newArrivals} />
 
       <HomeHero startPrice={startPrice(fabrics, pricing)} />
       <Perks normalDays={pricing.rush.normal_days} />
@@ -87,7 +85,7 @@ export default async function HomePage() {
           {newArrivals.length === 0 ? (
             <EmptyProducts />
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4">
+            <div className="max-sm:[&>*:nth-child(n+5)]:hidden grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4">
               {arrivalCards.map((product) => (
                 <ProductCard key={product.id} product={product} aspectRatio="square" />
               ))}

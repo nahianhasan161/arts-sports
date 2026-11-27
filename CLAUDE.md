@@ -35,7 +35,11 @@ After meaningful work, update `context/progress-tracker.md` (and the other conte
   `server.ts` (`getSupabaseServerClient`), `service.ts` (`getServiceSupabase`, bypasses RLS, server only),
   `lib/admin/supabase.ts` (`getAdminSupabase`)
 - Payments: `lib/payments/` (gateway interface in `gateway/`, UnivaPayment impl, `state-machine.ts`)
-- Courier: `lib/courier/` (Steadfast, Pathao). Tracking: `lib/tracking/` (Meta Pixel/CAPI, GA4)
+- Courier: `lib/courier/` (Steadfast, Pathao). Tracking: `lib/tracking/` (`events.ts` browser fan-out to Meta/GA4/GTM dataLayer/TikTok/Pinterest,
+  `server.ts` server events to Meta CAPI/TikTok/Pinterest/GA4 MP; tags in `components/seo/Pixels.tsx`, off under /admin)
+- SEO: `lib/seo/` (`product-seo.ts` auto text + `products.seo` override, `ai-writer.ts` Claude, `indexnow.ts`, `store-facts.ts`, `llms.ts`);
+  product form SEO tab `SeoPanel.tsx` + API `api/admin/products/[id]/seo`; feeds `lib/feeds/items.ts` (`/api/feeds/meta`, `/feeds/google.xml`);
+  `/llms.txt`, `/llms-full.txt`, sitemap, robots. SQL `20261126110000_seo_and_tracking.sql` (not applied yet).
 - Pricing: `lib/pricing.ts` (must match the order RPC in SQL; `scripts/test-pricing-parity.mjs`)
 - i18n: `src/i18n/` + `messages/{en,bn}.ts`; new UI text goes through `t()`. DB has `*_bn` columns.
 - Types: `src/types/index.ts` (large — grep for the type you need)
@@ -86,8 +90,19 @@ After meaningful work, update `context/progress-tracker.md` (and the other conte
   (`components/admin/pos/register/`: bill + numpad, product grid, payment screen; text `shop.register.*`), `orders` (bills/returns),
   `custom-jersey`, `cash` (drawer), `branches` (= `showrooms` table); receipts at `/admin/offline/pos/{receipt,custom-receipt}/[id]`.
   Online dashboard: `/admin/online` (`api/admin/overview`); guide text in `components/admin/help/guide.ts`.
-- Demo data: `supabase/demo/{seed,remove}.sql`, run with `node --env-file=.env.local scripts/demo-data.mjs seed|remove [--dry-run]`.
+- Demo data: `supabase/demo/{seed,seed-extra,seed-accessories,seed-realistic,remove}.sql`, run with
+  `node --env-file=.env.local scripts/demo-data.mjs seed|realistic|remove [--dry-run]`. `seed-realistic` makes it look like a real shop;
+  photos from `public/demo/photos/<slug>.jpg`. Demo reviews are hidden on the site unless `SHOW_DEMO_REVIEWS=1`.
   All demo ids start with `demo-`. Ask before running it on the live DB.
+- Search: `lib/search.ts` (synonyms) + `lib/services/search.ts` (`searchProductIds`), header suggestions `api/shop/suggest`;
+  optional SQL `20261126110000_product_search.sql` (not applied). Policy pages are bilingual (`LegalPage({en,bn})`, `app/<policy>/bn.tsx`).
+- Product videos: `products.videos` JSONB (links + small R2 clips), `lib/media/video.ts` (parse/embed), `video-compress.ts` (browser shrink),
+  API `api/admin/products/[productId]/videos`, admin `ProductVideoManager`, storefront `components/product/ProductVideo.tsx`. SQL `20261126100000_product_videos.sql` (applied live 2026-11-27).
+- Product import + specs paste: `lib/products/{import,spec-paste}.ts`, `components/admin/products/ProductImport.tsx` (Import button on products page),
+  API `api/admin/products/import` (`?sheet=` Google Sheet link → CSV, `?image=` picture proxy). Unknown sheet columns become specs.
+- Colour media: `products.color_images` (colour → list of pictures / `video:<key>`) + `products.default_variant` (shown first); paste hook `lib/media/paste.ts`, `lib/products/color-images.ts`, admin `ColorPhotos.tsx` (`VariationsPanel`: variation list + per-colour pictures in one, Variations tab), API `api/admin/products/[productId]/color-images`; SQL `20261127100000_product_color_images.sql` (not applied yet).
+- Product variations: admin `components/admin/products/VariantEditor.tsx` (WooCommerce-style list, add on purpose) + model `variants.ts`.
+  Storage is still colour × size (`admin_save_product` stores every pair; pairs not added = off, 0 stock). Product page reads on-pairs via `getVariantCombos()`.
 - Stores: `lib/store/` (cart, wishlist)
 - DB schema: `supabase/migrations/*.sql` is the truth. `supabase/schema.sql` is old/legacy.
 - `scripts/` = one-off diag/test scripts; ignore unless relevant.

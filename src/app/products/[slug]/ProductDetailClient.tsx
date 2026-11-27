@@ -1,7 +1,7 @@
 "use client";
 import { badgeClass, discountBadgePercent } from "@/lib/badges";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,6 +23,7 @@ import {
 import SizeGuideModal from "@/components/product/SizeGuideModal";
 import { useLiveBadges } from "@/lib/promotions/useLiveBadges";
 import { Product } from "@/types";
+import { colorCover, galleryForColor, readColorMedia, readDefaultVariant } from "@/lib/products/color-images";
 import { useCartStore } from "@/lib/store/cart-store";
 import { trackEvent } from "@/lib/tracking/events";
 import { ShareButtons } from "@/components/product/ShareButtons";
@@ -31,24 +32,34 @@ import { useWishlistStore } from "@/lib/store/wishlist-store";
 import { useT } from "@/i18n/client";
 import { formatMoney } from "@/i18n";
 import { RETURN_DAYS } from "@/lib/nav";
+import { readVideos, type ProductVideo as Video } from "@/lib/media/video";
+import { ProductVideo, VideoThumb } from "@/components/product/ProductVideo";
+import type { VariantCombo } from "@/lib/services/products";
+
+type Slide = { type: "image"; src: string } | { type: "video"; video: Video };
 
 interface ProductDetailClientProps {
   product: Product;
   discountPercent: number;
   /** For the breadcrumb; null when the category is not in the list any more. */
   category: { name: string; name_bn?: string | null; slug: string } | null;
-  subCategory: { name: string; name_bn?: string | null } | null;
+  subCategory: { name: string; name_bn?: string | null; slug?: string } | null;
   /** The description, cleaned on the server. */
   details: { en: string; bn: string };
+  /** Switched-on colour + size pairs with their stock (empty = old products / no data). */
+  combos?: VariantCombo[];
+  /** Text for the main picture (from the product's search text). */
+  imageAlt?: { en: string; bn: string };
 }
 
-export function ProductDetailClient({ product, discountPercent, category, subCategory, details }: ProductDetailClientProps) {
+export function ProductDetailClient({ product, discountPercent, category, subCategory, details, combos = [], imageAlt }: ProductDetailClientProps) {
   const router = useRouter();
   const { t, locale } = useT();
   const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
 
   const label = (x: { name: string; name_bn?: string | null }) => (locale === "bn" && x.name_bn) || x.name;
   const title = (locale === "bn" && product.title_bn) || product.title;
+  const mainAlt = (imageAlt && ((locale === "bn" && imageAlt.bn) || imageAlt.en)) || title;
   const summary = (locale === "bn" && product.short_description_bn) || product.short_description;
   const about = (locale === "bn" && details.bn) || details.en;
   const specs = Object.entries(product.specs ?? {}).filter(([, value]) => String(value ?? "").trim());
@@ -59,12 +70,75 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
   // HTML a crawler or a shopper received was an empty shell — the reason no
   // product detail page was ever indexed.
   const [selectedImgIndex, setSelectedImgIndex] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<string>(
-    product.colors[0]?.name || "Default"
-  );
-  const [selectedSize, setSelectedSize] = useState<string>(
-    product.sizes.find((s) => s.stock > 0)?.size || product.sizes[0]?.size || ""
-  );
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  // With colours, stock is per colour + size pair: a pair the shop does not
+  // sell (switched off in the admin) or has none of cannot be picked, because
+  // checkout would refuse it. Without colours the per-size stock is enough.
+  const pairAware = combos.length > 0 && product.colors.length > 0;
+  const lc = (x: string) => x.trim().toLowerCase();
+  const pairsFor = (color: string, size: string) =>
+    combos.filter(
+      (c) =>
+        (c.color === null || c.color === lc(color)) &&
+        (c.sizes.length === 0 || !size || c.sizes.includes(lc(size))),
+    );
+  const offered = (color: string, size: string) => pairsFor(color, size).length > 0;
+  const stockOf = (color: string, size: string) => pairsFor(color, size).reduce((n, c) => n + c.stock, 0);
+  const colorInStock = (color: string) => combos.some((c) => c.color === lc(color) && c.stock > 0);
+  /** The size to show for a colour: the current one if it can be bought, else the first that can. */
+  const sizeFor = (color: string, current?: string) => {
+    if (product.sizes.length === 0) return "";
+    if (current && stockOf(color, current) > 0) return current;
+    return (
+      product.sizes.find((s) => stockOf(color, s.size) > 0)?.size ??
+      product.sizes.find((s) => offered(color, s.size))?.size ??
+      product.sizes[0].size
+    );
+  };
+
+  // "Shown first" from the admin; used while it can be bought, else the first in stock.
+  const firstPick = readDefaultVariant(product.default_variant);
+  const startColor = (() => {
+    const pick = firstPick.color && product.colors.find((c) => lc(c.name) === firstPick.color);
+    if (pick && (!pairAware || colorInStock(pick.name))) return pick.name;
+    return pairAware
+      ? (product.colors.find((c) => colorInStock(c.name)) ?? product.colors[0]).name
+      : product.colors[0]?.name || "Default";
+  })();
+  const [selectedColor, setSelectedColor] = useState<string>(startColor);
+  const [selectedSize, setSelectedSize] = useState<string>(() => {
+    const pick = firstPick.size && product.sizes.find((x) => lc(x.size) === firstPick.size);
+    if (pick && (pairAware ? stockOf(startColor, pick.size) > 0 : pick.stock > 0)) return pick.size;
+    return pairAware
+      ? sizeFor(startColor)
+      : product.sizes.find((s) => s.stock > 0)?.size || product.sizes[0]?.size || "";
+  });
+  // Pictures/videos per colour (set in the admin): the picked colour's own
+  // media first, then media no colour has. Without any, every colour sees all.
+  // Photos, with the videos after the main photo: the first picture still
+  // sells (and is the share image); the video is one tap away.
+  const colorMedia = useMemo(() => readColorMedia(product.color_images), [product.color_images]);
+  const photoOf = (color: string) => colorCover(product.images, colorMedia, color);
+  const slides = useMemo<Slide[]>(() => {
+    const g = galleryForColor(product.images, readVideos(product.videos), colorMedia, product.colors.length ? selectedColor : null);
+    const photos: Slide[] = g.images.map((src) => ({ type: "image", src }));
+    const clips: Slide[] = g.videos.map((video) => ({ type: "video", video }));
+    return photos.length ? [photos[0], ...clips, ...photos.slice(1)] : clips;
+  }, [product.images, product.videos, product.colors.length, colorMedia, selectedColor]);
+  const slide = slides[selectedImgIndex] ?? slides[0];
+  const showSlide = (idx: number) => {
+    setSelectedImgIndex(idx);
+    setVideoPlaying(false);
+  };
+  // The gallery changes with the colour, so start it again at its first item.
+  const showColorPhoto = (color: string) => {
+    if (color !== selectedColor) showSlide(0);
+  };
+  const pickColor = (name: string) => {
+    setSelectedColor(name);
+    showColorPhoto(name);
+    if (pairAware) setSelectedSize((cur) => sizeFor(name, cur));
+  };
   const [quantity, setQuantity] = useState(1);
   const [copied, setCopied] = useState(false);
   const [sizeModalOpen, setSizeModalOpen] = useState(false);
@@ -79,8 +153,14 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
     const wantSize = params.get("size")?.toLowerCase();
     const color = wantColor && product.colors.find((c) => c.name.toLowerCase() === wantColor);
     const size = wantSize && product.sizes.find((s) => s.size.toLowerCase() === wantSize);
-    if (color) setSelectedColor(color.name);
+    if (color) {
+      setSelectedColor(color.name);
+      showColorPhoto(color.name);
+    }
     if (size) setSelectedSize(size.size);
+    else if (color && pairAware) setSelectedSize((cur) => sizeFor(color.name, cur));
+    // Once per product: pairAware / sizeFor only read `product` and `combos`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product]);
 
   useEffect(() => {
@@ -95,7 +175,10 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
   // badge can never outlive the promotion that produced it.
   const liveBadges = useLiveBadges(product ? [product.id] : []);
   const live = product ? liveBadges[product.id] : undefined;
-  const displayPrice = live?.final_price ?? product?.price ?? 0;
+  // A variation with its own price (set in the admin) replaces the product
+  // price; the server already applied the discount / promotion to it.
+  const variantPrice = pairsFor(selectedColor, selectedSize).find((c) => c.price)?.price;
+  const displayPrice = variantPrice?.final ?? live?.final_price ?? product?.price ?? 0;
   // Rounded for display, like every other percentage on the storefront.
   // `discount_value` is stored to two decimals, so a 14.8% markdown reaches
   // this page as 14.8 -- and showing it raw would print "14.8% Off" here while
@@ -132,30 +215,42 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
   // base_price equals final_price and only the product's original_price says
   // what the price was. Reading base_price alone hid the struck price and showed
   // "Save ৳0.00 (10% off)".
-  const crossedOutPrice =
-    live && live.base_price > live.final_price ? live.base_price : (product?.original_price ?? 0);
+  const crossedOutPrice = variantPrice
+    ? variantPrice.regular
+    : live && live.base_price > live.final_price ? live.base_price : (product?.original_price ?? 0);
   const savedAmount = Math.max(0, crossedOutPrice - displayPrice);
-  const savedPercent = savedAmount > 0 ? (displayPercent > 0 ? displayPercent : Math.round((savedAmount / crossedOutPrice) * 100)) : 0;
+  const savedPercent =
+    savedAmount > 0
+      ? displayPercent > 0 && !variantPrice
+        ? displayPercent
+        : Math.round((savedAmount / crossedOutPrice) * 100)
+      : 0;
 
   const isLiked = isInWishlist(product.id);
   const currentSizeObj = product.sizes.find((s) => s.size === selectedSize);
   // "3U / G5", "0.68 mm"...: a variation that is not a clothing size.
   const isOption = product.sizes.some((s) => !/^(x*[sml]|\d*xl)$/i.test(s.size.trim()));
-  const availableStock = currentSizeObj ? currentSizeObj.stock : product.stock;
+  const availableStock = pairAware
+    ? stockOf(selectedColor, selectedSize)
+    : currentSizeObj
+      ? currentSizeObj.stock
+      : product.stock;
 
   const eventItem = () => ({
     value: displayPrice * quantity,
     items: [{ id: product.id, name: product.title, price: displayPrice, quantity, variant: `${selectedSize} / ${selectedColor}` }],
   });
 
+  const unitPrice = { price: displayPrice, original_price: Math.max(displayPrice, crossedOutPrice) };
+
   const handleAddToCart = () => {
-    addItem(product, selectedSize, selectedColor, quantity);
+    addItem(product, selectedSize, selectedColor, quantity, unitPrice);
     trackEvent("AddToCart", eventItem());
   };
 
   // Straight to checkout with just this item; the bag is left as it is.
   const handleBuyNow = () => {
-    setBuyNow(product, selectedSize, selectedColor, quantity);
+    setBuyNow(product, selectedSize, selectedColor, quantity, unitPrice);
     trackEvent("AddToCart", eventItem());
     router.push("/checkout?mode=buynow");
   };
@@ -174,6 +269,17 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
             {category ? label(category) : t("store.shop.shop")}
           </Link>
           <ChevronRight className="w-3 h-3 opacity-40" />
+          {category && subCategory?.slug && (
+            <>
+              <Link
+                href={`/shop?category=${encodeURIComponent(category.slug)}&sub=${encodeURIComponent(subCategory.slug)}`}
+                className="hover:text-primary transition-colors inline-flex min-h-11 min-w-11 md:min-h-8 items-center"
+              >
+                {label(subCategory)}
+              </Link>
+              <ChevronRight className="w-3 h-3 opacity-40" />
+            </>
+          )}
           <span className="text-on-surface font-semibold truncate max-w-xs md:max-w-none">
             {title}
           </span>
@@ -187,14 +293,18 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
             {/* LEFT: Gallery Module (7 cols) */}
             <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-space-base items-start">
               {/* Vertical Thumbnail Strip */}
-              {product.images.length > 1 && (
+              {slides.length > 1 && (
               <div className="flex md:flex-col gap-2 w-full md:w-20 overflow-x-auto md:overflow-y-auto no-scrollbar shrink-0">
-                {product.images.map((imgUrl, idx) => (
+                {slides.map((item, idx) => (
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setSelectedImgIndex(idx)}
-                    aria-label={t("store.pdp.photo", { n: num(idx + 1), total: num(product.images.length) })}
+                    onClick={() => showSlide(idx)}
+                    aria-label={
+                      item.type === "video"
+                        ? t("store.pdp.video")
+                        : t("store.pdp.photo", { n: num(idx + 1), total: num(slides.length) })
+                    }
                     aria-pressed={selectedImgIndex === idx}
                     className={`relative rounded-lg overflow-hidden w-16 h-20 md:w-20 md:h-24 bg-surface-subtle transition-all shrink-0 border-2 ${
                       selectedImgIndex === idx
@@ -202,13 +312,15 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
                         : "border-border-light hover:border-text-muted"
                     }`}
                   >
-                    <Image
-                      src={imgUrl}
-                      alt=""
-                      fill
-                      sizes="80px"
-                      className="object-cover"
-                    />
+                    {item.type === "video" ? (
+                      <VideoThumb
+                        video={item.video}
+                        fallback={slides[0]?.type === "image" ? slides[0].src : null}
+                        label={t("store.pdp.video")}
+                      />
+                    ) : (
+                      <Image src={item.src} alt="" fill sizes="80px" className="object-cover" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -217,7 +329,7 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
               {/* Main Gallery Stage */}
               <div className="flex-1 w-full bg-surface-card rounded-xl overflow-hidden shadow-sm border border-border-light relative group">
                 {/* Floating Badges */}
-                <div className="absolute top-4 left-4 z-20 flex flex-col gap-1.5 pointer-events-none">
+                <div className={`absolute top-4 left-4 z-20 flex flex-col gap-1.5 pointer-events-none ${videoPlaying ? "hidden" : ""}`}>
                   {/*
                     Shown when a promotion is live OR a standing markdown is in
                     effect. The old gate was `displayPercent > 0` alone, which
@@ -245,7 +357,7 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
                 </div>
 
                 {/* Floating Wishlist & Share */}
-                <div className="absolute top-4 right-4 z-20 flex flex-col gap-4">
+                <div className={`absolute top-4 right-4 z-20 flex flex-col gap-4 ${videoPlaying ? "hidden" : ""}`}>
                   <button
                     onClick={() => toggleWishlist(product)}
                     aria-label={t("store.card.wishlist")}
@@ -279,14 +391,24 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
 
                 {/* Main Large Image */}
                 <div className="relative w-full aspect-[4/5] bg-surface-subtle overflow-hidden flex items-center justify-center">
-                  <Image
-                    src={product.images[selectedImgIndex] || product.images[0]}
-                    alt={title}
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 55vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                  {slide?.type === "video" ? (
+                    <ProductVideo
+                      key={selectedImgIndex}
+                      video={slide.video}
+                      title={title}
+                      playLabel={t("store.pdp.playVideo")}
+                      onPlay={() => setVideoPlaying(true)}
+                    />
+                  ) : (
+                    <Image
+                      src={(slide?.type === "image" && slide.src) || product.images[0]}
+                      alt={selectedImgIndex === 0 ? mainAlt : `${title} – ${selectedImgIndex + 1}`}
+                      fill
+                      priority
+                      sizes="(max-width: 1024px) 100vw, 55vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -360,26 +482,76 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
                   </span>
                   <span className="text-xs text-text-muted">{t("store.pdp.colors", { count: num(product.colors.length) })}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  {product.colors.map((c) => (
+                {product.colors.some((c) => photoOf(c.name)) ? (
+                <div className="flex flex-wrap gap-2">
+                  {product.colors.map((c) => {
+                    const out = pairAware && !colorInStock(c.name);
+                    const name = out ? `${c.name} · ${t("store.pdp.soldOut")}` : c.name;
+                    const photo = photoOf(c.name);
+                    const on = selectedColor === c.name;
+                    return (
                     <button
                       key={c.name}
                       type="button"
-                      onClick={() => setSelectedColor(c.name)}
+                      onClick={() => pickColor(c.name)}
+                      className={`group relative w-[4.5rem] overflow-hidden rounded-lg border-2 bg-surface-card text-left transition-all ${
+                        on ? "border-primary shadow-sm" : "border-border-light hover:border-text-muted"
+                      }`}
+                      title={name}
+                      aria-label={name}
+                      aria-pressed={on}
+                    >
+                      <span className={`relative block aspect-square w-full ${out ? "opacity-40" : ""}`} style={photo ? undefined : { backgroundColor: c.hex }}>
+                        {photo && <Image src={photo} alt="" fill sizes="72px" className="object-cover" />}
+                        <span
+                          aria-hidden
+                          className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-white shadow"
+                          style={{ backgroundColor: c.hex }}
+                        />
+                      </span>
+                      <span className={`block truncate px-1 py-0.5 text-center text-xs ${on ? "font-bold text-on-surface" : "text-text-muted"}`}>
+                        {c.name}
+                      </span>
+                      {out && (
+                        <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 flex aspect-square items-center justify-center">
+                          <span className="block h-0.5 w-12 rotate-45 rounded bg-text-muted/80" />
+                        </span>
+                      )}
+                    </button>
+                    );
+                  })}
+                </div>
+                ) : (
+                <div className="flex items-center gap-3">
+                  {product.colors.map((c) => {
+                    const out = pairAware && !colorInStock(c.name);
+                    const name = out ? `${c.name} · ${t("store.pdp.soldOut")}` : c.name;
+                    return (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => pickColor(c.name)}
                       className={`relative p-1.5 rounded-full border-2 transition-all ${
                         selectedColor === c.name ? "border-primary scale-110 shadow-sm" : "border-transparent hover:border-border-light"
                       }`}
-                      title={c.name}
-                      aria-label={c.name}
+                      title={name}
+                      aria-label={name}
                       aria-pressed={selectedColor === c.name}
                     >
                       <span
-                        className="sp-swatch block w-7 h-7 rounded-full shadow-inner border border-black/10"
+                        className={`sp-swatch block w-7 h-7 rounded-full shadow-inner border border-black/10 ${out ? "opacity-40" : ""}`}
                         style={{ backgroundColor: c.hex }}
                       />
+                      {out && (
+                        <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <span className="block h-0.5 w-8 rotate-45 rounded bg-text-muted/80" />
+                        </span>
+                      )}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
+                )}
               </div>
 
               )}
@@ -405,18 +577,26 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
                 <div className="grid grid-cols-4 gap-2">
                   {product.sizes.map((s) => {
                     const isSelected = selectedSize === s.size;
+                    const sizeStock = pairAware ? stockOf(selectedColor, s.size) : s.stock;
+                    const notInColor = pairAware && !offered(selectedColor, s.size);
                     return (
                       <button
                         key={s.size}
                         type="button"
-                        disabled={s.stock === 0}
+                        disabled={sizeStock === 0}
                         onClick={() => setSelectedSize(s.size)}
                         aria-pressed={isSelected}
                         className={`sp-size ${isOption ? "sp-option py-3" : "min-h-16 py-2.5"} px-1 text-center ${isSelected ? "sp-on" : ""}`}
                       >
-                        <div className={`font-bold text-sm ${s.stock === 0 ? "line-through" : ""}`}>{s.size}</div>
+                        <div className={`font-bold text-sm ${sizeStock === 0 ? "line-through" : ""}`}>{s.size}</div>
                         <div className="text-xs leading-tight opacity-80">
-                          {s.stock === 0 ? t("store.pdp.soldOut") : s.chest ? t("store.pdp.chest", { value: s.chest }) : null}
+                          {notInColor
+                            ? t("store.pdp.notInColor")
+                            : sizeStock === 0
+                              ? t("store.pdp.soldOut")
+                              : s.chest
+                                ? t("store.pdp.chest", { value: s.chest })
+                                : null}
                         </div>
                       </button>
                     );
@@ -545,6 +725,11 @@ export function ProductDetailClient({ product, discountPercent, category, subCat
         onClose={() => setSizeModalOpen(false)}
         categoryId={product.category_id ?? null}
         subCategoryId={product.sub_category_id ?? null}
+        onPick={(label) => {
+          const match = product.sizes.find((s) => s.size.toLowerCase() === label.toLowerCase());
+          if (match) setSelectedSize(match.size);
+          setSizeModalOpen(false);
+        }}
         type="clothing"
       />
     </div>

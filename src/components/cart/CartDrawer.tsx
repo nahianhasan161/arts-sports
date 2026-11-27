@@ -11,6 +11,7 @@ import { useCheckoutSettings } from "@/lib/checkout-settings";
 import { useT } from "@/i18n/client";
 import { formatMoney } from "@/i18n";
 import { RETURN_DAYS } from "@/lib/nav";
+import { CartAddOns } from "@/components/cart/CartAddOns";
 
 export function CartDrawer() {
   const router = useRouter();
@@ -202,6 +203,7 @@ export function CartDrawer() {
                 </div>
               ))
             )}
+            {items.length > 0 && <CartAddOns />}
           </div>
 
           {/* 4. Footer & Checkout CTA */}

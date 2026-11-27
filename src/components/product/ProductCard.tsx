@@ -4,6 +4,7 @@ import { badgeClass, discountBadgePercent } from "@/lib/badges";
 import React from "react";
 import Image from "next/image";
 import { thumbUrl } from "@/lib/media/thumb";
+import { frontImage } from "@/lib/products/color-images";
 import { HoverLink as Link } from "@/components/ui/HoverLink";
 import { Heart } from "lucide-react";
 import { Product } from "@/types";
@@ -14,12 +15,13 @@ import { useProofBadge } from "@/lib/catalog/useProofBadge";
 import { useT } from "@/i18n/client";
 import { formatMoney } from "@/i18n";
 import { parseSport } from "@/lib/sports";
-import { frameFor, frameWords } from "@/lib/sport-frames";
 import { SportCard } from "./SportCard";
 
 interface ProductCardProps {
   product: Product;
   aspectRatio?: "portrait" | "square";
+  /** First row of a grid: load the picture straight away (it is the page's largest paint). */
+  eager?: boolean;
 }
 
 /** Inner width of the quick add bar on the narrowest card that shows it, and the rows it may fill. */
@@ -42,7 +44,7 @@ function quickCount(labels: string[]): number {
   return labels.length;
 }
 
-export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardProps) {
+export function ProductCard({ product, aspectRatio = "portrait", eager = false }: ProductCardProps) {
   const { t, locale } = useT();
   const num = (n: number) => new Intl.NumberFormat(locale === "bn" ? "bn-BD" : "en-IN").format(n);
   const sport = parseSport(product.sub_category?.toLowerCase());
@@ -111,8 +113,9 @@ export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardPr
 
   return (
     <SportCard
-      frame={frameFor(frameWords(product))}
+      frame="plain"
       media={
+        <div className="relative">
         <Link
           href={`/products/${product.slug}`}
           className={`relative w-full ${
@@ -121,10 +124,12 @@ export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardPr
         >
           <Image
             // The small grid version; the original if it has none yet.
-            src={imgFailed ? product.images[0] : thumbUrl(product.images[0])}
+            src={imgFailed ? frontImage(product) ?? "" : thumbUrl(frontImage(product))}
             onError={() => setImgFailed(true)}
             alt={title}
             fill
+            loading={eager ? "eager" : "lazy"}
+            fetchPriority={eager ? "high" : undefined}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover group-hover:scale-[1.06] transition-transform duration-700 ease-out"
           />
@@ -137,16 +142,6 @@ export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardPr
               {badgeText}
             </span>
           )}
-
-          {/* Wishlist Toggle Button */}
-          <button
-            onClick={handleWishlistClick}
-            aria-label={t("store.card.wishlist")}
-            aria-pressed={isLiked}
-            className="sp-ico sp-medal sp-lg absolute top-1.5 right-1.5"
-          >
-            <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
-          </button>
 
           {/* Quick size bar: slides up on hover (pointer devices only). Not
               clickable while hidden, so a tap on the picture opens the product. */}
@@ -174,6 +169,19 @@ export function ProductCard({ product, aspectRatio = "portrait" }: ProductCardPr
             </div>
           )}
         </Link>
+
+        {/* Save button: a sibling of the link, not inside it, so a tap only
+            saves (a button inside <a> still navigates before hydration). */}
+        <button
+          type="button"
+          onClick={handleWishlistClick}
+          aria-label={t("store.card.wishlist")}
+          aria-pressed={isLiked}
+          className="sp-ico sp-medal sp-lg absolute top-1.5 right-1.5 z-10"
+        >
+          <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
+        </button>
+        </div>
       }
     >
       <div className="flex flex-col flex-1 justify-between gap-1.5">

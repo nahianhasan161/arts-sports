@@ -12,8 +12,11 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  FileSpreadsheet,
+  Eye,
 } from "lucide-react";
 import { ProductFormModal } from "@/components/admin/products/ProductFormModal";
+import { ProductImport } from "@/components/admin/products/ProductImport";
 import { LIST_VIEWS, Thumb, UpdatedAgo, ViewToggle, type ListView } from "@/components/admin/list/ViewBits";
 import { useUrlState } from "@/lib/url-state";
 import { flattenCategoryTree } from "@/lib/utils";
@@ -106,7 +109,7 @@ export default function AdminProducts() {
   // What the search box holds, and what has been sent to the server. Searching
   // on every keystroke fires a query per character; this waits for a pause.
   const [searchDraft, setSearchDraft] = useState("");
-  const [view, setView] = useUrlState<ListView>("view", "list", { fromUrl: (v) => (LIST_VIEWS.includes(v as ListView) ? (v as ListView) : null) });
+  const [view, setView] = useUrlState<ListView>("view", "cards", { fromUrl: (v) => (LIST_VIEWS.includes(v as ListView) ? (v as ListView) : null) });
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -117,13 +120,15 @@ export default function AdminProducts() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const fetchCategories = async () => {
-    setCategoriesLoading(true);
+  // quiet = refresh without the loading skeleton (after the form made a category).
+  const fetchCategories = async (quiet = false) => {
+    if (!quiet) setCategoriesLoading(true);
     try {
       const response = await fetch("/api/admin/categories?limit=100");
       const data: ApiResponse<Category> = await response.json();
@@ -137,8 +142,8 @@ export default function AdminProducts() {
     }
   };
 
-  const fetchColors = async () => {
-    setColorsLoading(true);
+  const fetchColors = async (quiet = false) => {
+    if (!quiet) setColorsLoading(true);
     try {
       const response = await fetch("/api/admin/colors?limit=100");
       const data: ApiResponse<ColorOption> = await response.json();
@@ -152,8 +157,8 @@ export default function AdminProducts() {
     }
   };
 
-  const fetchSizes = async () => {
-    setSizesLoading(true);
+  const fetchSizes = async (quiet = false) => {
+    if (!quiet) setSizesLoading(true);
     try {
       const response = await fetch("/api/admin/sizes?limit=100");
       const data: ApiResponse<SizeLabel> = await response.json();
@@ -167,8 +172,8 @@ export default function AdminProducts() {
     }
   };
 
-  const fetchPromotions = async () => {
-    setPromotionsLoading(true);
+  const fetchPromotions = async (quiet = false) => {
+    if (!quiet) setPromotionsLoading(true);
     try {
       const response = await fetch("/api/admin/promotions?limit=100");
       const data: ApiResponse<Promotion> = await response.json();
@@ -369,6 +374,13 @@ export default function AdminProducts() {
         <div className="ml-auto">
           <ViewToggle value={view} onChange={setView} />
         </div>
+        <button
+          onClick={() => setShowImport(true)}
+          className="inline-flex items-center gap-2 px-3 h-9 text-sm font-semibold border border-border-light rounded-lg text-on-surface hover:bg-surface-subtle transition-colors"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          Import
+        </button>
         <button
           onClick={openCreateModal}
           className="inline-flex items-center gap-2 px-4 h-9 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary-container transition-colors"
@@ -609,6 +621,16 @@ export default function AdminProducts() {
                         <span className="text-xs mt-auto pt-1"><UpdatedAgo at={product.updated_at} inline /></span>
                       </span>
                     </button>
+                    <a
+                      href={`/preview/product/${product.id}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="absolute bottom-2 right-10 p-1.5 rounded bg-surface-card/90 text-text-muted hover:text-primary opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      aria-label={`Preview ${product.title}`}
+                      title="Preview on the website"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </a>
                     <button
                       onClick={() => setDeleteConfirmId(product.id)}
                       className="absolute bottom-2 right-2 p-1.5 rounded bg-surface-card/90 text-text-muted hover:text-badge-discount opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
@@ -841,6 +863,16 @@ export default function AdminProducts() {
 
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1.5">
+                        <a
+                          href={`/preview/product/${product.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="p-1.5 text-text-muted hover:text-primary rounded transition-colors"
+                          aria-label={`Preview ${product.title}`}
+                          title="Preview on the website"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </a>
                         <button
                           onClick={() => openEditModal(product)}
                           className="p-1.5 text-text-muted hover:text-primary rounded transition-colors"
@@ -906,10 +938,25 @@ export default function AdminProducts() {
           promotions={promotions}
           promotionsLoading={promotionsLoading}
           onClose={closeModal}
+          onCreated={(kind) => {
+            // Refresh quietly: the form already shows what it made.
+            const refetch = { category: fetchCategories, color: fetchColors, size: fetchSizes, promotion: fetchPromotions }[kind];
+            void refetch(true);
+          }}
           onSuccess={() => {
             closeModal();
             fetchProducts();
           }}
+        />
+      )}
+
+      {showImport && (
+        <ProductImport
+          categories={categories}
+          colors={colors}
+          sizes={sizes}
+          onClose={() => setShowImport(false)}
+          onDone={() => fetchProducts()}
         />
       )}
 

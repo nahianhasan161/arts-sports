@@ -12,6 +12,9 @@ export const siteEn = {
     searchPlaceholder: "Search jerseys, bats, rackets...",
     searchShort: "Search products...",
     search: "Search",
+    suggestLoading: "Searching…",
+    suggestNone: "Nothing found for “{q}”. Try another word or call us.",
+    suggestAll: "See all {n} results",
     popular: "Popular:",
     signIn: "Sign in",
     myAccount: "My Account",
@@ -69,6 +72,14 @@ export const siteEn = {
     rights: "Arts Sports. All rights reserved.",
     returns: "Returns",
     shipping: "Shipping",
+  },
+  preview: {
+    title: "Preview",
+    draft: "Not on the website yet ({status}). Only staff can see this page.",
+    live: "This product is live. Customers see the same page (it can take up to a minute to update).",
+    saved: "Shows the last saved version. Save the form to see new changes.",
+    edit: "Back to products",
+    open: "Open live page",
   },
 };
 

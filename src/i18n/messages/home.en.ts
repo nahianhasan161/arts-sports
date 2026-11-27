@@ -61,7 +61,7 @@ export const homeEn = {
     eyebrow: "Fabric quality",
     title: "Which fabric for your jersey?",
     text: "Choose from these on the order form. The price is for one jersey, before extras.",
-    perPiece: "{price} / piece",
+    unit: "per piece",
     cta: "Choose a fabric and order",
   },
   reviews: {

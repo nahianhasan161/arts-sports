@@ -3,7 +3,6 @@
 import { useState, FormEvent, useEffect } from "react";
 import { Eye, EyeOff, LockKeyhole, Mail, User } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +12,7 @@ import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { useRouter } from "next/navigation";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useT } from "@/i18n/client";
 
 type SignUpForm = {
   name: string;
@@ -23,6 +23,7 @@ type SignUpForm = {
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { t } = useT();
   const [form, setForm] = useState<SignUpForm>({
     name: "",
     email: "",
@@ -48,13 +49,13 @@ export default function SignUpPage() {
     setError(null);
 
     if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t("auth.signUp.errMismatch"));
       setLoading(false);
       return;
     }
 
     if (form.password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+      setError(t("auth.signUp.errShort"));
       setLoading(false);
       return;
     }
@@ -62,7 +63,7 @@ export default function SignUpPage() {
     const supabase = getSupabaseBrowserClient();
 
     if (!supabase) {
-      setError("Supabase authentication is not configured.");
+      setError(t("auth.signIn.errUnavailable"));
       setLoading(false);
       return;
     }
@@ -81,16 +82,16 @@ export default function SignUpPage() {
 
       if (signUpError) {
         if (signUpError.message.includes("already registered")) {
-          setError("This email address is already registered. Try signing in instead.");
+          setError(t("auth.signUp.errExists"));
         } else {
           setError(signUpError.message);
         }
         return;
       }
 
-      router.push("/sign-in?message=Check your email for confirmation link");
+      router.push("/sign-in?check=email");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "An unexpected error occurred.");
+      setError(caught instanceof Error ? caught.message : t("auth.signIn.errUnknown"));
     } finally {
       setLoading(false);
     }
@@ -98,17 +99,15 @@ export default function SignUpPage() {
 
   return (
     <AuthLayout
-      title="Create Account"
-      description="Join Arts Sports today to enjoy exclusive benefits and track your orders easily."
-      footerText="Already have an account?"
-      footerLinkLabel="Sign In"
+      title={t("auth.signUp.title")}
+      description={t("auth.signUp.description")}
+      footerText={t("auth.signUp.haveAccount")}
+      footerLinkLabel={t("auth.signUp.signIn")}
       footerLinkHref="/sign-in"
     >
       <div className="mb-space-xl">
-        <h2 className="font-display text-2xl uppercase tracking-wider font-bold text-primary mb-1">
-          Create Account
-        </h2>
-        <p className="text-xs text-text-muted">Start your Arts Sports journey</p>
+        <h2 className="font-display text-2xl font-bold text-primary mb-1">{t("auth.signUp.heading")}</h2>
+        <p className="text-xs text-text-muted">{t("auth.signUp.sub")}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-space-base">
@@ -119,7 +118,7 @@ export default function SignUpPage() {
         )}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sign-up-name">Full Name</Label>
+          <Label htmlFor="sign-up-name">{t("auth.signUp.name")}</Label>
           <div className="relative">
             {/* Was an emoji in a sized span, which renders at a different
                 optical size on every platform and sat off the text baseline.
@@ -132,14 +131,15 @@ export default function SignUpPage() {
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Your full name"
+              placeholder={t("auth.signUp.namePlaceholder")}
+              autoComplete="name"
               className="pl-9"
             />
           </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sign-up-email">Email Address</Label>
+          <Label htmlFor="sign-up-email">{t("auth.signIn.email")}</Label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted w-4 h-4 pointer-events-none" />
             <Input
@@ -155,7 +155,7 @@ export default function SignUpPage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sign-up-password">Password</Label>
+          <Label htmlFor="sign-up-password">{t("auth.signIn.password")}</Label>
           <div className="relative">
             <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted w-4 h-4 pointer-events-none" />
             <Input
@@ -164,7 +164,8 @@ export default function SignUpPage() {
               required
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              placeholder="Create a password"
+              placeholder={t("auth.signUp.passwordPlaceholder")}
+              autoComplete="new-password"
               className="pl-9 pr-10"
             />
             <button
@@ -179,11 +180,11 @@ export default function SignUpPage() {
               )}
             </button>
           </div>
-          <Badge variant="secondary">Minimum 8 characters</Badge>
+
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sign-up-confirm-password">Confirm Password</Label>
+          <Label htmlFor="sign-up-confirm-password">{t("auth.signUp.confirm")}</Label>
           <div className="relative">
             <LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted w-4 h-4 pointer-events-none" />
             <Input
@@ -192,7 +193,8 @@ export default function SignUpPage() {
               required
               value={form.confirmPassword}
               onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-              placeholder="Confirm your password"
+              placeholder={t("auth.signUp.confirmPlaceholder")}
+              autoComplete="new-password"
               className="pl-9 pr-10"
             />
             <button
@@ -210,7 +212,7 @@ export default function SignUpPage() {
         </div>
 
         <Button type="submit" disabled={loading} className="sp-btn sp-locker w-full h-11">
-          {loading ? "Creating Account..." : "Create Account"}
+          {loading ? t("auth.signUp.submitting") : t("auth.signUp.submit")}
         </Button>
 
         <Separator className="w-full" />

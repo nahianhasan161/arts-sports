@@ -26,68 +26,78 @@ export function ShareButtons({ title, path }: { title: string; path: string }) {
 
   const ask = storeWa(t("store.share.askText", { title }));
 
+  const [menu, setMenu] = useState(false);
+  const fb = () => open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`);
+  const item = "flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-on-surface hover:bg-surface-container text-left";
+
+  // One quiet "Share" (the phone's own share sheet where there is one, a small
+  // menu otherwise) instead of a row of five coloured buttons; the store chat
+  // buttons, which sell, keep their place.
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {ask && (
+        <button type="button" className={`${btn} sp-tennis sp-wa`} onClick={() => open(`${ask}${url()}`)}>
+          <MessageCircle className="w-3.5 h-3.5" /> {t("store.share.askWhatsapp")}
+        </button>
+      )}
+      {MESSENGER_PAGE && (
         <button
           type="button"
-          className={`${btn} sp-shuttle`}
+          className={`${btn} sp-armband`}
+          onClick={() => open(`https://m.me/${encodeURIComponent(MESSENGER_PAGE)}?text=${encodeURIComponent(`${title} ${url()}`)}`)}
+        >
+          <Send className="w-3.5 h-3.5" /> {t("store.share.askMessenger")}
+        </button>
+      )}
+      <div className="relative">
+        <button
+          type="button"
+          aria-expanded={menu}
+          className="inline-flex h-11 items-center gap-1.5 rounded-full border border-border-light bg-surface-card px-4 text-xs font-bold text-on-surface hover:bg-surface-container"
           onClick={() => {
             if (navigator.share) void navigator.share({ title, url: url() }).catch(() => {});
-            else open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`);
+            else setMenu((m) => !m);
           }}
         >
           <Share2 className="w-3.5 h-3.5" /> {t("store.share.share")}
         </button>
-        <button type="button" className="sp-ico sp-lg sp-volley" onClick={() => open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`)} aria-label={t("store.share.facebook")}>
-          <span className="font-black text-[13px] leading-none">f</span>
-        </button>
-        <button
-          type="button"
-          className="sp-ico sp-lg sp-basket"
-          aria-label={t("store.share.messenger")}
-          onClick={() => {
-            const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-            open(mobile ? `fb-messenger://share/?link=${encodeURIComponent(url())}` : `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url())}`);
-          }}
-        >
-          <Send className="w-3.5 h-3.5" />
-        </button>
-        <button type="button" className="sp-ico sp-lg sp-tennis" onClick={() => open(`https://wa.me/?text=${encodeURIComponent(`${title} ${url()}`)}`)} aria-label={t("store.share.whatsapp")}>
-          <MessageCircle className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
-          className="sp-ico sp-lg sp-leather"
-          aria-label={t(copied ? "store.share.copied" : "store.share.copy")}
-          onClick={() => {
-            void navigator.clipboard?.writeText(url()).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            });
-          }}
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
-        </button>
-      </div>
-      {(ask || MESSENGER_PAGE) && (
-        <div className="flex flex-wrap gap-2">
-          {ask && (
-            <button type="button" className={`${btn} sp-tennis sp-wa`} onClick={() => open(`${ask}${url()}`)}>
-              <MessageCircle className="w-3.5 h-3.5" /> {t("store.share.askWhatsapp")}
+        {menu && (
+          <div
+            role="menu"
+            className="absolute left-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-border-light bg-surface-card py-1 shadow-xl"
+            onMouseLeave={() => setMenu(false)}
+          >
+            <button type="button" role="menuitem" className={item} onClick={() => { fb(); setMenu(false); }}>
+              <span className="w-4 text-center font-black text-[#1877f2]">f</span> {t("store.share.facebook")}
             </button>
-          )}
-          {MESSENGER_PAGE && (
+            <button type="button" role="menuitem" className={item} onClick={() => { fb(); setMenu(false); }}>
+              <Send className="w-4 h-4 text-[#0084ff]" /> {t("store.share.messenger")}
+            </button>
             <button
               type="button"
-              className={`${btn} sp-armband`}
-              onClick={() => open(`https://m.me/${encodeURIComponent(MESSENGER_PAGE)}?text=${encodeURIComponent(`${title} ${url()}`)}`)}
+              role="menuitem"
+              className={item}
+              onClick={() => { open(`https://wa.me/?text=${encodeURIComponent(`${title} ${url()}`)}`); setMenu(false); }}
             >
-              <Send className="w-3.5 h-3.5" /> {t("store.share.askMessenger")}
+              <MessageCircle className="w-4 h-4 text-[#25d366]" /> {t("store.share.whatsapp")}
             </button>
-          )}
-        </div>
-      )}
+            <button
+              type="button"
+              role="menuitem"
+              className={item}
+              onClick={() => {
+                void navigator.clipboard?.writeText(url()).then(() => {
+                  setCopied(true);
+                  setTimeout(() => { setCopied(false); setMenu(false); }, 1200);
+                });
+              }}
+            >
+              {copied ? <Check className="w-4 h-4 text-primary" /> : <Link2 className="w-4 h-4" />}
+              {t(copied ? "store.share.copied" : "store.share.copy")}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

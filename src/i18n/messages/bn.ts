@@ -3,6 +3,7 @@ import { homeBn } from "./home.bn";
 import { buyBn } from "./buy.bn";
 import type { SiteMessages } from "./en";
 import { siteBn } from "./site.bn";
+import { authBn } from "./auth.bn";
 
 /** বাংলা লেখা। en.ts-এর সব key এখানে থাকতে হবে। */
 export const bn: SiteMessages = {
@@ -367,6 +368,7 @@ export const bn: SiteMessages = {
     },
   },
   site: siteBn,
+  auth: authBn,
   home: homeBn,
   store: storeBn,
   buy: buyBn,

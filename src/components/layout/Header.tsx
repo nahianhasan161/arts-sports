@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   MessageCircle,
   Shield,
+  Search,
 } from "lucide-react";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useWishlistStore } from "@/lib/store/wishlist-store";
@@ -25,7 +26,7 @@ import { formatMoney } from "@/i18n";
 import { LanguageToggle, ThemeToggle } from "@/components/layout/Preferences";
 import { AnimatedLogo } from "@/components/layout/AnimatedLogo";
 import { CategoryBar, NavIcon, useNavLabel } from "@/components/layout/CategoryBar";
-import { RacketSearchIcon } from "@/components/ui/RacketSearchIcon";
+import { SearchSuggest } from "@/components/layout/SearchSuggest";
 import { MAIN_NAV, STORE_PHONE, STORE_PHONE_SHOWN } from "@/lib/nav";
 
 export function Header() {
@@ -38,6 +39,8 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   /** Phone: the search row under the bar, opened by the racket. */
   const [searchOpen, setSearchOpen] = useState(false);
+  /** The product suggestions under the search box. */
+  const [suggestOpen, setSuggestOpen] = useState(false);
   /** Desktop account dropdown. The mobile bar uses its own route links. */
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -58,13 +61,14 @@ export function Header() {
       if (userMenuOpen && !target.closest('[data-user-menu]')) {
         setUserMenuOpen(false);
       }
+      if (suggestOpen && !target.closest('[data-search]')) setSuggestOpen(false);
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [userMenuOpen]);
+  }, [userMenuOpen, suggestOpen]);
 
   const totalCartCount = mounted ? getTotalCount() : 0;
   const subtotal = mounted ? getSubtotal() : 0;
@@ -74,6 +78,7 @@ export function Header() {
     e.preventDefault();
     if (searchQuery.trim()) {
       setSearchOpen(false);
+      setSuggestOpen(false);
       setMobileMenuOpen(false);
       router.push(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
     }
@@ -154,23 +159,26 @@ export function Header() {
 
         {/* Global Search Bar */}
         <div className="hidden md:flex flex-1 max-w-xl">
-          <form onSubmit={handleSearch} className="sp-search relative flex items-center w-full">
-            <RacketSearchIcon className="sp-search-racket w-8 h-8" />
-            <span className="sp-knob sp-search-ball w-5 h-5" aria-hidden />
+          <form onSubmit={handleSearch} role="search" data-search className="relative flex items-center w-full">
+            <Search className="absolute left-3.5 w-5 h-5 text-on-surface-variant pointer-events-none" aria-hidden />
             <input
               type="search"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setSuggestOpen(true); }}
+              onFocus={() => setSuggestOpen(true)}
+              onKeyDown={(e) => { if (e.key === "Escape") setSuggestOpen(false); }}
               placeholder={t("site.header.searchPlaceholder")}
               aria-label={t("site.header.search")}
-              className="w-full h-11 pl-12 pr-32 bg-transparent text-sm font-body focus:outline-none"
+              autoComplete="off"
+              className="w-full h-11 pl-11 pr-24 rounded-full border border-border-light bg-surface-subtle text-sm font-body text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:bg-surface-card focus:ring-2 focus:ring-primary/20"
             />
             <button
               type="submit"
-              className="sp-btn sp-goal absolute right-2 h-8 text-xs font-bold"
+              className="absolute right-1.5 h-8 px-4 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90"
             >
               {t("site.header.search")}
             </button>
+            <SearchSuggest query={searchQuery} open={suggestOpen} onPick={() => setSuggestOpen(false)} />
           </form>
         </div>
 
@@ -184,9 +192,9 @@ export function Header() {
             }}
             aria-expanded={searchOpen}
             aria-label={t("site.header.search")}
-            className="sp-search-btn md:hidden w-11 h-11 flex items-center justify-center"
+            className="md:hidden w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-container"
           >
-            {searchOpen ? <X className="w-6 h-6 text-on-surface" /> : <RacketSearchIcon className="w-9 h-9" />}
+            {searchOpen ? <X className="w-6 h-6 text-on-surface" /> : <Search className="w-6 h-6 text-on-surface" />}
           </button>
 
           {/* Account. On a phone it is in the bottom bar. */}
@@ -290,20 +298,23 @@ export function Header() {
       </div>
 
       {searchOpen && (
-        <form onSubmit={handleSearch} role="search" className="md:hidden border-t border-border-light bg-surface-card px-space-base py-2.5">
-          <div className="sp-search relative flex items-center w-full">
+        <form onSubmit={handleSearch} role="search" data-search className="md:hidden border-t border-border-light bg-surface-card px-space-base py-2.5">
+          <div className="relative flex items-center w-full">
             <input
               type="search"
               autoFocus
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setSuggestOpen(true); }}
+              onFocus={() => setSuggestOpen(true)}
               placeholder={t("site.header.searchShort")}
               aria-label={t("site.header.search")}
-              className="w-full h-12 pl-4 pr-14 bg-transparent text-base focus:outline-none"
+              autoComplete="off"
+              className="w-full h-12 pl-4 pr-14 rounded-full border border-border-light bg-surface-subtle text-base text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:bg-surface-card"
             />
-            <button type="submit" className="sp-search-btn absolute right-1 w-11 h-11 flex items-center justify-center" aria-label={t("site.header.search")}>
-              <RacketSearchIcon className="w-8 h-8" />
+            <button type="submit" className="absolute right-1 w-11 h-11 flex items-center justify-center rounded-full bg-primary text-primary-foreground" aria-label={t("site.header.search")}>
+              <Search className="w-5 h-5" />
             </button>
+            <SearchSuggest query={searchQuery} open={suggestOpen} onPick={() => { setSuggestOpen(false); setSearchOpen(false); }} />
           </div>
         </form>
       )}

@@ -1,7 +1,7 @@
 /**
  * Where a visitor came from, kept in the browser so the order can carry it.
  *
- * The first visit with UTM tags or an fbclid is kept for 30 days and is not
+ * The first visit with UTM tags or an ad click id (fbclid, ttclid, gclid, epik) is kept for 30 days and is not
  * overwritten by plain visits, so "came from the Friday ad, bought on Sunday
  * by typing the address" still counts for the ad. A new tagged visit replaces it.
  */
@@ -13,6 +13,10 @@ export interface Attribution {
   utm_content?: string;
   utm_term?: string;
   fbclid?: string;
+  /** TikTok, Google and Pinterest ad click ids. */
+  ttclid?: string;
+  gclid?: string;
+  epik?: string;
   landing_page?: string;
   referrer?: string;
   at?: number;
@@ -21,7 +25,7 @@ export interface Attribution {
 const KEY = "as_attribution";
 const DEVICE_KEY = "as_device";
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-const FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid"] as const;
+const FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "ttclid", "gclid", "epik"] as const;
 
 function safeGet(key: string): string | null {
   try {
@@ -61,6 +65,12 @@ export function captureAttribution(): void {
   if (fbclid) {
     document.cookie = `_fbc=fb.1.${Date.now()}.${encodeURIComponent(fbclid)}; path=/; max-age=${90 * 86400}; SameSite=Lax`;
   }
+  // TikTok and Pinterest click ids, for the server-side events (their own
+  // tags set _ttp / _epik too, but not when an ad blocker stops the tag).
+  const ttclid = params.get("ttclid");
+  if (ttclid) document.cookie = `ttclid=${encodeURIComponent(ttclid)}; path=/; max-age=${30 * 86400}; SameSite=Lax`;
+  const epik = params.get("epik");
+  if (epik && !readCookie("_epik")) document.cookie = `_epik=${encodeURIComponent(epik)}; path=/; max-age=${365 * 86400}; SameSite=Lax`;
 }
 
 export function getAttribution(): Attribution | null {

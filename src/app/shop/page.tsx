@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { getTerms } from "@/lib/services/catalog";
-import { parseShopFilters, loadShop, termIdsOf } from "@/lib/services/shop-query";
+import { parseShopFilters, loadShop, termCounts, findCategory, findSub } from "@/lib/services/shop-query";
+import { getCategories } from "@/lib/services/products";
 import { ShopContent } from "./ShopContent";
 
 /**
@@ -23,7 +24,22 @@ const SPORT_NAMES = { football: "Football", cricket: "Cricket", badminton: "Badm
 
 /** The published catalogue is public, so this page is indexed. */
 export async function generateMetadata({ searchParams }: ShopPageProps): Promise<Metadata> {
-  const { sport, dealsOnly } = parseShopFilters(await searchParams);
+  const { sport, dealsOnly, category, subCategory } = parseShopFilters(await searchParams);
+  // A category page (Badminton, Badminton › Racket) has its own title and address.
+  if (category !== "all") {
+    const found = findCategory(await getCategories(), category);
+    if (found) {
+      const child = findSub(found.parent, subCategory) ?? found.child;
+      const name = child ? `${child.name} – ${found.parent.name}` : found.parent.name;
+      const slug = found.parent.slug || found.parent.id;
+      const qs = child ? `category=${slug}&sub=${encodeURIComponent(child.slug || child.id)}` : `category=${slug}`;
+      return {
+        title: name,
+        description: `${name} from Arts Sports. Delivery all over Bangladesh, cash on delivery.`,
+        alternates: { canonical: `/shop?${qs}` },
+      };
+    }
+  }
   const title = sport ? `${SPORT_NAMES[sport]} gear and jerseys` : dealsOnly ? "Offers" : "All products";
   return {
     title,
@@ -49,9 +65,14 @@ export default async function ShopPage(props: ShopPageProps) {
     permanentRedirect(keep.size ? `/shop?${keep}` : "/shop");
   }
 
-  const ids = await termIdsOf(shop.facets.productIds);
+  const [here, brandHere] = await termCounts(shop.facets.productIds, shop.brandScope);
   const chosen = new Set(Object.values(filters.termSelection).flat());
-  const terms = allTerms.filter((x) => ids.has(x.id) || chosen.has(x.slug));
+  const terms = allTerms.filter((x) => x.type !== "brand" && (here.has(x.id) || chosen.has(x.slug)));
+  // Brands go in the sidebar with how many products each has here.
+  const picked = new Set(filters.termSelection.brand ?? []);
+  const brands = allTerms
+    .filter((x) => x.type === "brand" && (brandHere.has(x.id) || picked.has(x.slug)))
+    .map((x) => ({ slug: x.slug, name: x.name_en, name_bn: x.name_bn, count: brandHere.get(x.id) ?? 0 }));
 
   return (
     <Suspense fallback={null}>
@@ -60,10 +81,12 @@ export default async function ShopPage(props: ShopPageProps) {
         total={shop.total}
         facets={{ ...shop.facets, productIds: [] }}
         terms={terms}
+        brands={brands}
         termSelection={filters.termSelection}
         parent={shop.category ? { name: shop.category.name, name_bn: shop.category.name_bn } : null}
         category={shop.category ? shop.category.slug || shop.category.id : filters.category}
-        subCategory={shop.subCategory}
+        subCategory={shop.sub?.slug ?? ""}
+        sub={shop.sub}
         sport={filters.sport}
         query={filters.query}
         sortBy={filters.sortBy}

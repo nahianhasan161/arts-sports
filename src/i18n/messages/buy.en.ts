@@ -4,6 +4,10 @@
  */
 export const buyEn = {
   cart: {
+    addOns: "Add to your order",
+    add: "Add",
+    addOne: "Add {name}",
+    choose: "Choose",
     title: "Your cart",
     close: "Close cart",
     empty: "Your cart is empty",

@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { useT } from "@/i18n/client";
 import { formatMoney, type MessageKey } from "@/i18n";
-import { localized } from "@/i18n";
 import { makingDays } from "@/lib/custom-jersey/pricing";
 import type { Fabric } from "@/lib/custom-jersey/types";
 import type { HomeReview } from "@/lib/services/home";
@@ -27,6 +26,7 @@ import { FootballScene, Stadium } from "@/components/football/FootballScene";
 import { TeamScene } from "@/components/football/TeamScene";
 import { BatCard } from "@/components/home/BatCard";
 import { CategoryTile, type CategoryObject } from "@/components/home/CategoryTile";
+import { FabricGoal } from "@/components/home/FabricGoal";
 import { StepsPitch } from "@/components/home/StepsPitch";
 import { BadmintonArt, BasketballArt, UmpireOutArt, UmpireSixArt } from "@/components/home/PerkArt";
 import { DesignGrid } from "@/components/custom-jersey/DesignCatalogue";
@@ -149,6 +149,19 @@ export function Perks({ normalDays }: { normalDays: number }) {
   ];
   return (
     <div className="relative z-10 w-full max-w-container-max mx-auto px-4 sm:px-6 -mt-14 md:-mt-10">
+      {/* Phone: a compact 2 x 2 card. The upright bat took ~400px for four lines. */}
+      <ul className="md:hidden grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border-light bg-border-light shadow-lg">
+        {items.map(({ art: Art, title, sub }) => (
+          <li key={title} className="flex items-start gap-2 bg-surface-card p-3">
+            <Art className="w-9 h-9 shrink-0 overflow-visible" />
+            <span className="min-w-0">
+              <span className="block font-display font-bold text-on-surface text-[13px] leading-tight">{t(title, { days })}</span>
+              <span className="block text-[11px] leading-snug text-text-muted mt-0.5">{t(sub)}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden md:block">
       <BatCard>
         <ul className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border-light pl-4 pr-5 md:px-0 md:py-4">
           {items.map(({ art: Art, title, sub }) => (
@@ -164,6 +177,7 @@ export function Perks({ normalDays }: { normalDays: number }) {
           ))}
         </ul>
       </BatCard>
+      </div>
     </div>
   );
 }
@@ -219,7 +233,7 @@ export function CatalogueShowcase({ designs, categories }: { designs: DesignRow[
         />
         {/* One or two cards look unfinished; the banner carries the section until there are more. */}
         {designs.length >= 3 ? (
-          <DesignGrid designs={designs} categories={categories} tabs limit={8} />
+          <DesignGrid designs={designs} categories={categories} tabs limit={8} className="max-sm:[&>*:nth-child(n+5)]:hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-7 sm:gap-x-5 sm:gap-y-9 pt-4" />
         ) : categories.length === 0 ? (
           <p className="text-sm text-text-muted text-center">{t("home.catalogue.empty")}</p>
         ) : null}
@@ -254,7 +268,7 @@ export function OwnIdeaBanner() {
 
 /** The fabrics of the order form, with the shop's own description of each. Hidden when there is none. */
 export function FabricQuality({ fabrics }: { fabrics: (Fabric & { price: number })[] }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   if (fabrics.length === 0) return null;
   return (
     <section className="max-w-container-max mx-auto px-4 sm:px-6 pt-16 sm:pt-24 w-full">
@@ -269,22 +283,7 @@ export function FabricQuality({ fabrics }: { fabrics: (Fabric & { price: number 
           </Link>
         }
       />
-      <ul className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-        {fabrics.map((f) => {
-          const row = f as unknown as Record<string, unknown>;
-          return (
-            <li key={f.id} className="flex flex-col gap-2 rounded-2xl border border-border-light bg-surface-card p-5 shadow-sm">
-              {f.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={f.image_url} alt="" loading="lazy" className="mb-1 aspect-[4/3] w-full rounded-xl object-cover" />
-              )}
-              <h3 className="font-display uppercase font-bold text-on-surface text-lg leading-tight">{localized(row, "name", locale)}</h3>
-              <p className="text-sm text-on-surface-variant flex-1">{localized(row, "description", locale)}</p>
-              <p className="text-sm font-bold text-on-surface tabular-nums">{t("home.fabric.perPiece", { price: formatMoney(f.price, locale) })}</p>
-            </li>
-          );
-        })}
-      </ul>
+      <FabricGoal fabrics={fabrics} />
     </section>
   );
 }

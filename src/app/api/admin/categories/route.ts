@@ -116,17 +116,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const id = crypto.randomUUID();
 
-    const { error } = await supabase.from("categories").insert([{
-      ...body,
-      id: crypto.randomUUID(),
-    }]);
+    const { error } = await supabase.from("categories").insert([{ ...body, id }]);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const taken = error.code === "23505";
+      return NextResponse.json(
+        { error: taken ? "That slug is already used" : error.message, code: error.code },
+        { status: taken ? 409 : 500 },
+      );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id });
   } catch (error) {
     return handleAdminError(error);
   }

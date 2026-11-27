@@ -1,17 +1,22 @@
 import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
+import { refundBn } from "./bn";
 
 export const metadata = {
-  title: "Refund Policy",
+  title: "রিফান্ড নীতি",
   description:
-    "How Arts Sports issues refunds: the 7-day return window, when a refund is full or partial, how cash-on-delivery and mobile-wallet refunds are paid, and how long each takes.",
+    "Arts Sports কীভাবে টাকা ফেরত দেয়: কখন পুরো আর কখন আংশিক, ক্যাশ অন ডেলিভারি ও বিকাশ/নগদে রিফান্ড, আর কত দিন লাগে।",
 };
 
 export default function RefundPolicyPage() {
   return (
     <LegalPage
-      title="Refund Policy"
-      intro="When a return is approved, this page explains exactly how much you get back, how it is paid, and how long it takes."
-    >
+      bn={refundBn}
+      en={{
+        title: "Refund Policy",
+        intro:
+          "When a return is approved, this page explains exactly how much you get back, how it is paid, and how long it takes.",
+        children: (
+          <>
       <LegalSection title="1. What a refund covers">
         <p>
           An approved refund returns the price of the item or items you sent
@@ -109,6 +114,9 @@ export default function RefundPolicyPage() {
           the Terms of Service for how complaints are escalated.
         </p>
       </LegalSection>
-    </LegalPage>
+          </>
+        ),
+      }}
+    />
   );
 }

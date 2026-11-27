@@ -2,7 +2,7 @@ import "server-only";
 import { getServerUrl } from "@/lib/config";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { notifyOrderEvent } from "@/lib/notifications";
-import { sendCapiEvent } from "@/lib/tracking/capi";
+import { cleanIds, sendServerEvent } from "@/lib/tracking/server";
 import { DEFAULT_GATEWAY, getGateway, type GatewayPayment } from "./gateway";
 import type { PaymentPurpose } from "@/types";
 
@@ -166,8 +166,9 @@ export async function syncPaymentById(paymentId: string): Promise<SyncResult | n
 }
 
 /**
- * Meta Purchase from the server once an order's first payment lands. The
- * order page fires the browser pixel with the same event id.
+ * Purchase from the server (Meta, TikTok, Pinterest, GA4) once an order's
+ * first payment lands. The order page fires the browser tags with the same
+ * event id.
  */
 async function sendPurchaseEvent(orderId: string) {
   const db = getServiceSupabase();
@@ -178,19 +179,21 @@ async function sendPurchaseEvent(orderId: string) {
     .maybeSingle();
   if (!order) return;
   const items = (order.order_items ?? []) as { product_id: string; quantity: number }[];
-  await sendCapiEvent({
+  // The browser ids saved at checkout (migration 20261126110000); read on
+  // their own so a missing column does not stop the event.
+  const { data: saved } = await db.from("orders").select("tracking").eq("id", orderId).maybeSingle();
+  await sendServerEvent({
     name: "Purchase",
     eventId: `purchase-${order.id}`,
     value: Number(order.total_amount),
-    contentIds: items.map((i) => i.product_id),
-    numItems: items.reduce((s, i) => s + i.quantity, 0),
+    items: items.map((i) => ({ id: i.product_id, quantity: i.quantity })),
     orderId: order.id,
     user: {
       phone: order.customer_phone,
       email: order.customer_email,
       name: order.customer_name,
       district: order.district,
-      externalId: order.customer_phone,
     },
+    ids: cleanIds((saved as { tracking?: unknown } | null)?.tracking),
   });
 }

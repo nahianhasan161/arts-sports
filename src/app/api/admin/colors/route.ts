@@ -85,8 +85,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name and hex are required" }, { status: 400 });
     }
 
+    const id = crypto.randomUUID();
     const { error } = await supabase.from("colors").insert([{
-      id: crypto.randomUUID(),
+      id,
       name,
       hex,
       category_id: category_id ?? null,
@@ -95,10 +96,11 @@ export async function POST(request: NextRequest) {
     }]);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const taken = error.code === "23505";
+      return NextResponse.json({ error: taken ? "That colour already exists" : error.message }, { status: taken ? 409 : 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id });
   } catch (error) {
     return handleAdminError(error);
   }

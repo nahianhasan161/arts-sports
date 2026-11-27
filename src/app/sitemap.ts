@@ -1,37 +1,38 @@
 import type { MetadataRoute } from "next";
 import { getProducts, getCategories } from "@/lib/services/products";
+import { getCollections, getTerms } from "@/lib/services/catalog";
 import { getServerUrl } from "@/lib/config";
 
 /**
- * sitemap.xml
+ * sitemap.xml: every page a shopper (or a search engine / AI crawler)
+ * should find.
  *
- * There was none, so a crawler had to discover every product by following
- * links from the home page — which for a catalogue means products were only
- * reachable if they happened to be on a listing page the crawler also
- * crawled.
- *
- * Built from the same getProducts() call the shop uses, so the published set
- * and the sitemap can never disagree. Revalidated hourly rather than
- * generated per request, because a catalogue that changes a few times a day
- * does not need a sitemap built on every hit.
+ * Built from the same reads the shop uses, so the published set and the
+ * sitemap can never disagree: a product appears here as soon as it is
+ * published (within the 15-minute rebuild), and drafts never do. Category
+ * links use the same slugs as the category pages' canonical address.
+ * Product entries carry their pictures (Google Images reads them).
  */
 
-const SITE_URL = getServerUrl();
+const SITE_URL = getServerUrl().replace(/\/+$/, "");
 
-export const revalidate = 3600;
+export const revalidate = 900;
 
 /** Pages that are marketing or legal surfaces, not catalogue. */
 const STATIC_ROUTES: { path: string; priority: number; changeFrequency: "daily" | "weekly" | "monthly" }[] = [
   { path: "/", priority: 1.0, changeFrequency: "daily" },
   { path: "/shop", priority: 0.9, changeFrequency: "daily" },
   { path: "/custom-jersey", priority: 0.9, changeFrequency: "weekly" },
-  { path: "/custom-jersey/gallery", priority: 0.6, changeFrequency: "weekly" },
-  { path: "/returns", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/refund-policy", priority: 0.5, changeFrequency: "monthly" },
-  { path: "/shipping-policy", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/privacy-policy", priority: 0.4, changeFrequency: "monthly" },
-  { path: "/terms", priority: 0.4, changeFrequency: "monthly" },
+  { path: "/custom-jersey/gallery", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/shop?deals=true", priority: 0.6, changeFrequency: "daily" },
+  { path: "/returns", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/refund-policy", priority: 0.4, changeFrequency: "monthly" },
+  { path: "/shipping-policy", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/privacy-policy", priority: 0.3, changeFrequency: "monthly" },
+  { path: "/terms", priority: 0.3, changeFrequency: "monthly" },
 ];
+
+const abs = (u: string) => (u.startsWith("http") ? u : `${SITE_URL}${u.startsWith("/") ? "" : "/"}${u}`);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = STATIC_ROUTES.map((route) => ({
@@ -40,35 +41,46 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route.priority,
   }));
 
-  // Category listings. Sourced from the same tree the shop page navigates.
-  const categories = await getCategories();
+  const [categories, products, teams, collections] = await Promise.all([
+    getCategories(),
+    getProducts({ limit: 5000 }),
+    getTerms("team").catch(() => []),
+    getCollections().catch(() => []),
+  ]);
+
+  // Category and sub-category pages, at the address their canonical names.
   for (const parent of categories) {
+    const slug = parent.slug || parent.id;
     entries.push({
-      url: `${SITE_URL}/shop?category=${encodeURIComponent(parent.slug)}`,
+      url: `${SITE_URL}/shop?category=${encodeURIComponent(slug)}`,
       changeFrequency: "daily",
       priority: 0.8,
     });
     for (const child of parent.children ?? []) {
       entries.push({
-        url: `${SITE_URL}/shop?category=${encodeURIComponent(parent.slug)}&sub=${encodeURIComponent(child.name)}`,
+        url: `${SITE_URL}/shop?category=${encodeURIComponent(slug)}&sub=${encodeURIComponent(child.slug || child.id)}`,
         changeFrequency: "weekly",
         priority: 0.7,
       });
     }
   }
 
-  // Products. The full published set, not just the first page.
-  const products = await getProducts({ limit: 5000 });
+  for (const team of teams) {
+    entries.push({ url: `${SITE_URL}/team/${encodeURIComponent(team.slug)}`, changeFrequency: "weekly", priority: 0.6 });
+  }
+  for (const c of collections) {
+    entries.push({ url: `${SITE_URL}/collection/${encodeURIComponent(c.slug)}`, changeFrequency: "weekly", priority: 0.6 });
+  }
+
+  // Products: the full published set, with their pictures.
   for (const product of products) {
+    const changed = product.updated_at ?? product.published_at;
     entries.push({
       url: `${SITE_URL}/products/${encodeURIComponent(product.slug)}`,
-      lastModified: product.published_at
-        ? new Date(product.published_at)
-        : product.updated_at
-          ? new Date(product.updated_at)
-          : undefined,
+      lastModified: changed ? new Date(changed) : undefined,
       changeFrequency: "weekly",
-      priority: 0.7,
+      priority: 0.8,
+      images: (product.images ?? []).filter(Boolean).slice(0, 5).map(abs),
     });
   }
 

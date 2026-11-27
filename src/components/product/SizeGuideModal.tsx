@@ -32,6 +32,8 @@ interface SizeGuideModalProps {
   categoryId?: string | null;
   subCategoryId?: string | null;
   type?: string;
+  /** Picks a size on the product page from the "what is my size" answer. */
+  onPick?: (label: string) => void;
 }
 
 export default function SizeGuideModal({
@@ -40,6 +42,7 @@ export default function SizeGuideModal({
   categoryId,
   subCategoryId,
   type,
+  onPick,
 }: SizeGuideModalProps) {
   const { t } = useT();
   const measure = (key: string) => {
@@ -145,6 +148,8 @@ export default function SizeGuideModal({
             ))}
           </div>
 
+          {!loading && !error && <SizeFinder sizes={sizes} unit={unit} onPick={onPick} />}
+
           {loading ? (
             <div className="flex items-center justify-center py-10 gap-2 text-text-muted">
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -207,5 +212,62 @@ export default function SizeGuideModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * "What is my size": the shopper's chest, measured around the body, against
+ * the chart. Charts here are usually measured flat (underarm to underarm, half
+ * the garment), so a chart whose chest values are too small to be a full
+ * circumference is doubled first. 2 in / 5 cm of room is added for comfort.
+ * Hidden when the chart has no chest column.
+ */
+function SizeFinder({ sizes, unit, onPick }: { sizes: ResolvedSize[]; unit: string; onPick?: (label: string) => void }) {
+  const { t } = useT();
+  const [value, setValue] = useState("");
+  const rows = sizes
+    .map((s) => ({ size: s, chest: Number(s.measurements.chest ?? s.measurements.Chest) }))
+    .filter((r) => Number.isFinite(r.chest) && r.chest > 0)
+    .sort((a, b) => a.chest - b.chest);
+  if (rows.length < 2) return null;
+
+  const inches = unit === "in";
+  const flat = rows[rows.length - 1].chest < (inches ? 30 : 75);
+  const body = Number(value.replace(/[০-৯]/g, (d) => String("০১২৩৪৫৬৭৮৯".indexOf(d))));
+  const need = body > 0 ? body + (inches ? 2 : 5) : 0;
+  const fit = need > 0 ? rows.find((r) => (flat ? r.chest * 2 : r.chest) >= need) : undefined;
+  const tooBig = need > 0 && !fit;
+  const unitText = t(inches ? "store.sizeGuide.inches" : "store.sizeGuide.cm");
+
+  return (
+    <div className="mb-4 rounded-xl border border-primary/30 bg-primary/5 p-3">
+      <p className="text-sm font-bold text-primary mb-2">{t("store.sizeGuide.findTitle")}</p>
+      <label className="flex flex-wrap items-center gap-2 text-xs text-text-muted">
+        <span>{t("store.sizeGuide.findLabel", { unit: unitText })}</span>
+        <input
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={inches ? "38" : "96"}
+          className="w-20 h-9 px-2 rounded-lg border border-border-light bg-surface-card text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+      </label>
+      {fit && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-bold text-on-surface">{t("store.sizeGuide.findResult", { size: fit.size.label })}</span>
+          {onPick && (
+            <button
+              type="button"
+              onClick={() => onPick(fit.size.canonical_label || fit.size.label)}
+              className="h-8 px-3 rounded-full bg-primary text-primary-foreground text-xs font-bold"
+            >
+              {t("store.sizeGuide.findPick", { size: fit.size.label })}
+            </button>
+          )}
+          <span className="w-full text-[11px] text-text-muted">{t("store.sizeGuide.findTip")}</span>
+        </div>
+      )}
+      {tooBig && <p className="mt-2 text-xs text-badge-discount">{t("store.sizeGuide.findBig")}</p>}
+          </div>
   );
 }

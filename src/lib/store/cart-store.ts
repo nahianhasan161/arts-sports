@@ -2,6 +2,17 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { withLegacyKey } from "./legacy-storage";
 import { CartItem, Product } from "@/types";
+import { colorCover, readColorMedia } from "@/lib/products/color-images";
+
+/**
+ * The price the product page showed for the chosen option (a variation's own
+ * price, a live promotion). Display only: checkout prices every line again on
+ * the server.
+ */
+export interface UnitPrice {
+  price: number;
+  original_price?: number;
+}
 
 interface CartState {
   items: CartItem[];
@@ -13,14 +24,15 @@ interface CartState {
     product: Product,
     size: string,
     color: string,
-    quantity?: number
+    quantity?: number,
+    unit?: UnitPrice
   ) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   /** "Buy now": one item checked out on its own, leaving the bag untouched. */
   buyNowItem: CartItem | null;
-  setBuyNow: (product: Product, size: string, color: string, quantity?: number) => void;
+  setBuyNow: (product: Product, size: string, color: string, quantity?: number, unit?: UnitPrice) => void;
   clearBuyNow: () => void;
   /** Reorder: put earlier order lines back in the bag. */
   addLines: (lines: CartItem[]) => void;
@@ -39,7 +51,7 @@ export const useCartStore = create<CartState>()(
       closeCart: () => set({ isOpen: false }),
       toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
 
-      addItem: (product, size, color, quantity = 1) => {
+      addItem: (product, size, color, quantity = 1, unit) => {
         set((state) => {
           const itemId = `${product.id}-${size}-${color}`;
           const existingIndex = state.items.findIndex(
@@ -56,6 +68,7 @@ export const useCartStore = create<CartState>()(
             updatedItems[existingIndex] = {
               ...currentItem,
               quantity: newQty,
+              ...(unit ? { price: unit.price, original_price: unit.original_price ?? unit.price } : {}),
             };
             return { items: updatedItems, isOpen: true };
           }
@@ -69,9 +82,9 @@ export const useCartStore = create<CartState>()(
             slug: product.slug,
             title: product.title,
             title_bn: product.title_bn,
-            price: product.price,
-            original_price: product.original_price,
-            image: product.images[0],
+            price: unit?.price ?? product.price,
+            original_price: unit ? (unit.original_price ?? unit.price) : product.original_price,
+            image: colorCover(product.images, readColorMedia(product.color_images), color) ?? product.images[0],
             size,
             color,
             quantity: Math.min(quantity, maxStock),
@@ -108,7 +121,7 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => set({ items: [] }),
 
-      setBuyNow: (product, size, color, quantity = 1) => {
+      setBuyNow: (product, size, color, quantity = 1, unit) => {
         const targetSize = product.sizes.find((s) => s.size === size);
         const maxStock = targetSize ? targetSize.stock : 20;
         set({
@@ -118,9 +131,9 @@ export const useCartStore = create<CartState>()(
             slug: product.slug,
             title: product.title,
             title_bn: product.title_bn,
-            price: product.price,
-            original_price: product.original_price,
-            image: product.images[0],
+            price: unit?.price ?? product.price,
+            original_price: unit ? (unit.original_price ?? unit.price) : product.original_price,
+            image: colorCover(product.images, readColorMedia(product.color_images), color) ?? product.images[0],
             size,
             color,
             quantity: Math.max(1, Math.min(quantity, maxStock)),

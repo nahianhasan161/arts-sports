@@ -9,12 +9,12 @@ import { formatMoney } from "@/i18n";
 import { thumbUrl } from "@/lib/media/thumb";
 import { useLiveBadges } from "@/lib/promotions/useLiveBadges";
 import type { AccessoryItem, AccessoryShowcaseData, AccessorySport } from "@/lib/services/accessories";
-import { frameFor, type SportFrame } from "@/lib/sport-frames";
+import type { SportFrame } from "@/lib/sport-frames";
 import { SportCard } from "@/components/product/SportCard";
 import { AllIcon, ChipIcon } from "@/components/ui/ChipIcon";
 import { SectionHeading } from "./HomeSections";
 
-/** Accessories with a tab per sport. Each card wears a frame from its sport (`SportCard`). */
+/** Accessories with a tab per sport, on the same plain card as the shop grid (`SportCard`). */
 
 const LIMIT = 8;
 
@@ -102,10 +102,6 @@ export function AccessoryShowcase({ data }: { data: AccessoryShowcaseData }) {
     [data, active]
   );
   const ids = useMemo(() => data.items.map((i) => i.id), [data]);
-  const frames = useMemo(() => {
-    const words = new Map(data.sports.map((s) => [s.id, [s.slug, s.name, s.name_bn].filter(Boolean).join(" ")]));
-    return shown.map((i) => frameFor(`${words.get(i.sport_id ?? "") ?? ""} ${i.title}`));
-  }, [data, shown]);
   const live = useLiveBadges(ids);
   const activeSport = sports.find((s) => s.id === active);
 
@@ -140,7 +136,7 @@ export function AccessoryShowcase({ data }: { data: AccessoryShowcaseData }) {
           ))}
         </div>
       )}
-      <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-7 sm:gap-x-6 sm:gap-y-9 pt-4 pb-2">
+      <ul className="max-sm:[&>*:nth-child(n+5)]:hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-7 sm:gap-x-6 sm:gap-y-9 pt-4 pb-2">
         {shown.map((item, i) => {
           const sport = data.sports.find((s) => s.id === item.sport_id);
           const price = live[item.id]?.final_price ?? item.price;
@@ -148,7 +144,7 @@ export function AccessoryShowcase({ data }: { data: AccessoryShowcaseData }) {
             <li key={item.id}>
               <AccessoryCard
                 item={item}
-                frame={frames[i]}
+                frame="plain"
                 sport={sport ? name(sport) : null}
                 price={price}
                 was={Math.max(live[item.id]?.base_price ?? 0, item.original_price ?? 0)}

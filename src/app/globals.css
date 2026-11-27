@@ -454,6 +454,31 @@
 }
 .as-sc-seam { position: relative; height: 22px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
+/* Plain: the shop's product grids. A calm white card so the photos do the talking;
+   the sport frames below stay for the custom jersey gallery. */
+.as-sc[data-frame="plain"] {
+  --sc: rgb(255 255 255);
+  --c-on-surface: 17 34 25;
+  --c-on-surface-variant: 54 74 63;
+  --c-text-muted: 88 108 97;
+  --c-badge-discount: 200 32 44;
+}
+.as-sc[data-frame="plain"]::after { box-shadow: inset 0 0 0 1px rgb(var(--c-border-light)), 0 1px 2px rgb(0 0 0 / 0.04); }
+.as-sc[data-frame="plain"] .as-sc-seam { height: 8px; }
+.as-sc[data-frame="plain"] .as-sc-price { color: rgb(var(--c-primary)); }
+.dark .as-sc[data-frame="plain"] {
+  --sc: rgb(22 28 37);
+  --c-on-surface: 232 236 241;
+  --c-on-surface-variant: 184 193 205;
+  --c-text-muted: 148 160 176;
+  --c-badge-discount: 245 101 101;
+}
+.dark .as-sc[data-frame="plain"] .as-sc-price { color: rgb(134 239 172); }
+@media (hover: hover) {
+  .as-sc[data-frame="plain"]:hover { transform: translateY(-3px); }
+  .as-sc[data-frame="plain"]:hover::after { box-shadow: inset 0 0 0 1px rgb(var(--c-border-light)), 0 10px 24px -12px rgb(0 0 0 / 0.25); }
+}
+
 /* Match ticket: two pieces with a torn-off stub. */
 .as-sc[data-frame="ticket"] { --sc: #fff4d6; --c-on-surface: 23 32 56; --c-on-surface-variant: 23 32 56; --c-text-muted: 88 78 52; --c-badge-discount: 185 16 38; filter: drop-shadow(0 0 0.6px rgb(0 0 0 / 0.55)) drop-shadow(0 4px 7px rgb(0 0 0 / 0.22)); }
 .as-sc[data-frame="ticket"]::after { display: none; }

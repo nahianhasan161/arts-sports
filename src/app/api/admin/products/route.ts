@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
     let listQuery = supabase
       .from("products")
       .select(
-        "*, product_variants(id, color_id, size_id, variant_key, sku, regular_price_override, stock, is_active, colors(name, hex), sizes(display_name)), promotion_products(promotion_id)",
+        "*, product_variants(id, color_id, size_id, variant_key, sku, regular_price_override, stock, is_active, colors(name, hex), sizes(display_name)), promotion_products(promotion_id), product_colors(color_id, sort_order), product_sizes(size_id, sort_order)",
         { count: "exact" }
       )
       .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
@@ -292,7 +292,9 @@ export async function GET(request: NextRequest) {
     // flattened into the plain shape the client stores. Doing it here keeps
     // the normalisation in one place instead of in every consumer.
     const products = (data ?? []).map((row) => {
-      const { product_variants, promotion_products, ...product } = row as Record<string, unknown> & {
+      const { product_variants, promotion_products, product_colors, product_sizes, ...product } = row as Record<string, unknown> & {
+        product_colors?: { color_id: string; sort_order: number | null }[];
+        product_sizes?: { size_id: string; sort_order: number | null }[];
         product_variants?: {
           id: string;
           color_id: string | null;
@@ -337,8 +339,16 @@ export async function GET(request: NextRequest) {
         // and cannot tell the two apart when one is toggled off.
         // Array.from rather than [...new Set(...)]: the spread form needs
         // downlevelIteration, and this file compiles to the ES5 target.
-        color_ids: Array.from(new Set(variants.map((v) => v.color_id).filter((id): id is string => Boolean(id)))),
-        size_ids: Array.from(new Set(variants.map((v) => v.size_id).filter((id): id is string => Boolean(id)))),
+        // In the order the admin set (product_colors / product_sizes.sort_order,
+        // dragged in the Variations tab); the variant rows come back unordered.
+        color_ids: inOrder(
+          Array.from(new Set(variants.map((v) => v.color_id).filter((id): id is string => Boolean(id)))),
+          (product_colors ?? []).map((x) => ({ id: x.color_id, sort: x.sort_order })),
+        ),
+        size_ids: inOrder(
+          Array.from(new Set(variants.map((v) => v.size_id).filter((id): id is string => Boolean(id)))),
+          (product_sizes ?? []).map((x) => ({ id: x.size_id, sort: x.sort_order })),
+        ),
         promotion_ids: (promotion_products ?? []).map((p) => p.promotion_id),
       } as unknown as Product;
     });
@@ -532,4 +542,13 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     return handleAdminError(error);
   }
+}
+
+/** Ids sorted by their saved position; ids without one keep their place at the end. */
+function inOrder(ids: string[], saved: { id: string; sort: number | null }[]): string[] {
+  const pos = new Map(saved.map((x) => [x.id, x.sort ?? Number.MAX_SAFE_INTEGER]));
+  return ids
+    .map((id, i) => ({ id, i, p: pos.get(id) ?? Number.MAX_SAFE_INTEGER }))
+    .sort((a, b) => a.p - b.p || a.i - b.i)
+    .map((x) => x.id);
 }

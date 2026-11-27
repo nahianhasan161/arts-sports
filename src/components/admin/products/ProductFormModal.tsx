@@ -25,22 +25,29 @@
  */
 
 import { appendImageFiles } from "@/lib/media/client-optimize";
-import { useCallback, useMemo, useReducer, useState } from "react";
-import { X, Check, ArrowLeft, ImagePlus } from "lucide-react";
-import StagedImagePicker, { type StagedImage } from "@/components/admin/products/StagedImagePicker";
+import { looksLikeSpecList, parseSpecPaste, specsToText, type SpecPair } from "@/lib/products/spec-paste";
+import ProductVideoManager, { releaseStagedVideos, uploadStagedVideos, type StagedVideo } from "./ProductVideoManager";
+import { useCallback, useEffect, useMemo, useReducer, useState, type ClipboardEvent } from "react";
+import { X, Check, ArrowLeft, ImagePlus, Plus, Loader2, Eye } from "lucide-react";
+import StagedImagePicker, { stageImageFiles, type StagedImage } from "@/components/admin/products/StagedImagePicker";
 import ProductMediaManager from "@/components/admin/ProductMediaManager";
 import { RichTextEditor } from "@/components/admin/products/RichTextEditor";
+import { guessSizeGroup } from "@/components/admin/products/SizePicker";
+import { VariationsPanel, type DefaultChoice, type MediaChoice } from "@/components/admin/products/ColorPhotos";
+import { entryKey, readColorMedia, readDefaultVariant, videoEntry } from "@/lib/products/color-images";
+import { readVideos, videoPoster, VIDEO_HOST_LABEL, type ProductVideo } from "@/lib/media/video";
+import { SeoPanel, sendSeoDraft, type SeoDraft } from "@/components/admin/products/SeoPanel";
 import {
-  VariantMatrix,
   cellKey,
   emptyCell,
-  type CellKey,
   type MatrixCell,
   type MatrixState,
-} from "@/components/admin/products/VariantMatrix";
+  type VariantSet,
+} from "@/components/admin/products/variants";
 import {
   PRODUCT_GENDERS,
   PRODUCT_GENDER_LABELS,
+  MEDIA_MAX_PER_PRODUCT,
   isProductDiscountMode,
   isProductGender,
   type Category,
@@ -49,6 +56,7 @@ import {
   type ProductDiscountMode,
   type ProductGender,
   type ProductStatus,
+  type ProductImage,
   type Promotion,
   type SizeOption,
 } from "@/types";
@@ -175,22 +183,19 @@ interface FormState {
   promotionIds: string[];
 }
 
-/** Object.entries for a Record keyed by a template literal type. */
-const entriesOf = (state: MatrixState) => Object.entries(state) as [CellKey, MatrixCell][];
-
 type Action =
   | { type: "set"; field: keyof FormState; value: FormState[keyof FormState] }
   | { type: "category"; id: string; categories: Category[] }
   | { type: "subCategory"; id: string }
-  | { type: "toggleColor"; id: string }
-  | { type: "toggleSize"; id: string }
-  | { type: "matrix"; value: MatrixState }
+  | { type: "variants"; value: VariantSet }
   | { type: "setDiscountMode"; mode: ProductDiscountMode }
   | { type: "togglePromotion"; id: string }
   | { type: "specKey"; index: number; value: string }
   | { type: "specValue"; index: number; value: string }
   | { type: "addSpec" }
-  | { type: "removeSpec"; index: number };
+  | { type: "removeSpec"; index: number }
+  | { type: "mergeSpecs"; pairs: SpecPair[] }
+  | { type: "clearSpecs" };
 
 function blankState(): FormState {
   return {
@@ -217,71 +222,39 @@ function blankState(): FormState {
 }
 
 /**
- * Rebuilds the matrix from a product's option ids and its stored variants.
+ * Rebuilds the cells from a product's option ids and its stored variants.
  *
- * Cells that the product does not have are still created, with zero stock,
- * because a colour and a size that are both selected always produce a variant:
- * the server creates the whole cross-product, so a cell missing from the form
- * is a zero-stock variant and not an absent one. Reading it the other way would
- * make an unedited cell disappear from the grid and take the variant with it.
+ * Keyed by the form's own cellKey, rebuilt from each variant's color_id and
+ * size_id, not by the `variant_key` column (that one writes a missing axis as
+ * an empty string, cellKey as "-"; mixing them once wiped stock on save).
+ *
+ * A pair with no stored row is a live, zero-stock variation (the server makes
+ * every pair). A stored pair that is off, at 0 and without a price is a filler
+ * the admin never added, so it is hidden from the Variants list.
  */
 function matrixFromProduct(product: Product): MatrixState {
   const matrix: MatrixState = {};
   const colorIds = product.color_ids ?? [];
   const sizeIds = product.size_ids ?? [];
-
-  // Keyed by the FORM's own cellKey, rebuilt from each variant's color_id and
-  // size_id, rather than by the variant's `variant_key` column.
-  //
-  // The two used different conventions. cellKey renders a missing axis as
-  // "-", while the database generates variant_key as
-  // COALESCE(color_id,'') || ':' || COALESCE(size_id,'') -- an empty string.
-  // So a product with colours but no sizes looked up "<colour>:-" and never
-  // found the stored "<colour>:", every cell silently fell back to
-  // emptyCell(), and saving the form then wrote stock 0 and cleared the SKU.
-  // Rebuilding the key from the ids means this cannot drift again if the
-  // generated column's format ever changes.
-  const byKey = new Map(
-    (product.variants ?? []).map((v) => [cellKey(v.color_id, v.size_id), v]),
-  );
-
-  if (colorIds.length > 0 && sizeIds.length > 0) {
-    for (const c of colorIds) {
-      for (const s of sizeIds) {
-        const v = byKey.get(cellKey(c, s));
-        matrix[cellKey(c, s)] = v
-          ? {
-              stock: v.stock,
-              price_override: v.regular_price_override === null ? null : String(v.regular_price_override),
-              sku: v.sku,
-              is_active: v.is_active,
-            }
-          : emptyCell();
-      }
+  const byKey = new Map((product.variants ?? []).map((v) => [cellKey(v.color_id, v.size_id), v]));
+  const keys =
+    colorIds.length > 0 && sizeIds.length > 0
+      ? colorIds.flatMap((c) => sizeIds.map((s) => cellKey(c, s)))
+      : [...colorIds.map((c) => cellKey(c, null)), ...sizeIds.map((s) => cellKey(null, s))];
+  for (const key of keys) {
+    const v = byKey.get(key);
+    if (!v) {
+      matrix[key] = emptyCell();
+      continue;
     }
-  } else {
-    for (const c of colorIds) {
-      const v = byKey.get(cellKey(c, null));
-      matrix[cellKey(c, null)] = v
-        ? {
-            stock: v.stock,
-            price_override: v.regular_price_override === null ? null : String(v.regular_price_override),
-            sku: v.sku,
-            is_active: v.is_active,
-          }
-        : emptyCell();
-    }
-    for (const s of sizeIds) {
-      const v = byKey.get(cellKey(null, s));
-      matrix[cellKey(null, s)] = v
-        ? {
-            stock: v.stock,
-            price_override: v.regular_price_override === null ? null : String(v.regular_price_override),
-            sku: v.sku,
-            is_active: v.is_active,
-          }
-        : emptyCell();
-    }
+    const cell: MatrixCell = {
+      stock: v.stock,
+      price_override: v.regular_price_override === null ? null : String(v.regular_price_override),
+      sku: v.sku,
+      is_active: v.is_active,
+    };
+    if (!v.is_active && v.stock === 0 && v.regular_price_override === null) cell.hidden = true;
+    matrix[key] = cell;
   }
   return matrix;
 }
@@ -303,36 +276,9 @@ function reducer(state: FormState, action: Action): FormState {
     case "subCategory":
       return { ...state, subCategoryId: action.id };
 
-    case "toggleColor": {
-      const has = state.colorIds.includes(action.id);
-      const colorIds = has ? state.colorIds.filter((id) => id !== action.id) : [...state.colorIds, action.id];
-      // Cells for a removed colour go with it, so the grid and the payload
-      // never disagree about which rows exist.
-      // Object.entries widens the key to string, so each surviving pair is
-      // rebuilt through cellKey to keep the state typed as CellKey.
-      const matrix: MatrixState = {};
-      for (const [key, cell] of entriesOf(state.matrix)) {
-        const [colorId] = key.split(":");
-        if (!colorIds.includes(colorId)) continue;
-        matrix[cellKey(colorId, key.split(":")[1])] = cell;
-      }
-      return { ...state, colorIds, matrix };
-    }
-
-    case "toggleSize": {
-      const has = state.sizeIds.includes(action.id);
-      const sizeIds = has ? state.sizeIds.filter((id) => id !== action.id) : [...state.sizeIds, action.id];
-      const matrix: MatrixState = {};
-      for (const [key, cell] of entriesOf(state.matrix)) {
-        const [, sizeId] = key.split(":");
-        if (!sizeIds.includes(sizeId)) continue;
-        matrix[cellKey(key.split(":")[0], sizeId)] = cell;
-      }
-      return { ...state, sizeIds, matrix };
-    }
-
-    case "matrix":
-      return { ...state, matrix: action.value };
+    case "variants":
+      // Colours, sizes and cells change together (see ./variants.ts).
+      return { ...state, ...action.value };
 
     case "setDiscountMode": {
       // Switching mode must CONVERT, not discard.
@@ -408,6 +354,21 @@ function reducer(state: FormState, action: Action): FormState {
 
     case "removeSpec":
       return { ...state, specs: state.specs.filter((_, i) => i !== action.index) };
+
+    // A pasted list: a row with the same name gets the new value (when the
+    // paste has one), new names are added at the end, blank rows go away.
+    case "mergeSpecs": {
+      const specs = state.specs.filter((s) => s.key.trim() || s.value.trim());
+      for (const p of action.pairs) {
+        const at = specs.findIndex((s) => s.key.trim().toLowerCase() === p.key.toLowerCase());
+        if (at === -1) specs.push({ uid: nextSpecUid(), key: p.key, value: p.value });
+        else if (p.value) specs[at] = { ...specs[at], value: p.value };
+      }
+      return { ...state, specs };
+    }
+
+    case "clearSpecs":
+      return { ...state, specs: [] };
   }
 }
 
@@ -426,15 +387,18 @@ export interface ProductFormModalProps extends ProductFormOptions {
   product: Product | null;
   onClose: () => void;
   onSuccess: () => void;
+  /** Called after the form made a category, colour, size or promotion, so the page can refresh that list. */
+  onCreated?: (kind: "category" | "color" | "size" | "promotion") => void;
 }
 
-type TabId = "general" | "variants" | "images" | "description" | "specs";
+type TabId = "general" | "variants" | "images" | "description" | "specs" | "seo";
 const TABS: { id: TabId; label: string }[] = [
   { id: "general", label: "General Information" },
   { id: "variants", label: "Variants" },
-  { id: "images", label: "Images" },
+  { id: "images", label: "Images & video" },
   { id: "description", label: "Description" },
   { id: "specs", label: "Specs" },
+  { id: "seo", label: "SEO" },
 ];
 
 const inputClass =
@@ -455,6 +419,8 @@ function Dropdown({
   loading,
   hint,
   id,
+  onCreate,
+  createPlaceholder,
 }: {
   label: string;
   value: string;
@@ -465,14 +431,28 @@ function Dropdown({
   loading?: boolean;
   hint?: string;
   id: string;
+  /** Makes a new entry from a typed name and selects it. Returns an error text, or null. */
+  onCreate?: (name: string) => Promise<string | null>;
+  createPlaceholder?: string;
 }) {
+  const [creating, setCreating] = useState(false);
+  const canCreate = !!onCreate && !disabled && !loading;
   return (
     <div>
-      <label htmlFor={id} className={labelClass}>
-        {label}
-        {required && <span className="text-badge-discount"> *</span>}
-      </label>
-      {loading ? (
+      <div className="flex items-center justify-between gap-2">
+        <label htmlFor={id} className={labelClass}>
+          {label}
+          {required && <span className="text-badge-discount"> *</span>}
+        </label>
+        {canCreate && !creating && <NewButton onClick={() => setCreating(true)} className="mb-1.5" />}
+      </div>
+      {creating && onCreate ? (
+        <InlineCreate
+          placeholder={createPlaceholder ?? `New ${label.toLowerCase()} name`}
+          onCreate={onCreate}
+          onDone={() => setCreating(false)}
+        />
+      ) : loading ? (
         <div className={fieldClass + " bg-surface-subtle animate-pulse"} aria-hidden />
       ) : (
         <select
@@ -486,31 +466,542 @@ function Dropdown({
           {children}
         </select>
       )}
-      {hint && <p className="mt-1 text-[11px] text-text-muted">{hint}</p>}
+      {hint && !creating && <p className="mt-1 text-[11px] text-text-muted">{hint}</p>}
     </div>
   );
 }
 
+/** The small "+ New" link next to a field's label. */
+function NewButton({ onClick, className = "", label = "New" }: { onClick: () => void; className?: string; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-4 items-center gap-0.5 rounded-md px-1.5 text-[11px] leading-4 font-semibold text-primary hover:bg-primary/10 ${className}`}
+    >
+      <Plus className="w-3 h-3" /> {label}
+    </button>
+  );
+}
+
+/** Name box + save/cancel shown in place of a dropdown while a new entry is made. */
+function InlineCreate({
+  placeholder,
+  onCreate,
+  onDone,
+  extra,
+}: {
+  placeholder: string;
+  onCreate: (name: string) => Promise<string | null>;
+  onDone: () => void;
+  /** More inputs between the name and the Add button (a colour swatch, say). */
+  extra?: React.ReactNode;
+}) {
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    const clean = name.trim();
+    if (!clean || busy) return;
+    setBusy(true);
+    setError(null);
+    const err = await onCreate(clean);
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  return (
+    <div>
+      <div className="flex gap-1.5">
+        <input
+          autoFocus
+          value={name}
+          disabled={busy}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void save();
+            } else if (e.key === "Escape") {
+              // Close only this box, not the whole product form.
+              e.stopPropagation();
+              onDone();
+            }
+          }}
+          placeholder={placeholder}
+          className={inputClass + " flex-1 min-w-0"}
+        />
+        {extra}
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={busy || !name.trim()}
+          className="h-9 px-3 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-1"
+        >
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+          Add
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          disabled={busy}
+          aria-label="Cancel"
+          className="h-9 w-9 rounded-lg border border-border-light text-text-muted hover:bg-surface-subtle inline-flex items-center justify-center"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      {error && <p className="mt-1 text-[11px] text-badge-discount">{error}</p>}
+    </div>
+  );
+}
+
+export type NewPromotion = { name: string; type: "percentage" | "flat"; value: number; endsOn: string };
+
+/**
+ * A short promotion: name, % or ৳ off, last day. It starts now and is active;
+ * the rest (description, badge, other products) is on the Promotions page.
+ * A ৳-off promotion needs a saved product to check against (the database
+ * refuses a flat discount bigger than the cheapest product it covers), so a
+ * product that is not saved yet only gets %.
+ */
+function PromotionCreate({
+  allowFlat,
+  onCreate,
+  onDone,
+}: {
+  allowFlat: boolean;
+  onCreate: (p: NewPromotion) => Promise<string | null>;
+  onDone: () => void;
+}) {
+  const inDays = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const [name, setName] = useState("");
+  const [type, setType] = useState<"percentage" | "flat">("percentage");
+  const [value, setValue] = useState("");
+  const [endsOn, setEndsOn] = useState(() => inDays(30));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const num = Number(value);
+  const ok = name.trim() !== "" && num > 0 && (type === "flat" || num <= 100) && endsOn >= inDays(0);
+
+  const save = async () => {
+    if (!ok || busy) return;
+    setBusy(true);
+    setError(null);
+    const err = await onCreate({ name: name.trim(), type, value: num, endsOn });
+    setBusy(false);
+    if (err) setError(err);
+    else onDone();
+  };
+
+  return (
+    <div
+      className="rounded-lg border border-border-light bg-surface-subtle/50 p-3 space-y-2"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onDone();
+        } else if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+          e.preventDefault();
+          void save();
+        }
+      }}
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_6rem_9rem] gap-2">
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Promotion name, e.g. Eid sale"
+          aria-label="Promotion name"
+          className={inputClass}
+        />
+        <div className="flex rounded-lg border border-border-light overflow-hidden h-9" role="group" aria-label="Discount type">
+          {(["percentage", "flat"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              disabled={t === "flat" && !allowFlat}
+              title={t === "flat" && !allowFlat ? "Save the product first to use a ৳ amount" : undefined}
+              onClick={() => setType(t)}
+              className={`px-3 text-xs font-semibold disabled:opacity-40 ${
+                type === t ? "bg-primary/10 text-primary" : "text-text-muted hover:bg-surface-subtle"
+              }`}
+            >
+              {t === "percentage" ? "% off" : "৳ off"}
+            </button>
+          ))}
+        </div>
+        <input
+          type="number"
+          min={0}
+          max={type === "percentage" ? 100 : undefined}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={type === "percentage" ? "10" : "200"}
+          aria-label={type === "percentage" ? "Percent off" : "Taka off"}
+          className={inputClass}
+        />
+        <input
+          type="date"
+          value={endsOn}
+          min={inDays(0)}
+          onChange={(e) => setEndsOn(e.target.value)}
+          aria-label="Last day"
+          title="Last day"
+          className={inputClass}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] text-text-muted">
+          Starts now, ends after the chosen day. {!allowFlat && "৳ off needs a saved product. "}Edit more under
+          Promotions.
+        </p>
+        <div className="flex gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={onDone}
+            disabled={busy}
+            className="h-8 px-3 rounded-lg border border-border-light text-xs text-text-muted hover:bg-surface-subtle"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={!ok || busy}
+            className="h-8 px-3 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-50 inline-flex items-center gap-1"
+          >
+            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Add
+          </button>
+        </div>
+      </div>
+      {error && <p className="text-[11px] text-badge-discount">{error}</p>}
+    </div>
+  );
+}
+
+/** A slug for a new name; Bangla-only names have no Latin letters, so they get a short random one. */
+function newSlug(name: string, prefix: string): string {
+  return slugify(name).slice(0, 60) || `${prefix}-${shortId()}`;
+}
+
+/** The page's list plus what this form made, without doubles once the page has refetched. */
+function withCreated<T extends { id: string }>(list: T[], created: T[]): T[] {
+  return created.length === 0 ? list : [...list, ...created.filter((c) => !list.some((x) => x.id === c.id))];
+}
+
+/** Four random letters/digits for a slug that is already taken. */
+function shortId(): string {
+  return Math.random().toString(36).slice(2, 6);
+}
+
 export function ProductFormModal({
   product,
-  categories,
-  colors,
-  sizes,
-  promotions,
+  categories: categoriesProp,
+  colors: colorsProp,
+  sizes: sizesProp,
+  promotions: promotionsProp,
   categoriesLoading,
   colorsLoading,
   sizesLoading,
   promotionsLoading,
   onClose,
   onSuccess,
+  onCreated,
 }: ProductFormModalProps) {
   const isEdit = product !== null;
+  // Categories made from this form ("+ New"), shown until the page's list has them.
+  const [createdCategories, setCreatedCategories] = useState<Category[]>([]);
+  const categories = useMemo(() => withCreated(categoriesProp, createdCategories), [categoriesProp, createdCategories]);
+  // Same for colours, sizes and promotions made from the Variants / Discount sections.
+  const [createdColors, setCreatedColors] = useState<ColorOption[]>([]);
+  const [createdSizes, setCreatedSizes] = useState<SizeOption[]>([]);
+  const [createdPromotions, setCreatedPromotions] = useState<Promotion[]>([]);
+  const colors = useMemo(() => withCreated(colorsProp, createdColors), [colorsProp, createdColors]);
+  const sizes = useMemo(() => withCreated(sizesProp, createdSizes), [sizesProp, createdSizes]);
+  const promotions = useMemo(() => withCreated(promotionsProp, createdPromotions), [promotionsProp, createdPromotions]);
+  const [adding, setAdding] = useState<null | "promotion">(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [slugTouched, setSlugTouched] = useState(isEdit);
   const [tab, setTab] = useState<TabId>("general");
   // Pictures chosen for a product that does not exist yet; uploaded after the save.
   const [staged, setStaged] = useState<StagedImage[]>([]);
+  // Videos chosen for a product that does not exist yet; saved after it.
+  const [stagedVideos, setStagedVideos] = useState<StagedVideo[]>([]);
+  // Specs paste: a list pasted into any spec box (or the Paste list box) fills every row.
+  const [specPasteOpen, setSpecPasteOpen] = useState(false);
+  const [specPasteText, setSpecPasteText] = useState("");
+  const [specNote, setSpecNote] = useState<string | null>(null);
+  const onSpecPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text/plain");
+    if (!looksLikeSpecList(text)) return; // one value: normal paste
+    const pairs = parseSpecPaste(text);
+    if (pairs.length === 0) return;
+    e.preventDefault();
+    dispatch({ type: "mergeSpecs", pairs });
+    setSpecNote(`${pairs.length} specs pasted.`);
+  };
+  // Search text: automatic unless the SEO tab was edited (sent after the save).
+  const [seoDraft, setSeoDraft] = useState<SeoDraft>({ mode: "keep" });
+  // Brand = a "brand" term from the catalog page; saved after the product.
+  const [brands, setBrands] = useState<{ id: string; name_en: string }[] | null>(null);
+  const [brandId, setBrandId] = useState("");
+  const [savedBrandId, setSavedBrandId] = useState("");
+  useEffect(() => {
+    let live = true;
+    fetch("/api/admin/catalog-terms")
+      .then((r) => (r.ok ? r.json() : { terms: [] }))
+      .then((d: { terms?: { id: string; type: string; name_en: string; product_ids: string[] }[] }) => {
+        if (!live) return;
+        const list = (d.terms ?? []).filter((x) => x.type === "brand");
+        setBrands(list);
+        const mine = product ? list.find((x) => x.product_ids.includes(product.id))?.id ?? "" : "";
+        setBrandId(mine);
+        setSavedBrandId(mine);
+      })
+      .catch(() => live && setBrands([]));
+    return () => {
+      live = false;
+    };
+  }, [product]);
+
+  // Colour media: colour (lower case) → tile keys. On a saved product a key is
+  // the stored entry (image url / `video:<key>`); on a new one it is
+  // `img:<staged id>` / `vid:<staged key>`, turned into entries after the
+  // uploads. Saved after the product.
+  const savedColorMedia = useMemo(() => readColorMedia(product?.color_images), [product]);
+  const [colorMedia, setColorMedia] = useState<Record<string, string[]>>(savedColorMedia);
+  const [mediaImages, setMediaImages] = useState<ProductImage[] | null>(null);
+  const [mediaVideos, setMediaVideos] = useState<ProductVideo[] | null>(null);
+  const mediaChoices = useMemo<MediaChoice[]>(() => {
+    const vid = (v: ProductVideo, i: number) => ({ src: videoPoster(v), video: true, label: `Video ${i + 1} (${VIDEO_HOST_LABEL[v.kind]})` });
+    if (!isEdit) {
+      return [
+        ...staged.map((x, i) => ({ key: `img:${x.id}`, src: x.preview, label: `Picture ${i + 1}` })),
+        ...stagedVideos.map((x, i) => ({ key: `vid:${x.key}`, ...vid(x.video, i) })),
+      ];
+    }
+    const urls = mediaImages ? mediaImages.map((m) => m.url) : product?.images ?? [];
+    const videos = mediaVideos ?? readVideos(product?.videos);
+    return [
+      ...urls.map((url, i) => ({ key: url, src: url, label: `Picture ${i + 1}` })),
+      ...videos.map((v, i) => ({ key: videoEntry(v), ...vid(v, i) })),
+    ];
+  }, [isEdit, staged, stagedVideos, mediaImages, mediaVideos, product]);
+  // Media deleted on the Images & video tab is no longer a choice: drop it.
+  const liveColorMedia = useMemo(() => {
+    const cmp = (key: string) => (isEdit ? entryKey(key) : key);
+    const keys = new Map(mediaChoices.map((p) => [cmp(p.key), p.key]));
+    const out: Record<string, string[]> = {};
+    for (const [color, list] of Object.entries(colorMedia)) {
+      const hits = list.map((k) => keys.get(cmp(k))).filter((k): k is string => !!k);
+      if (hits.length) out[color] = hits;
+    }
+    return out;
+  }, [colorMedia, mediaChoices, isEdit]);
+  // The variation the shop shows first (saved with the colour media).
+  const savedDefault = useMemo(() => readDefaultVariant(product?.default_variant), [product]);
+  const [defaultChoice, setDefaultChoice] = useState<DefaultChoice>(savedDefault);
+  // Pictures pasted/dropped on a colour: added to the product, then to the colour.
+  // A saved product uploads them now; a new one stages them like the Images tab.
+  const [mediaVersion, setMediaVersion] = useState(0);
+  const [busyColor, setBusyColor] = useState<string | null>(null);
+  const addColorFiles = async (color: string, files: File[]) => {
+    if (busyColor) return;
+    const have = isEdit ? (mediaImages?.length ?? product?.images.length ?? 0) : staged.length;
+    const room = MEDIA_MAX_PER_PRODUCT - have;
+    if (room <= 0) {
+      setFormError(`A product can have at most ${MEDIA_MAX_PER_PRODUCT} pictures.`);
+      return;
+    }
+    setBusyColor(color);
+    setFormError(null);
+    try {
+      let keys: string[] = [];
+      if (!isEdit) {
+        const { added, rejected } = await stageImageFiles(files, room);
+        setStaged((cur) => [...cur, ...added]);
+        keys = added.map((a) => `img:${a.id}`);
+        if (rejected) setFormError(`${rejected} file(s) skipped: only JPEG, PNG, WebP or AVIF under 5 MB.`);
+      } else if (product?.id) {
+        const before = new Set((mediaImages ?? []).map((m) => m.id));
+        const form = new FormData();
+        await appendImageFiles(form, files.slice(0, room));
+        const up = await fetch(`/api/admin/products/${product.id}/media`, { method: "POST", body: form });
+        const body: { error?: string; data?: ProductImage[] } = await up.json().catch(() => ({}));
+        if (!up.ok || !body.data) throw new Error(body.error ?? "Upload failed");
+        setMediaImages(body.data);
+        setMediaVersion((v) => v + 1); // the Images tab reloads its list
+        keys = body.data.filter((m) => !before.has(m.id)).map((m) => m.url);
+      }
+      if (keys.length) setColorMedia((cur) => ({ ...cur, [color]: [...(cur[color] ?? []), ...keys] }));
+    } catch (e) {
+      setFormError(`Pictures not added: ${e instanceof Error ? e.message : "upload failed"}`);
+    } finally {
+      setBusyColor(null);
+    }
+  };
+
+  /**
+   * "+ New" next to Category / Sub-category / Brand. A name that already exists
+   * (same letters, any case) is just selected. A slug that is taken gets a
+   * short suffix and is tried once more.
+   */
+  const createCategory = async (name: string, parentId: string | null): Promise<string | null> => {
+    const same = categories.find(
+      (c) => (c.parent_id ?? null) === parentId && c.name.trim().toLowerCase() === name.toLowerCase(),
+    );
+    if (same) {
+      dispatch(parentId ? { type: "subCategory", id: same.id } : { type: "category", id: same.id, categories });
+      return null;
+    }
+    const parentSlug = parentId ? categories.find((c) => c.id === parentId)?.slug : undefined;
+    const base = newSlug(name, parentId ? "sub" : "cat");
+    const post = (slug: string) =>
+      fetch("/api/admin/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, slug, parent_id: parentId }),
+      });
+    try {
+      let slug = base;
+      let res = await post(slug);
+      if (res.status === 409) {
+        // A sub-category like "Racket" often clashes; prefer "<parent>-racket".
+        slug = parentSlug && !base.startsWith(parentSlug) ? `${parentSlug}-${base}` : `${base}-${shortId()}`;
+        res = await post(slug);
+      }
+      const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !body.id) return body.error ?? "Could not create it.";
+      const made: Category = { id: body.id, name, slug, parent_id: parentId };
+      setCreatedCategories((list) => [...list, made]);
+      const next = [...categories, made];
+      dispatch(parentId ? { type: "subCategory", id: made.id } : { type: "category", id: made.id, categories: next });
+      onCreated?.("category");
+      return null;
+    } catch {
+      return "Network error. Try again.";
+    }
+  };
+
+  const createBrand = async (name: string): Promise<string | null> => {
+    const same = (brands ?? []).find((b) => b.name_en.trim().toLowerCase() === name.toLowerCase());
+    if (same) {
+      setBrandId(same.id);
+      return null;
+    }
+    const post = (slug: string) =>
+      fetch("/api/admin/catalog-terms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "brand", slug, name_en: name }),
+      });
+    try {
+      const base = newSlug(name, "brand");
+      let res = await post(base);
+      if (res.status === 409) res = await post(`${base}-${shortId()}`);
+      const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      if (!res.ok || !body.id) return body.error ?? "Could not create it.";
+      const id = body.id;
+      setBrands((list) => [...(list ?? []), { id, name_en: name }].sort((a, b) => a.name_en.localeCompare(b.name_en)));
+      setBrandId(id);
+      return null;
+    } catch {
+      return "Network error. Try again.";
+    }
+  };
+
+  /** POST and read back `{ id }`; an error text when it did not work. */
+  const postNew = async (url: string, body: unknown): Promise<{ id: string } | { error: string }> => {
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = (await res.json().catch(() => ({}))) as { id?: string; data?: unknown; error?: string };
+      const id = data.id ?? (typeof data.data === "string" ? data.data : undefined);
+      if (!res.ok || !id) return { error: data.error ?? "Could not create it." };
+      return { id };
+    } catch {
+      return { error: "Network error. Try again." };
+    }
+  };
+
+  /** The id of the colour with this name, made first when there is none. */
+  const makeColor = async (name: string, hex: string): Promise<{ id: string } | { error: string }> => {
+    const same = colors.find((c) => c.name.trim().toLowerCase() === name.toLowerCase());
+    if (same) return { id: same.id };
+    const r = await postNew("/api/admin/colors", { name, hex, is_global: true });
+    if ("error" in r) return r;
+    setCreatedColors((l) => [...l, { id: r.id, name, hex, category_id: null, is_global: true, display_order: 0, is_active: true }]);
+    onCreated?.("color");
+    return r;
+  };
+
+  /** The id of the size with this name, made first (with `type`) when there is none. */
+  const makeSize = async (name: string, type: string): Promise<{ id: string } | { error: string }> => {
+    const same = sizes.find(
+      (s) => (s.display_name || s.name).trim().toLowerCase() === name.toLowerCase() || s.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (same) return { id: same.id };
+    // New sizes go after the existing ones in the size order.
+    const sortKey = Math.max(0, ...sizes.map((s) => Number((s as SizeOption & { sort_key?: number }).sort_key) || 0)) + 1;
+    // `type` = the size tab that is open (clothing / shoe / accessory).
+    const r = await postNew("/api/admin/sizes", { name: name.toLowerCase(), display_name: name, type, sort_key: sortKey });
+    if ("error" in r) return r;
+    setCreatedSizes((l) => [...l, { id: r.id, name: name.toLowerCase(), display_name: name, type, is_active: true, display_order: 0 }]);
+    onCreated?.("size");
+    return r;
+  };
+
+  const PROMO_ERRORS: Record<string, string> = {
+    duplicate_promotion_name: "A promotion with that name already exists.",
+    invalid_flat_discount: "The ৳ amount is more than this product's saved price.",
+    invalid_percentage_discount: "Percent must be 100 or less.",
+    product_not_found: "Save the product first to use a ৳ amount.",
+    invalid_timeframe: "The last day must be today or later.",
+  };
+  const createPromotion = async (p: NewPromotion): Promise<string | null> => {
+    const startsAt = new Date();
+    // Ends at the end of the chosen day, local time.
+    const endsAt = new Date(`${p.endsOn}T23:59:59`);
+    const payload: Record<string, unknown> = {
+      name: p.name,
+      discount_type: p.type,
+      discount_value: p.value,
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      status: "active",
+    };
+    // A flat discount is checked against the products it covers, so it has to
+    // name this (saved) product. A % one leaves the links to the product save.
+    if (p.type === "flat" && product) payload.product_ids = [product.id];
+    const r = await postNew("/api/admin/promotions", payload);
+    if ("error" in r) return PROMO_ERRORS[r.error] ?? r.error;
+    setCreatedPromotions((l) => [
+      ...l,
+      {
+        id: r.id,
+        name: p.name,
+        description: null,
+        discount_type: p.type,
+        discount_value: p.value,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+        status: "active",
+        badge_label: null,
+      } as Promotion,
+    ]);
+    if (!state.promotionIds.includes(r.id)) dispatch({ type: "togglePromotion", id: r.id });
+    onCreated?.("promotion");
+    return null;
+  };
 
   const [state, dispatch] = useReducer(reducer, product, (p) => {
     if (!p) return blankState();
@@ -579,11 +1070,18 @@ export function ProductFormModal({
     [categories, state.categoryId],
   );
 
-  const chosenColors = useMemo(
-    () => colors.filter((c) => state.colorIds.includes(c.id)),
-    [colors, state.colorIds],
-  );
-  const chosenSizes = useMemo(() => sizes.filter((s) => state.sizeIds.includes(s.id)), [sizes, state.sizeIds]);
+  // Size tab: the one the admin opened, else a guess from the chosen sizes / category.
+  const [sizeGroupPicked, setSizeGroupPicked] = useState<string | null>(null);
+  const sizeGroup =
+    sizeGroupPicked ??
+    guessSizeGroup(
+      sizes,
+      state.sizeIds,
+      categories
+        .filter((c) => c.id === state.categoryId || c.id === state.subCategoryId)
+        .map((c) => `${c.name} ${(c as { slug?: string }).slug ?? ""}`)
+        .join(" "),
+    );
 
   const set = useCallback(
     <K extends keyof FormState>(field: K, value: FormState[K]) => dispatch({ type: "set", field, value }),
@@ -848,16 +1346,83 @@ export function ProductFormModal({
       // A new product has an id only now, so its staged pictures go up next.
       // They are already small WebP files. If this step fails the product is
       // saved, so say so rather than losing the work.
+      // Staged picture id → its url once uploaded (rows come back in upload order).
+      const stagedUrl = new Map<string, string>();
+      const stagedVideo = new Map<string, ProductVideo>();
       if (!isEdit && staged.length > 0 && data.data?.id) {
         const form = new FormData();
         await appendImageFiles(form, staged.map((img) => img.file));
         const up = await fetch(`/api/admin/products/${data.data.id}/media`, { method: "POST", body: form });
+        const body: { error?: string; data?: ProductImage[] } = await up.json().catch(() => ({}));
         if (!up.ok) {
-          const body: { error?: string } = await up.json().catch(() => ({}));
           alert(`The product was saved, but its images were not uploaded (${body.error ?? "upload failed"}). Open the product and add them under Images.`);
+        } else if (body.data?.length === staged.length) {
+          staged.forEach((s, i) => stagedUrl.set(s.id, body.data![i].url));
+        }
+      }
+      if (!isEdit && stagedVideos.length > 0 && data.data?.id) {
+        const { error: videoError, saved } = await uploadStagedVideos(data.data.id, stagedVideos);
+        saved.forEach((v, key) => stagedVideo.set(key, v));
+        if (videoError) {
+          alert(`The product was saved, but not all its videos were (${videoError}). Open the product and add them under Images & video.`);
+        }
+      }
+      const savedId = product?.id ?? data.data?.id;
+      if (savedId && brandId !== savedBrandId) {
+        const res = await fetch(`/api/admin/products/${savedId}/brand`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ term_id: brandId || null }),
+        });
+        if (!res.ok) {
+          const body: { error?: string } = await res.json().catch(() => ({}));
+          alert(`The product was saved, but its brand was not (${body.error ?? "failed"}). Open the product and choose the brand again.`);
+        }
+      }
+      // Colour media, only the product's current colours, only when changed.
+      if (savedId) {
+        const names = new Set(
+          colors.filter((c) => state.colorIds.includes(c.id)).map((c) => c.name.trim().toLowerCase()),
+        );
+        const toEntry = (key: string): string | undefined => {
+          if (isEdit) return key;
+          if (key.startsWith("img:")) return stagedUrl.get(key.slice(4));
+          const v = stagedVideo.get(key.slice(4));
+          return v ? videoEntry(v) : undefined;
+        };
+        const next: Record<string, string[]> = {};
+        for (const [color, list] of Object.entries(liveColorMedia)) {
+          const entries = list.map(toEntry).filter((x): x is string => !!x);
+          if (entries.length && names.has(color)) next[color] = entries;
+        }
+        const flat = (m: Record<string, string[]>) =>
+          JSON.stringify(Object.keys(m).sort().map((k) => [k, m[k].map(entryKey)]));
+        const first: DefaultChoice = {
+          color: defaultChoice.color && names.has(defaultChoice.color) ? defaultChoice.color : undefined,
+          size: defaultChoice.size,
+        };
+        const sameFirst = (first.color ?? "") === (savedDefault.color ?? "") && (first.size ?? "") === (savedDefault.size ?? "");
+        if (flat(next) !== flat(savedColorMedia) || !sameFirst) {
+          const res = await fetch(`/api/admin/products/${savedId}/color-images`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ color_images: next, default_variant: first }),
+          });
+          if (!res.ok) {
+            const body: { error?: string } = await res.json().catch(() => ({}));
+            alert(`The product was saved, but its colour pictures were not (${body.error ?? "failed"}). Open the product and pick them again under Variations.`);
+          }
+        }
+      }
+      // Last, so the AI writer sees the pictures and brand saved above.
+      if (savedId) {
+        const seoError = await sendSeoDraft(savedId, seoDraft);
+        if (seoError && seoDraft.mode === "manual") {
+          alert(`The product was saved, but its search text was not (${seoError}). Open the product and check the SEO tab.`);
         }
       }
       for (const img of staged) URL.revokeObjectURL(img.preview);
+      releaseStagedVideos(stagedVideos);
       onSuccess();
     } catch (err) {
       // The message comes from the server's own wording, which already names
@@ -910,6 +1475,17 @@ export function ProductFormModal({
                 </button>
               ))}
             </div>
+            {isEdit && (
+              <a
+                href={`/preview/product/${product!.id}`}
+                target="_blank"
+                rel="noopener"
+                title="Opens the last saved version. Save first to see new changes."
+                className="inline-flex items-center gap-1.5 px-3 h-8 border border-border-light rounded-lg text-sm font-semibold text-text-muted hover:bg-surface-subtle"
+              >
+                <Eye className="w-4 h-4" /> Preview
+              </a>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -1024,6 +1600,8 @@ export function ProductFormModal({
               loading={categoriesLoading}
               value={state.categoryId}
               onChange={(id) => dispatch({ type: "category", id, categories })}
+              onCreate={(name) => createCategory(name, null)}
+              createPlaceholder="New category name"
             >
               <option value="">Select category</option>
               {parents.map((c) => (
@@ -1047,11 +1625,31 @@ export function ProductFormModal({
                     : undefined
               }
               onChange={(id) => dispatch({ type: "subCategory", id })}
+              onCreate={(name) => createCategory(name, state.categoryId)}
+              createPlaceholder="New sub-category name"
             >
               <option value="">No sub-category</option>
               {children.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
+                </option>
+              ))}
+            </Dropdown>
+
+            <Dropdown
+              id="pf-brand"
+              label="Brand"
+              value={brandId}
+              loading={brands === null}
+              hint={brands && brands.length === 0 ? "No brands yet. Use + New to add one." : undefined}
+              onChange={setBrandId}
+              onCreate={createBrand}
+              createPlaceholder="New brand name"
+            >
+              <option value="">No brand</option>
+              {(brands ?? []).map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name_en}
                 </option>
               ))}
             </Dropdown>
@@ -1368,19 +1966,28 @@ export function ProductFormModal({
             {/* --- promotion: the discount comes from Promotions --- */}
             {state.discount_mode === "promotion" && (
               <div>
-                <p className={labelClass} id="pf-promotions">
-                  Promotions
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className={labelClass} id="pf-promotions">
+                    Promotions
+                  </p>
+                  {!promotionsLoading && adding !== "promotion" && (
+                    <NewButton onClick={() => setAdding("promotion")} className="mb-1.5" />
+                  )}
+                </div>
+                {adding === "promotion" && (
+                  <div className="mb-2">
+                    <PromotionCreate allowFlat={isEdit} onCreate={createPromotion} onDone={() => setAdding(null)} />
+                  </div>
+                )}
                 {promotionsLoading ? (
                   <div className={inputClass + " bg-surface-subtle animate-pulse"} aria-hidden />
                 ) : promotions.length === 0 ? (
-                  <p className="text-[11px] text-text-muted">
-                    No promotions exist yet. Create one under{" "}
-                    <a href="/admin/online/promotions" className="text-primary font-medium">
-                      Promotions
-                    </a>
-                    , or switch to a custom discount to price this product directly.
-                  </p>
+                  adding !== "promotion" && (
+                    <p className="text-[11px] text-text-muted">
+                      No promotions yet. Use + New to make one here, or switch to a custom discount to price
+                      this product directly.
+                    </p>
+                  )
                 ) : (
                   <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="pf-promotions">
                     {promotions.map((promo) => {
@@ -1480,120 +2087,142 @@ export function ProductFormModal({
 
           <div hidden={tab !== "images"} className="space-y-4">
           {isEdit && product?.id ? (
-            <ProductMediaManager productId={product.id} />
+            <>
+              <ProductMediaManager key={mediaVersion} productId={product.id} onChange={setMediaImages} />
+              <ProductVideoManager
+                productId={product.id}
+                onSavedChange={setMediaVideos}
+                onReplaced={(before, after) => {
+                  const from = videoEntry(before);
+                  const to = videoEntry(after);
+                  setColorMedia((cur) =>
+                    Object.fromEntries(Object.entries(cur).map(([color, list]) => [color, list.map((k) => (k === from ? to : k))])),
+                  );
+                }}
+              />
+            </>
           ) : (
-            <StagedImagePicker images={staged} onChange={setStaged} disabled={submitting} />
+            <>
+              <StagedImagePicker images={staged} onChange={setStaged} disabled={submitting} />
+              <ProductVideoManager staged={stagedVideos} onStagedChange={setStagedVideos} />
+            </>
           )}
           </div>
 
-          {/* Colours and sizes: two multi-selects, then the matrix they define. */}
-          <div hidden={tab !== "variants"} className="space-y-4">
-          <div className="space-y-2">
-            <p className={labelClass}>Options</p>
-            <p className="text-[11px] text-text-muted">
-              Skip this for a single-version product. For a bat use sizes like SH / Harrow / 2lb 8oz; for a ball
-              use Size 4 / Size 5; for kit use S / M / L. Every colour × size pair becomes a variant with its own
-              stock, SKU and optional price.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <fieldset>
-                <legend className="text-xs text-text-muted mb-1.5">Colours</legend>
-                {colorsLoading ? (
-                  <div className={inputClass + " bg-surface-subtle animate-pulse"} aria-hidden />
-                ) : colors.length === 0 ? (
-                  <p className="text-[11px] text-text-muted">
-                    No colours yet. Create them under{" "}
-                    <a href="/admin/online/colors" className="text-primary font-medium">
-                      Color Palette
-                    </a>
-                    .
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Colours">
-                    {colors.map((color) => {
-                      const on = state.colorIds.includes(color.id);
-                      return (
-                        <button
-                          type="button"
-                          key={color.id}
-                          aria-pressed={on}
-                          onClick={() => dispatch({ type: "toggleColor", id: color.id })}
-                          className={`${chipClass} ${
-                            on
-                              ? "border-primary bg-primary/10 text-primary font-semibold"
-                              : "text-text-muted hover:border-primary/40"
-                          }`}
-                        >
-                          <span
-                            className="w-3.5 h-3.5 rounded-full border border-border-light"
-                            style={{ backgroundColor: color.hex }}
-                          />
-                          {color.name}
-                          {on && <Check className="w-3 h-3" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </fieldset>
-
-              <fieldset>
-                <legend className="text-xs text-text-muted mb-1.5">Sizes</legend>
-                {sizesLoading ? (
-                  <div className={inputClass + " bg-surface-subtle animate-pulse"} aria-hidden />
-                ) : sizes.length === 0 ? (
-                  <p className="text-[11px] text-text-muted">
-                    No sizes yet. Create them under{" "}
-                    <a href="/admin/online/sizes" className="text-primary font-medium">
-                      Sizes
-                    </a>
-                    .
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Sizes">
-                    {sizes.map((size) => {
-                      const on = state.sizeIds.includes(size.id);
-                      return (
-                        <button
-                          type="button"
-                          key={size.id}
-                          aria-pressed={on}
-                          onClick={() => dispatch({ type: "toggleSize", id: size.id })}
-                          className={`${chipClass} ${
-                            on
-                              ? "border-primary bg-primary/10 text-primary font-semibold"
-                              : "text-text-muted hover:border-primary/40"
-                          }`}
-                        >
-                          {size.display_name || size.name}
-                          {size.type && size.type !== "all" && (
-                            <span className="text-[10px] uppercase tracking-wider opacity-70">{size.type}</span>
-                          )}
-                          {on && <Check className="w-3 h-3" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </fieldset>
-            </div>
-          </div>
-
-          <div>
-            <p className={labelClass}>Variants</p>
-            <VariantMatrix
-              colors={chosenColors}
-              sizes={chosenSizes}
-              state={state.matrix}
-              onChange={(matrix) => dispatch({ type: "matrix", value: matrix })}
+          {/* Variations: added one by one (or a few at a time), WooCommerce style. */}
+          <div hidden={tab !== "variants"}>
+            <VariationsPanel
+              colors={state.colorIds.flatMap((id) => colors.filter((c) => c.id === id))}
+              sizes={state.sizeIds.flatMap((id) => sizes.filter((x) => x.id === id).map((x) => x.display_name))}
+              choices={mediaChoices}
+              value={liveColorMedia}
+              onChange={setColorMedia}
+              defaultChoice={defaultChoice}
+              onDefaultChange={setDefaultChoice}
+              onAddFiles={(color, files) => void addColorFiles(color, files)}
+              busyColor={busyColor}
               disabled={submitting}
+              editor={{
+                colors,
+                sizes,
+                loading: colorsLoading || sizesLoading,
+                value: { colorIds: state.colorIds, sizeIds: state.sizeIds, matrix: state.matrix },
+                onChange: (value) => dispatch({ type: "variants", value }),
+                basePrice: state.regular_price,
+                disabled: submitting,
+                sizeGroup,
+                onSizeGroupChange: setSizeGroupPicked,
+                makeColor,
+                makeSize,
+              }}
             />
           </div>
+
+          <div hidden={tab !== "seo"}>
+            <SeoPanel
+              productId={product?.id}
+              name={state.title}
+              slug={state.slug}
+              draft={seoDraft}
+              onDraftChange={setSeoDraft}
+              disabled={submitting}
+            />
           </div>
 
           <div hidden={tab !== "specs"} className="space-y-4">
           <div>
-            <p className={labelClass}>Specs</p>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <p className={`${labelClass} mb-0`}>Specs</p>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSpecPasteOpen((v) => !v)}
+                  className="px-3 py-1.5 text-xs font-semibold text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+                >
+                  Paste list
+                </button>
+                {state.specs.some((s) => s.key.trim()) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(specsToText(state.specs)).then(() => {
+                        setSpecNote("Copied. Paste it into another product or a sheet.");
+                      });
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-on-surface border border-border-light rounded-lg hover:bg-surface-subtle transition-colors"
+                  >
+                    Copy all
+                  </button>
+                )}
+                {state.specs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("Remove all specs from this product?")) dispatch({ type: "clearSpecs" });
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-text-muted border border-border-light rounded-lg hover:text-badge-discount transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-[11px] text-text-muted mb-2">
+              Tip: copy the two columns (name and value) from Google Sheets or Excel and paste into any box below. Every row is filled at once.
+              Lines like &quot;Weight: 85 g&quot; work too.
+            </p>
+            {specPasteOpen && (
+              <div className="mb-3 space-y-2 p-3 rounded-lg border border-border-light bg-surface-subtle">
+                <textarea
+                  value={specPasteText}
+                  onChange={(e) => setSpecPasteText(e.target.value)}
+                  rows={6}
+                  autoFocus
+                  placeholder={"Brand\tVE\nModel\tTitan 10\nWeight\t85 g\n\nor\n\nBrand: VE\nModel: Titan 10"}
+                  className={`${inputClass} font-mono text-xs`}
+                />
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-text-muted">
+                    {specPasteText.trim() ? `${parseSpecPaste(specPasteText).length} specs found` : "Paste the list above"}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={parseSpecPaste(specPasteText).length === 0}
+                    onClick={() => {
+                      const pairs = parseSpecPaste(specPasteText);
+                      dispatch({ type: "mergeSpecs", pairs });
+                      setSpecNote(`${pairs.length} specs added.`);
+                      setSpecPasteText("");
+                      setSpecPasteOpen(false);
+                    }}
+                    className="ml-auto px-3 py-1.5 text-xs font-semibold text-white bg-primary rounded-lg disabled:opacity-40"
+                  >
+                    Add to specs
+                  </button>
+                </div>
+              </div>
+            )}
+            {specNote && <p className="text-[11px] text-primary mb-2" role="status">{specNote}</p>}
             <div className="space-y-2">
               {state.specs.length === 0 && (
                 <p className="text-[11px] text-text-muted">
@@ -1608,6 +2237,7 @@ export function ProductFormModal({
                     placeholder="Fabric"
                     aria-label={`Spec ${i + 1} name`}
                     onChange={(e) => dispatch({ type: "specKey", index: i, value: e.target.value })}
+                    onPaste={onSpecPaste}
                     className={inputClass}
                   />
                   <input
@@ -1616,6 +2246,7 @@ export function ProductFormModal({
                     placeholder="100% Cotton"
                     aria-label={`Spec ${i + 1} value`}
                     onChange={(e) => dispatch({ type: "specValue", index: i, value: e.target.value })}
+                    onPaste={onSpecPaste}
                     className={inputClass}
                   />
                   <button

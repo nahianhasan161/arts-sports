@@ -16,14 +16,14 @@ export interface HomeReview {
 export async function getHomeReviews(limit = 3): Promise<HomeReview[]> {
   const db = getPublicSupabase();
   if (!db) return [];
-  const { data, error } = await db
+  let query = db
     .from("product_reviews")
     .select("id, author_name, rating, body, products(slug, title, title_bn)")
     .eq("status", "approved")
-    .gte("rating", 4)
-    .not("id", "like", "demo-%")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .gte("rating", 4);
+  // SHOW_DEMO_REVIEWS=1 previews the made-up demo reviews (alpha only).
+  if (process.env.SHOW_DEMO_REVIEWS !== "1") query = query.not("id", "like", "demo-%");
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);
   return error ? [] : ((data ?? []).map((r) => ({ ...r, product: (Array.isArray(r.products) ? r.products[0] : r.products) ?? null })) as unknown as HomeReview[]);
 }
 

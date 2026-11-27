@@ -234,8 +234,11 @@ export interface PublicQuestion {
   created_at: string;
 }
 
-/** Demo products (ids `demo-`) carry made-up reviews; those are never shown as customers' words. */
-const isDemo = (id: string) => id.startsWith("demo-");
+/**
+ * Demo products (ids `demo-`) carry made-up reviews; those are never shown as
+ * customers' words. SHOW_DEMO_REVIEWS=1 shows them while previewing the alpha.
+ */
+const isDemo = (id: string) => id.startsWith("demo-") && process.env.SHOW_DEMO_REVIEWS !== "1";
 
 export async function getRatingSummary(productId: string): Promise<RatingSummary> {
   const empty: RatingSummary = { count: 0, average: null, stars: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 } };

@@ -1,17 +1,22 @@
 import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
+import { privacyBn } from "./bn";
 
 export const metadata = {
-  title: "Privacy Policy",
+  title: "গোপনীয়তা নীতি",
   description:
-    "What personal data Arts Sports collects, why we collect it, who we share it with, how long we keep it, and the rights you have over your own data.",
+    "Arts Sports কী তথ্য রাখে, কেন রাখে, কার সাথে শেয়ার করে, কত দিন রাখে আর আপনার তথ্যের উপর আপনার কী অধিকার আছে।",
 };
 
 export default function PrivacyPolicyPage() {
   return (
     <LegalPage
-      title="Privacy Policy"
-      intro="This policy explains what we collect when you shop with us, why we collect it, and what you can ask us to do with it. It applies to this website and to any order you place with us by phone."
-    >
+      bn={privacyBn}
+      en={{
+        title: "Privacy Policy",
+        intro:
+          "This policy explains what we collect when you shop with us, why we collect it, and what you can ask us to do with it. It applies to this website and to any order you place with us by phone.",
+        children: (
+          <>
       <LegalSection title="1. Who we are">
         <p>
           Arts Sports is the business that operates this store. For any
@@ -185,6 +190,9 @@ export default function PrivacyPolicyPage() {
           we will contact you before the change takes effect.
         </p>
       </LegalSection>
-    </LegalPage>
+          </>
+        ),
+      }}
+    />
   );
 }

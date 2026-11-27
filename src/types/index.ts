@@ -148,6 +148,10 @@ export interface Product {
    */
   discount_mode?: ProductDiscountMode;
   images: string[];
+  /** Pictures/videos per colour: lower-case colour name → entries (`lib/products/color-images.ts`). */
+  color_images?: Record<string, string[] | string> | null;
+  /** Variation shown first: { color?, size? } lower case (`lib/products/color-images.ts`). */
+  default_variant?: { color?: string; size?: string } | null;
   colors: ProductColor[];
   sizes: ProductSize[];
   stock: number;
@@ -165,6 +169,10 @@ export interface Product {
   badge_type?: "discount" | "new" | "festive" | "popular";
   is_featured?: boolean;
   specs?: Record<string, string>;
+  /** Search text (`products.seo`, see lib/seo/product-seo.ts). Empty = built from the product. */
+  seo?: import("@/lib/seo/product-seo").StoredSeo | null;
+  /** Links and small uploaded clips (`products.videos`, see lib/media/video.ts). */
+  videos?: import("@/lib/media/video").ProductVideo[];
   color_palette_ids?: string[];
   /**
    * Free merchandising tags, e.g. `["summer", "eid-collection"]`. Stored

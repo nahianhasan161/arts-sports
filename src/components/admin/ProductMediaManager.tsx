@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePasteImages } from "@/lib/media/paste";
 import Image from "next/image";
 import {
   Trash2,
@@ -235,6 +236,24 @@ export default function ProductMediaManager({
     }
   };
 
+  // Ctrl/⌘+V pastes pictures straight in; tiles can be dragged into a new order.
+  const rootRef = useRef<HTMLDivElement>(null);
+  usePasteImages(rootRef, (files) => void uploadFiles(files), !atLimit);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const dropOn = async (targetId: string) => {
+    const from = images.findIndex((i) => i.id === dragId);
+    const to = images.findIndex((i) => i.id === targetId);
+    setDragId(null);
+    setOverId(null);
+    if (from < 0 || to < 0 || from === to) return;
+    const order = images.map((i) => i.id);
+    const [moved] = order.splice(from, 1);
+    order.splice(to, 0, moved);
+    setImages(order.map((id) => images.find((i) => i.id === id)!));
+    await patch({ image_ids: order });
+  };
+
   const saveAlt = async (image: ProductImage) => {
     const trimmed = altDraft.trim();
     if (trimmed === (image.alt_text ?? "")) {
@@ -246,10 +265,11 @@ export default function ProductMediaManager({
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={rootRef} className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <label className="block text-xs font-semibold text-on-surface">
           Product images
+          <span className="ml-2 font-normal text-text-muted">Drag to change the order · Ctrl/⌘+V to paste</span>
         </label>
         <span className="text-[10px] text-text-muted">
           {images.length}/{MEDIA_MAX_PER_PRODUCT} &middot; JPEG, PNG, WebP, AVIF &middot; max 5MB
@@ -328,9 +348,29 @@ export default function ProductMediaManager({
             {images.map((image, index) => (
               <li
                 key={image.id}
-                className={`relative group rounded-lg border overflow-hidden bg-surface-subtle ${
+                draggable
+                onDragStart={(e) => {
+                  setDragId(image.id);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => {
+                  if (!dragId) return;
+                  e.preventDefault();
+                  if (overId !== image.id) setOverId(image.id);
+                }}
+                onDragLeave={() => overId === image.id && setOverId(null)}
+                onDrop={(e) => {
+                  if (!dragId) return;
+                  e.preventDefault();
+                  void dropOn(image.id);
+                }}
+                onDragEnd={() => {
+                  setDragId(null);
+                  setOverId(null);
+                }}
+                className={`relative group rounded-lg border overflow-hidden bg-surface-subtle cursor-grab active:cursor-grabbing ${
                   image.is_primary ? "border-primary" : "border-border-light"
-                }`}
+                } ${dragId === image.id ? "opacity-40" : ""} ${overId === image.id && dragId !== image.id ? "ring-2 ring-primary" : ""}`}
               >
                 <div className="relative aspect-square">
                   <Image

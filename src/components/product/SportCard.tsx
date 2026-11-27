@@ -12,6 +12,8 @@ import type { SportFrame } from "@/lib/sport-frames";
 /** The strip between the picture and the text. */
 function Seam({ frame }: { frame: SportFrame }) {
   switch (frame) {
+    case "plain":
+      return null;
     case "ticket":
       return <i className="as-sc-barcode" />;
     case "scoreboard":

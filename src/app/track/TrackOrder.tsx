@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Check, ExternalLink, Loader2 } from "lucide-react";
-import { formatTaka } from "@/lib/pricing";
+import { useT } from "@/i18n/client";
+import { formatMoney } from "@/i18n";
 
 interface Tracked {
   id: string;
@@ -22,12 +23,7 @@ interface Tracked {
   items: { title: string; size: string | null; color: string | null; quantity: number }[];
 }
 
-const STEPS = [
-  { key: "placed", label: "Order placed" },
-  { key: "confirmed", label: "Confirmed" },
-  { key: "shipped", label: "With the courier" },
-  { key: "delivered", label: "Delivered" },
-] as const;
+const STEPS = ["placed", "confirmed", "shipped", "delivered"] as const;
 
 function stepIndex(o: Tracked): number {
   if (o.status === "delivered") return 3;
@@ -39,6 +35,7 @@ function stepIndex(o: Tracked): number {
 const inputCls = "w-full h-10 px-3 rounded-lg border border-border-light bg-surface-card text-sm focus:outline-none focus:ring-1 focus:ring-primary";
 
 export function TrackOrder() {
+  const { t, locale } = useT();
   const params = useSearchParams();
   const [orderId, setOrderId] = useState(params.get("order") ?? "");
   const [phone, setPhone] = useState("");
@@ -59,10 +56,10 @@ export function TrackOrder() {
       const json = await res.json();
       if (!res.ok) {
         setOrder(null);
-        setError(json.error ?? "Could not find that order.");
+        setError(res.status === 404 || !json.error ? t("auth.track.notFound") : json.error);
       } else setOrder(json.order);
     } catch {
-      setError("Network problem. Please try again.");
+      setError(t("auth.track.network"));
     } finally {
       setLoading(false);
     }
@@ -73,17 +70,21 @@ export function TrackOrder() {
 
   return (
     <div className="flex flex-col gap-space-lg">
+      <div>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-primary mb-2">{t("auth.track.title")}</h1>
+        <p className="text-sm text-text-muted">{t("auth.track.intro")}</p>
+      </div>
       <form onSubmit={submit} className="bg-surface-card border border-border-light rounded-xl p-4 flex flex-col gap-3">
         <div>
-          <label htmlFor="tr-order" className="block text-xs font-semibold mb-1">Order number</label>
+          <label htmlFor="tr-order" className="block text-xs font-semibold mb-1">{t("auth.track.orderNumber")}</label>
           <input id="tr-order" className={inputCls} value={orderId} onChange={(e) => setOrderId(e.target.value)} placeholder="ORD-XXXXXXXXXX" required />
         </div>
         <div>
-          <label htmlFor="tr-phone" className="block text-xs font-semibold mb-1">Phone number</label>
+          <label htmlFor="tr-phone" className="block text-xs font-semibold mb-1">{t("auth.track.phone")}</label>
           <input id="tr-phone" className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="01XXXXXXXXX" required />
         </div>
         <button type="submit" disabled={loading} className="sp-btn sp-ticket h-10 text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2">
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />} Track
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />} {t("auth.track.submit")}
         </button>
         {error && (
           <p className="text-xs text-badge-discount flex items-center gap-1.5">
@@ -96,15 +97,15 @@ export function TrackOrder() {
         <div className="bg-surface-card border border-border-light rounded-xl p-4 flex flex-col gap-4">
           <div className="flex justify-between items-baseline">
             <span className="font-display font-bold text-primary">{order.id}</span>
-            <span className="text-xs text-text-muted">{new Date(order.created_at).toLocaleDateString("en-GB")}</span>
+            <span className="text-xs text-text-muted">{new Date(order.created_at).toLocaleDateString(locale === "bn" ? "bn-BD" : "en-GB")}</span>
           </div>
 
           {cancelled ? (
-            <p className="text-sm font-semibold text-badge-discount">This order was {order.status}.</p>
+            <p className="text-sm font-semibold text-badge-discount">{order.status === "returned" ? t("auth.track.returned") : t("auth.track.cancelled")}</p>
           ) : (
             <ol className="flex flex-col gap-3">
               {STEPS.map((s, i) => (
-                <li key={s.key} className="flex items-center gap-3 text-sm">
+                <li key={s} className="flex items-center gap-3 text-sm">
                   <span
                     className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                       i <= current ? "bg-emerald-600 text-white" : "bg-surface-subtle text-text-muted"
@@ -112,9 +113,9 @@ export function TrackOrder() {
                   >
                     {i <= current ? <Check className="w-3.5 h-3.5" /> : i + 1}
                   </span>
-                  <span className={i <= current ? "font-semibold" : "text-text-muted"}>{s.label}</span>
-                  {s.key === "confirmed" && i > current && order.confirmation_status === "needs_call" && (
-                    <span className="text-xs text-amber-700">we will call you</span>
+                  <span className={i <= current ? "font-semibold" : "text-text-muted"}>{t(`auth.track.${s}`)}</span>
+                  {s === "confirmed" && i > current && order.confirmation_status === "needs_call" && (
+                    <span className="text-xs text-amber-700">{t("auth.track.willCall")}</span>
                   )}
                 </li>
               ))}
@@ -124,12 +125,12 @@ export function TrackOrder() {
           {order.courier && (
             <div className="text-xs bg-surface-subtle rounded-lg p-3 flex flex-col gap-1">
               <span>
-                Courier: <strong>{order.courier}</strong>
+                {t("auth.track.courier")}: <strong>{order.courier}</strong>
                 {order.tracking_code ? ` · ${order.tracking_code}` : ""}
               </span>
               {order.tracking_url && (
                 <a href={order.tracking_url} target="_blank" rel="noopener noreferrer" className="text-primary font-semibold inline-flex items-center gap-1">
-                  Open courier tracking <ExternalLink className="w-3 h-3" />
+                  {t("auth.track.openCourier")} <ExternalLink className="w-3 h-3" />
                 </a>
               )}
             </div>
@@ -143,7 +144,7 @@ export function TrackOrder() {
               </li>
             ))}
           </ul>
-          <p className="text-sm font-bold text-primary">Total {formatTaka(order.total_amount)}</p>
+          <p className="text-sm font-bold text-primary">{t("auth.track.total", { amount: formatMoney(order.total_amount, locale) })}</p>
         </div>
       )}
     </div>

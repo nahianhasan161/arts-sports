@@ -95,3 +95,20 @@ export function sniffImage(bytes: ArrayBuffer | Uint8Array): SniffResult {
 export const ACCEPTED_MIME_TYPES = SIGNATURES.map((s) => s.mime);
 
 export const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Product videos (see lib/media/video.ts): MP4 (an "ftyp" box at byte 4) or
+ * WebM (the EBML header). The browser's content type is not trusted.
+ */
+export function sniffVideo(bytes: Uint8Array): SniffResult {
+  const b = bytes;
+  if (b.length < 12) return { ok: false, reason: "File is empty" };
+  if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) {
+    // AVIF/HEIC pictures use the same box; their brand says so.
+    const brand = String.fromCharCode(b[8], b[9], b[10], b[11]);
+    if (["avif", "avis", "heic", "heix", "mif1", "msf1"].includes(brand)) return { ok: false, reason: "File is a picture, not a video" };
+    return { ok: true, mime: "video/mp4", ext: "mp4" };
+  }
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return { ok: true, mime: "video/webm", ext: "webm" };
+  return { ok: false, reason: "File is not an MP4 or WebM video" };
+}

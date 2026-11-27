@@ -1,81 +1,118 @@
 import type { Product } from "@/types";
-import { getServerUrl } from "@/lib/config";
+import type { PublicReview } from "@/lib/services/catalog";
+import type { ProductSeo } from "@/lib/seo/product-seo";
+import { plainText } from "@/lib/seo/product-seo";
+import { returnPolicy, shippingDetails, type StoreFacts } from "@/lib/seo/store-facts";
 
 interface ProductSchemaProps {
   product: Product;
-  /** Approved customer reviews. aggregateRating is only emitted when there are some. */
+  seo: ProductSeo;
+  facts: StoreFacts;
+  /** Approved customer reviews only. aggregateRating is emitted only when there are some. */
   rating?: { count: number; average: number | null };
+  reviews?: PublicReview[];
+  brand?: string | null;
+  /** "Football > Jersey" */
+  categoryPath?: string;
+  /** Switched-on variations; when given, stock is read from them. */
+  inStock: boolean;
 }
 
 /**
- * Product structured data for a detail page.
- *
- * Two changes from the previous version, both policy-facing:
- *
- * 1. aggregateRating is gone. products.rating and products.reviews_count are
- *    numbers on the row, but the store has no reviews table, no review form
- *    and no review display — nothing produces or backs those figures.
- *    Google's policy requires structured review data to reflect real reviews,
- *    and a manual action for misleading markup is exactly the kind of penalty
- *    a young storefront cannot recover its search traffic from. Emitting no
- *    rating is always safe; emitting an invented one is not.
- *
- * 2. availability is derived from the stock that actually exists rather than
- *    being hardcoded InStock. Claiming in-stock on an out-of-stock product
- *    produces a rich result for something a shopper cannot buy.
+ * Product structured data: what Google Shopping, rich results and AI
+ * shopping answers read. Only true things:
+ * - ratings and reviews from approved product_reviews, never products.rating;
+ * - availability from the stock that exists;
+ * - delivery fees from the admin settings the order RPC charges, delivery
+ *   times and the return window from the policy pages (lib/seo/store-facts.ts).
  */
-export function ProductSchema({ product, rating }: ProductSchemaProps) {
-  const inStock = product.sizes?.some((s) => (s.stock ?? 0) > 0) || (product.stock ?? 0) > 0;
+export function ProductSchema({ product, seo, facts, rating, reviews = [], brand, categoryPath, inStock }: ProductSchemaProps) {
+  const abs = (u: string) => (u.startsWith("http") ? u : `${facts.url}${u.startsWith("/") ? "" : "/"}${u}`);
+  const images = (product.images ?? []).filter(Boolean).slice(0, 10).map(abs);
+  const url = `${facts.url}/products/${encodeURIComponent(product.slug)}`;
+  const sku = product.variants?.find((v) => v.sku)?.sku ?? product.id;
+  const original = Number(product.original_price) || 0;
+  const onSale = original > product.price;
+  const description = plainText(product.description) || plainText(product.short_description) || seo.description;
 
   const schema = {
     "@context": "https://schema.org",
     "@type": "Product",
+    "@id": `${url}#product`,
     name: product.title,
-    image: product.images?.[0] && product.images[0].startsWith("http")
-      ? product.images[0]
-      : product.images?.[0]
-        ? `${getServerUrl()}${product.images[0]}`
-        : `${getServerUrl()}/og-cover.jpg`,
-    description:
-      product.short_description ??
-      product.description?.replace(/<[^>]*>/g, "").slice(0, 160),
-    brand: {
-      "@type": "Brand",
-      name: "Arts Sports",
-    },
+    ...(product.title_bn && product.title_bn !== product.title && { alternateName: product.title_bn }),
+    url,
+    sku,
+    productID: product.id,
+    image: images.length > 0 ? images : [`${facts.url}/og-cover.jpg`],
+    description: description.slice(0, 5000),
+    brand: { "@type": "Brand", name: brand || facts.name },
+    ...(categoryPath && { category: categoryPath }),
+    ...(product.colors?.length && { color: product.colors.map((c) => c.name).join(", ") }),
+    ...(product.sizes?.length && { size: product.sizes.map((s) => s.size.toUpperCase()).join(", ") }),
+    ...(product.gender && {
+      audience:
+        product.gender === "kids"
+          ? { "@type": "PeopleAudience", suggestedMaxAge: 13 }
+          : { "@type": "PeopleAudience", suggestedGender: product.gender === "men" ? "male" : "female" },
+    }),
+    ...(seo.keywords.length > 0 && { keywords: seo.keywords.join(", ") }),
+    ...(product.specs &&
+      Object.keys(product.specs).length > 0 && {
+        additionalProperty: Object.entries(product.specs).map(([name, value]) => ({
+          "@type": "PropertyValue",
+          name,
+          value,
+        })),
+      }),
     offers: {
       "@type": "Offer",
-      url: `${getServerUrl()}/products/${product.slug}`,
+      url,
       priceCurrency: "BDT",
       price: product.price,
-      availability: inStock
-        ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
-      seller: {
-        "@type": "Organization",
-        name: "Arts Sports",
-      },
+      ...(onSale && {
+        priceSpecification: {
+          "@type": "UnitPriceSpecification",
+          priceType: "https://schema.org/StrikethroughPrice",
+          price: original,
+          priceCurrency: "BDT",
+        },
+      }),
+      availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
+      seller: { "@type": "Organization", name: facts.name, url: facts.url },
+      acceptedPaymentMethod: ["http://purl.org/goodrelations/v1#COD", "http://purl.org/goodrelations/v1#ByBankTransferInAdvance"],
+      shippingDetails: shippingDetails(facts),
+      hasMerchantReturnPolicy: returnPolicy(facts),
     },
-    // Real, approved reviews only (product_reviews). Never from products.rating.
-    ...(rating && rating.count > 0 && rating.average !== null && {
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: rating.average,
-        reviewCount: rating.count,
-        bestRating: 5,
-        worstRating: 1,
-      },
-    }),
-    ...(product.category && {
-      category: product.category,
+    ...(rating &&
+      rating.count > 0 &&
+      rating.average !== null && {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: rating.average,
+          reviewCount: rating.count,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      }),
+    ...(reviews.length > 0 && {
+      review: reviews.slice(0, 5).map((r) => ({
+        "@type": "Review",
+        author: { "@type": "Person", name: r.author_name || "Customer" },
+        datePublished: r.created_at?.slice(0, 10),
+        reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+        ...(r.title && { name: r.title }),
+        reviewBody: r.body,
+      })),
     }),
   };
 
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      // "<" escaped so a review or description can never close the script tag.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, "\\u003c") }}
     />
   );
 }

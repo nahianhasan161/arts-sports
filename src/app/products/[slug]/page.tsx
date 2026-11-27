@@ -1,20 +1,23 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getCategories, getProductBySlug } from "@/lib/services/products";
-import { findCategory } from "@/lib/services/shop-query";
-import { sanitizeProductHtml } from "@/lib/admin/rich-text";
+import { getProductBySlug, getProducts, getVariantCombos } from "@/lib/services/products";
+import { sortSizes } from "@/lib/size-order";
+import type { Product } from "@/types";
+import { asHtml, loadContext } from "@/lib/products/page-data";
 import { roundPercent } from "@/lib/pricing";
 import { getServerUrl } from "@/lib/config";
 import {
   getApprovedQuestions,
   getApprovedReviews,
-  getProductTerms,
   getRatingSummary,
   getTerms,
 } from "@/lib/services/catalog";
 import { ProductReviews } from "@/components/product/ProductReviews";
 import { EditionCompare } from "@/components/product/EditionCompare";
 import { ProductSchema } from "@/components/seo/ProductSchema";
+import { buildProductSeo } from "@/lib/seo/product-seo";
+import { getStoreFacts } from "@/lib/seo/store-facts";
+import { RelatedProducts } from "@/components/product/RelatedProducts";
 import { ProductDetailClient } from "./ProductDetailClient";
 
 /**
@@ -53,6 +56,21 @@ export async function generateStaticParams() {
   return [];
 }
 
+function absoluteImage(src: string | undefined): string {
+  if (!src) return "/og-cover.jpg";
+  return src.startsWith("http") ? src : `${getServerUrl()}${src.startsWith("/") ? "" : "/"}${src}`;
+}
+
+function hasStock(product: Product, combos: { stock: number }[]): boolean {
+  if (combos.length > 0) return combos.some((c) => c.stock > 0);
+  return product.sizes?.some((s) => (s.stock ?? 0) > 0) || (product.stock ?? 0) > 0;
+}
+
+/**
+ * Title, description, keywords and share cards from lib/seo/product-seo.ts:
+ * the product's own search text when staff or the AI wrote one, otherwise
+ * built from its name, category, brand, price, colours and sizes.
+ */
 export async function generateMetadata(props: ProductPageProps): Promise<Metadata> {
   const params = await props.params;
   const product = await getProductBySlug(params.slug);
@@ -64,49 +82,36 @@ export async function generateMetadata(props: ProductPageProps): Promise<Metadat
     };
   }
 
-  // short_description is plain text by design; `description` is rich HTML and
-  // would put markup into a meta tag.
-  const description =
-    (product.short_description || "")
-      .replace(/<[^>]*>/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 300) ||
-    `${product.title}. Buy online from Arts Sports, with delivery all over Bangladesh.`;
-
-  const title = `${product.title} | Buy Online`;
+  const { ctx } = await loadContext(product);
+  const seo = buildProductSeo(product, ctx);
   const canonical = `/products/${encodeURIComponent(product.slug)}`;
-  const ogImage = product.images?.[0]?.startsWith("http")
-    ? product.images[0]
-    : product.images?.[0]
-      ? `${getServerUrl()}${product.images[0]}`
-      : "/og-cover.jpg";
+  const images = (product.images ?? []).filter(Boolean).slice(0, 4).map((src, i) => ({
+    url: absoluteImage(src),
+    alt: i === 0 ? seo.imageAlt : `${product.title} – ${i + 1}`,
+  }));
+  if (images.length === 0) images.push({ url: absoluteImage(undefined), alt: product.title });
 
   return {
-    title,
-    description,
+    title: seo.title,
+    description: seo.description,
+    keywords: seo.keywords,
     alternates: { canonical },
     openGraph: {
-      title,
-      description,
+      title: seo.title,
+      description: seo.description,
       url: canonical,
       type: "website",
-      images: [{ url: ogImage, alt: product.title }],
+      locale: "bn_BD",
+      alternateLocale: ["en_US"],
+      images,
     },
     twitter: {
       card: "summary_large_image",
-      title,
-      description,
-      images: [ogImage],
+      title: seo.title,
+      description: seo.description,
+      images: images.map((i) => i.url),
     },
   };
-}
-
-/** Descriptions are stored as cleaned HTML, older ones as plain text. Cleaned again here, where they are shown. */
-function asHtml(value: string | null | undefined): string {
-  const text = value?.trim() ?? "";
-  if (!text) return "";
-  return sanitizeProductHtml(/<(p|br|ul|ol|li|strong|em|b|i|u|a)\b/i.test(text) ? text : `<p>${text.replace(/\n+/g, "</p><p>")}</p>`);
 }
 
 export default async function ProductDetailPage(props: ProductPageProps) {
@@ -126,58 +131,103 @@ export default async function ProductDetailPage(props: ProductPageProps) {
         : 0)
   );
 
-  const [summary, reviews, questions, productTerms, editions, tree] = await Promise.all([
+  const [summary, reviews, questions, context, editions, combos, facts] = await Promise.all([
     getRatingSummary(product.id),
     getApprovedReviews(product.id),
     getApprovedQuestions(product.id),
-    getProductTerms(product.id),
+    loadContext(product),
     getTerms("edition"),
-    getCategories(),
+    getVariantCombos(product.id),
+    getStoreFacts(),
   ]);
-
-  const found = findCategory(tree, product.category ?? "");
-  const sub = found?.parent.children?.find((c) => c.name === product.sub_category);
+  const { terms: productTerms, found, sub, ctx } = context;
+  const seo = buildProductSeo(product, ctx);
+  const site = getServerUrl();
+  const categorySlug = found ? found.parent.slug || found.parent.id : null;
+  const crumbs = [
+    { name: "Home", item: site },
+    { name: "Shop", item: `${site}/shop` },
+    ...(found && categorySlug ? [{ name: found.parent.name, item: `${site}/shop?category=${encodeURIComponent(categorySlug)}` }] : []),
+    ...(found && categorySlug && sub
+      ? [{ name: sub.name, item: `${site}/shop?category=${encodeURIComponent(categorySlug)}&sub=${encodeURIComponent(sub.slug || sub.id)}` }]
+      : []),
+    { name: product.title, item: `${site}/products/${encodeURIComponent(product.slug)}` },
+  ];
+  const related = await relatedProducts(product);
+  const inStock = hasStock(product, combos);
 
   return (
     <>
       {/* Price, currency and availability for rich results. Only emitted for
           a real published product, and only with in-stock availability, so
           the markup can never claim stock the database does not have. */}
-      <ProductSchema product={product} rating={summary} />
+      <ProductSchema
+        product={product}
+        seo={seo}
+        facts={facts}
+        rating={summary}
+        reviews={reviews}
+        brand={ctx.brand}
+        categoryPath={[ctx.category, ctx.subCategory].filter(Boolean).join(" > ") || undefined}
+        inStock={inStock}
+      />
+      {/* Open Graph product tags (Facebook / Pinterest product pins and catalogues).
+          Written here because they need property=, which metadata.other does not write.
+          React moves them into <head>. */}
+      <meta property="product:price:amount" content={String(product.price)} />
+      <meta property="product:price:currency" content="BDT" />
+      <meta property="product:availability" content={inStock ? "in stock" : "out of stock"} />
+      <meta property="product:condition" content="new" />
+      <meta property="product:retailer_item_id" content={product.id} />
+      <meta property="product:brand" content={ctx.brand || "Arts Sports"} />
+      {ctx.category && <meta property="product:category" content={ctx.category} />}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "BreadcrumbList",
-            itemListElement: [
-              { "@type": "ListItem", position: 1, name: "Home", item: getServerUrl() },
-              { "@type": "ListItem", position: 2, name: "Shop", item: `${getServerUrl()}/shop` },
-              {
-                "@type": "ListItem",
-                position: 3,
-                name: product.category ?? "Products",
-                item: `${getServerUrl()}/shop?category=${encodeURIComponent(product.category ?? "")}`,
-              },
-              {
-                "@type": "ListItem",
-                position: 4,
-                name: product.title,
-                item: `${getServerUrl()}/products/${encodeURIComponent(product.slug)}`,
-              },
-            ],
-          }),
+            itemListElement: crumbs.map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: c.item })),
+          }).replace(/</g, "\\u003c"),
         }}
       />
       <ProductDetailClient
-        product={{ ...product, description: "" }}
+        product={{ ...product, description: "", seo: undefined, sizes: sortSizes(product.sizes ?? [], (x) => x.size) }}
         discountPercent={discountPercent}
         category={found ? { name: found.parent.name, name_bn: found.parent.name_bn, slug: found.parent.slug || found.parent.id } : null}
-        subCategory={sub ? { name: sub.name, name_bn: sub.name_bn } : null}
+        subCategory={sub ? { name: sub.name, name_bn: sub.name_bn, slug: sub.slug || sub.id } : null}
         details={{ en: asHtml(product.description), bn: asHtml(product.description_bn) }}
+        combos={combos}
+        imageAlt={{ en: seo.imageAlt, bn: seo.imageAltBn }}
       />
       <EditionCompare editions={editions} current={productTerms.map((t) => t.id)} />
       <ProductReviews productId={product.id} summary={summary} reviews={reviews} questions={questions} />
+      <RelatedProducts current={card(product)} related={related.map(card)} />
     </>
   );
+}
+
+/** A product without the heavy text, for cards. */
+const card = (p: Product): Product => ({ ...p, description: "", description_bn: null, short_description: null, specs: undefined, cost_price: undefined });
+
+/**
+ * Up to 8 products to show under this one: same sub-category first, then the
+ * same category, then the newest, never this product or a sold-out one.
+ */
+async function relatedProducts(product: Product): Promise<Product[]> {
+  const out: Product[] = [];
+  const seen = new Set<string>([product.id]);
+  const add = (list: Product[]) => {
+    for (const p of list) {
+      if (out.length >= 8 || seen.has(p.id) || (p.stock ?? 0) <= 0) continue;
+      seen.add(p.id);
+      out.push(p);
+    }
+  };
+  if (product.sub_category && product.category) {
+    add(await getProducts({ category: product.category, subCategory: product.sub_category, excludeIds: [product.id], limit: 12 }));
+  }
+  if (out.length < 8 && product.category) add(await getProducts({ category: product.category, excludeIds: [...seen], limit: 12 }));
+  if (out.length < 4) add(await getProducts({ excludeIds: [...seen], limit: 12, sortBy: "newest" }));
+  return out;
 }

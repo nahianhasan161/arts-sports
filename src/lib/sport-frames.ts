@@ -3,7 +3,8 @@
  * Three kinds, one per sport, so a grid stays calm and the frame says something.
  */
 
-export type SportFrame = "scoreboard" | "locker" | "ticket";
+/** "plain" is the calm card the shop grids use; the three sport frames dress the custom jersey gallery. */
+export type SportFrame = "plain" | "scoreboard" | "locker" | "ticket";
 
 const FRAMES: [RegExp, SportFrame][] = [
   [/badminton|shuttle|racket|ব্যাডমিন্টন|শাটল|র‍্যাকেট/, "locker"],

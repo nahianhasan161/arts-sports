@@ -20,7 +20,8 @@ import { getObjectStream, isReadablePath, isStorageConfigured, missingStorageCon
  *     file before it is attached to a product.
  *   - Object keys are uuid-based, so a key is not guessable and the response
  *     is not enumerable even by someone who knows a product id.
- *   - Only the five image extensions sniffImage() accepts are served, so this
+ *   - Only the five image extensions sniffImage() accepts and the two product
+ *     video types (mp4, webm) are served, so this
  *     cannot be used to fetch a document or an executable that happens to be
  *     in the same bucket.
  *
@@ -38,7 +39,7 @@ export const runtime = "nodejs";
  */
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: Request, props: { params: Promise<{ path: string[] }> }) {
+export async function GET(request: Request, props: { params: Promise<{ path: string[] }> }) {
   const params = await props.params;
   if (!isStorageConfigured()) {
     return NextResponse.json(
@@ -58,7 +59,11 @@ export async function GET(_request: Request, props: { params: Promise<{ path: st
 
   let object: Awaited<ReturnType<typeof getObjectStream>>;
   try {
-    object = await getObjectStream(path);
+    // Videos are read in pieces (seeking, and Safari will not play one
+    // otherwise), so a single "bytes=a-b" range is passed on for them.
+    const isVideo = /\.(mp4|webm)$/i.test(path);
+    const range = request.headers.get("range");
+    object = await getObjectStream(path, isVideo && range && /^bytes=\d*-\d*$/.test(range) ? range : null);
   } catch (error) {
     // The provider failed, which is a fault on our side of the wire. The
     // detail goes to the log; the shopper gets a plain 502 and a retry.
@@ -80,8 +85,10 @@ export async function GET(_request: Request, props: { params: Promise<{ path: st
     // web stream directly, which avoids buffering a 5MB image in memory.
     body as unknown as BodyInit,
     {
-      status: 200,
+      status: object.contentRange ? 206 : 200,
       headers: {
+        "Accept-Ranges": "bytes",
+        ...(object.contentRange ? { "Content-Range": object.contentRange } : {}),
         "Content-Type": object.contentType ?? "application/octet-stream",
         // Object paths are uuid-based and never reused, so the bytes at a path
         // never change. The immutable cache is what lets the browser and the

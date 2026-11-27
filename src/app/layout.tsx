@@ -8,7 +8,6 @@ import { Drawers } from "@/components/layout/Drawers";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ClientProviders } from "@/components/ClientProviders";
 import { OrganizationSchema } from "@/components/seo/OrganizationSchema";
-import { AnalyticsTracker } from "@/components/seo/AnalyticsTracker";
 import { Pixels } from "@/components/seo/Pixels";
 import { getServerUrl } from "@/lib/config";
 import { SiteChrome } from "@/components/layout/SiteChrome";
@@ -84,9 +83,19 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  // Site ownership checks: Google Search Console, Yandex, Bing Webmaster
+  // Tools, Pinterest (rich pins, catalog) and Meta (domain for the pixel).
+  // Each tag is added only when its env value is set.
   verification: {
     google: process.env.GOOGLE_VERIFICATION_TOKEN,
     yandex: process.env.YANDEX_VERIFICATION_TOKEN,
+    other: Object.fromEntries(
+      [
+        ["msvalidate.01", process.env.BING_VERIFICATION_TOKEN],
+        ["p:domain_verify", process.env.PINTEREST_DOMAIN_VERIFY],
+        ["facebook-domain-verification", process.env.FACEBOOK_DOMAIN_VERIFICATION],
+      ].filter((e): e is [string, string] => Boolean(e[1]?.trim()))
+    ),
   },
   icons: {
     // These used to point at /fab.ico and /apple-touch-icon.png, neither of
@@ -130,7 +139,6 @@ export default function RootLayout({
         <AuthProvider>
           <ClientProviders>
             <FileDropBridge />
-            <AnalyticsTracker />
             <Pixels />
             <SiteChrome
               header={<Header />}
